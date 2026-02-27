@@ -1,6 +1,7 @@
-import { Users, Dumbbell, ClipboardList, BarChart3, CalendarCheck, Trophy, User, Zap } from "lucide-react";
+import { Users, Dumbbell, ClipboardList, BarChart3, CalendarCheck, Trophy, User, Zap, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Sidebar,
   SidebarContent,
@@ -14,6 +15,7 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
 
 const trainerItems = [
   { title: "Alumnos", url: "/trainer/students", icon: Users },
@@ -31,8 +33,8 @@ const studentItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
-  const isTrainer = location.pathname.startsWith("/trainer");
+  const { role, displayName, signOut } = useAuth();
+  const isTrainer = role === "trainer";
 
   const items = isTrainer ? trainerItems : studentItems;
   const roleLabel = isTrainer ? "Entrenador" : "Alumno";
@@ -78,34 +80,24 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground text-[10px] uppercase tracking-widest">
-            {!collapsed && "Cambiar Vista"}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink
-                    to={isTrainer ? "/student/today" : "/trainer/students"}
-                    className="hover:bg-secondary/80 transition-colors"
-                    activeClassName=""
-                  >
-                    <User className="mr-2 h-4 w-4" />
-                    {!collapsed && <span>{isTrainer ? "Vista Alumno" : "Vista Entrenador"}</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
+      <SidebarFooter className="p-4 space-y-3">
         {!collapsed && (
-          <p className="text-[10px] text-muted-foreground text-center">FitPro v1.0</p>
+          <div className="text-xs text-muted-foreground truncate">
+            <User className="h-3 w-3 inline mr-1" />
+            {displayName}
+          </div>
         )}
+        <Button
+          variant="ghost"
+          size={collapsed ? "icon" : "sm"}
+          className="w-full text-muted-foreground hover:text-destructive"
+          onClick={signOut}
+        >
+          <LogOut className="h-4 w-4" />
+          {!collapsed && <span className="ml-2">Cerrar Sesión</span>}
+        </Button>
       </SidebarFooter>
     </Sidebar>
   );

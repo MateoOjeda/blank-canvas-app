@@ -3,7 +3,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
+import AuthPage from "@/pages/AuthPage";
 import StudentsPage from "@/pages/trainer/StudentsPage";
 import RoutinesPage from "@/pages/trainer/RoutinesPage";
 import PlansPage from "@/pages/trainer/PlansPage";
@@ -15,25 +18,42 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+function RootRedirect() {
+  const { user, role, loading } = useAuth();
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" /></div>;
+  if (!user) return <Navigate to="/auth" replace />;
+  return <Navigate to={role === "trainer" ? "/trainer/students" : "/student/today"} replace />;
+}
+
+function AuthRedirect() {
+  const { user, role, loading } = useAuth();
+  if (loading) return null;
+  if (user) return <Navigate to={role === "trainer" ? "/trainer/students" : "/student/today"} replace />;
+  return <AuthPage />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Navigate to="/trainer/students" replace />} />
-          <Route element={<AppLayout />}>
-            <Route path="/trainer/students" element={<StudentsPage />} />
-            <Route path="/trainer/routines" element={<RoutinesPage />} />
-            <Route path="/trainer/plans" element={<PlansPage />} />
-            <Route path="/trainer/tracking" element={<TrackingPage />} />
-            <Route path="/student/today" element={<TodayRoutinePage />} />
-            <Route path="/student/plans" element={<MyPlansPage />} />
-            <Route path="/student/progress" element={<ProgressPage />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<RootRedirect />} />
+            <Route path="/auth" element={<AuthRedirect />} />
+            <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+              <Route path="/trainer/students" element={<ProtectedRoute requiredRole="trainer"><StudentsPage /></ProtectedRoute>} />
+              <Route path="/trainer/routines" element={<ProtectedRoute requiredRole="trainer"><RoutinesPage /></ProtectedRoute>} />
+              <Route path="/trainer/plans" element={<ProtectedRoute requiredRole="trainer"><PlansPage /></ProtectedRoute>} />
+              <Route path="/trainer/tracking" element={<ProtectedRoute requiredRole="trainer"><TrackingPage /></ProtectedRoute>} />
+              <Route path="/student/today" element={<ProtectedRoute requiredRole="student"><TodayRoutinePage /></ProtectedRoute>} />
+              <Route path="/student/plans" element={<ProtectedRoute requiredRole="student"><MyPlansPage /></ProtectedRoute>} />
+              <Route path="/student/progress" element={<ProtectedRoute requiredRole="student"><ProgressPage /></ProtectedRoute>} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
