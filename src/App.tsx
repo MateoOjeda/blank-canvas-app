@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
 import AuthPage from "@/pages/AuthPage";
 import StudentsPage from "@/pages/trainer/StudentsPage";
+import StudentDetailPage from "@/pages/trainer/StudentDetailPage";
 import RoutinesPage from "@/pages/trainer/RoutinesPage";
 import PlansPage from "@/pages/trainer/PlansPage";
 import TrackingPage from "@/pages/trainer/TrackingPage";
@@ -44,6 +45,7 @@ const App = () => (
             <Route path="/auth" element={<AuthRedirect />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/trainer/students" element={<ProtectedRoute requiredRole="trainer"><StudentsPage /></ProtectedRoute>} />
+              <Route path="/trainer/students/:studentId" element={<ProtectedRoute requiredRole="trainer"><StudentDetailPage /></ProtectedRoute>} />
               <Route path="/trainer/routines" element={<ProtectedRoute requiredRole="trainer"><RoutinesPage /></ProtectedRoute>} />
               <Route path="/trainer/plans" element={<ProtectedRoute requiredRole="trainer"><PlansPage /></ProtectedRoute>} />
               <Route path="/trainer/tracking" element={<ProtectedRoute requiredRole="trainer"><TrackingPage /></ProtectedRoute>} />
