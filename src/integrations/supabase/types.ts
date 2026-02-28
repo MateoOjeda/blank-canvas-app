@@ -53,6 +53,42 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_levels: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          level: string
+          plan_type: string
+          student_id: string
+          trainer_id: string
+          unlocked: boolean
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          level: string
+          plan_type: string
+          student_id: string
+          trainer_id: string
+          unlocked?: boolean
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          level?: string
+          plan_type?: string
+          student_id?: string
+          trainer_id?: string
+          unlocked?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       plans: {
         Row: {
           created_at: string
