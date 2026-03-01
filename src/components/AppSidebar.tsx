@@ -1,4 +1,4 @@
-import { Users, Dumbbell, ClipboardList, BarChart3, CalendarCheck, Trophy, User, Zap, LogOut } from "lucide-react";
+import { Users, Dumbbell, ClipboardList, BarChart3, CalendarCheck, Trophy, User, Zap, LogOut, Bell } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -25,6 +25,7 @@ const trainerItems = [
 ];
 
 const studentItems = [
+  { title: "Novedades", url: "/student/feed", icon: Bell },
   { title: "Mi Rutina Hoy", url: "/student/today", icon: CalendarCheck },
   { title: "Mis Planes", url: "/student/plans", icon: Trophy },
   { title: "Mi Progreso", url: "/student/progress", icon: Zap },

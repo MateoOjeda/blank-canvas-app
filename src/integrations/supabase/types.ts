@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      change_readings: {
+        Row: {
+          id: string
+          last_read_at: string
+          student_id: string
+        }
+        Insert: {
+          id?: string
+          last_read_at?: string
+          student_id: string
+        }
+        Update: {
+          id?: string
+          last_read_at?: string
+          student_id?: string
+        }
+        Relationships: []
+      }
       exercises: {
         Row: {
           completed: boolean
@@ -149,6 +167,36 @@ export type Database = {
           updated_at?: string
           user_id?: string
           weight?: number | null
+        }
+        Relationships: []
+      }
+      trainer_changes: {
+        Row: {
+          change_type: string
+          created_at: string
+          description: string
+          entity_id: string | null
+          id: string
+          student_id: string
+          trainer_id: string
+        }
+        Insert: {
+          change_type: string
+          created_at?: string
+          description?: string
+          entity_id?: string | null
+          id?: string
+          student_id: string
+          trainer_id: string
+        }
+        Update: {
+          change_type?: string
+          created_at?: string
+          description?: string
+          entity_id?: string | null
+          id?: string
+          student_id?: string
+          trainer_id?: string
         }
         Relationships: []
       }

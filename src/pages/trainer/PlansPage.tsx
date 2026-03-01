@@ -72,7 +72,19 @@ export default function PlansPage() {
       .eq("id", id);
     if (error) toast.error("Error al actualizar");
     else {
+      const level = planLevels.find((p) => p.id === id);
       setPlanLevels((prev) => prev.map((p) => (p.id === id ? { ...p, unlocked: !current } : p)));
+      // Log change
+      if (level) {
+        const typeLabel = PLAN_TYPES.find((pt) => pt.key === level.plan_type)?.label || level.plan_type;
+        await supabase.from("trainer_changes").insert({
+          trainer_id: user!.id,
+          student_id: selectedStudent,
+          change_type: !current ? "level_unlocked" : "level_locked",
+          description: `${typeLabel} - ${LEVEL_LABELS[level.level]} ${!current ? "desbloqueado" : "bloqueado"}`,
+          entity_id: id,
+        });
+      }
       toast.success(!current ? "Nivel desbloqueado" : "Nivel bloqueado");
     }
   };
@@ -89,8 +101,19 @@ export default function PlansPage() {
       .from("plan_levels")
       .update({ content: level.content })
       .eq("id", id);
-    if (error) toast.error("Error al guardar");
-    else toast.success("Contenido guardado");
+    if (error) {
+      toast.error("Error al guardar");
+    } else {
+      const typeLabel = PLAN_TYPES.find((pt) => pt.key === level.plan_type)?.label || level.plan_type;
+      await supabase.from("trainer_changes").insert({
+        trainer_id: user!.id,
+        student_id: selectedStudent,
+        change_type: "content_updated",
+        description: `Contenido actualizado: ${typeLabel} - ${LEVEL_LABELS[level.level]}`,
+        entity_id: id,
+      });
+      toast.success("Contenido guardado");
+    }
     setSaving(null);
   };
 

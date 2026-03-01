@@ -1,21 +1,89 @@
-import { useApp } from "@/lib/context";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { CalendarCheck, Dumbbell, Flame } from "lucide-react";
-import { DAYS, DayOfWeek } from "@/lib/store";
+import { CalendarCheck, Dumbbell, Flame, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+type DayOfWeek = "Domingo" | "Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes" | "Sábado";
 
 function getTodayDay(): DayOfWeek {
   const days: DayOfWeek[] = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
   return days[new Date().getDay()];
 }
 
+interface Exercise {
+  id: string;
+  name: string;
+  sets: number;
+  reps: number;
+  weight: number;
+  day: string;
+  completed: boolean;
+}
+
 export default function TodayRoutinePage() {
-  const { currentStudent, toggleExerciseComplete } = useApp();
+  const { user } = useAuth();
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [loading, setLoading] = useState(true);
   const today = getTodayDay();
-  const todayExercises = currentStudent.exercises.filter((e) => e.day === today);
-  const completedCount = todayExercises.filter((e) => e.completed).length;
-  const allDone = todayExercises.length > 0 && completedCount === todayExercises.length;
+
+  const fetchExercises = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data } = await supabase
+      .from("exercises")
+      .select("id, name, sets, reps, weight, day, completed")
+      .eq("student_id", user.id)
+      .eq("day", today);
+    setExercises(data || []);
+    setLoading(false);
+  }, [user, today]);
+
+  useEffect(() => {
+    fetchExercises();
+  }, [fetchExercises]);
+
+  // Realtime for exercise changes from trainer
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("student-exercises")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "exercises", filter: `student_id=eq.${user.id}` },
+        () => { fetchExercises(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, fetchExercises]);
+
+  const toggleComplete = async (exerciseId: string, current: boolean) => {
+    const { error } = await supabase
+      .from("exercises")
+      .update({ completed: !current })
+      .eq("id", exerciseId);
+    if (error) {
+      toast.error("Error al actualizar");
+    } else {
+      setExercises((prev) =>
+        prev.map((e) => (e.id === exerciseId ? { ...e, completed: !current } : e))
+      );
+    }
+  };
+
+  const completedCount = exercises.filter((e) => e.completed).length;
+  const allDone = exercises.length > 0 && completedCount === exercises.length;
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -24,7 +92,7 @@ export default function TodayRoutinePage() {
         <div className="flex items-center gap-2 mt-1">
           <Badge variant="outline" className="border-primary/40 text-primary text-xs">{today}</Badge>
           <span className="text-sm text-muted-foreground">
-            {completedCount}/{todayExercises.length} completados
+            {completedCount}/{exercises.length} completados
           </span>
         </div>
       </div>
@@ -32,14 +100,14 @@ export default function TodayRoutinePage() {
       {allDone && (
         <Card className="card-glass neon-border neon-glow">
           <CardContent className="p-6 text-center">
-            <Flame className="h-12 w-12 text-primary mx-auto mb-2 animate-pulse-neon" />
+            <Flame className="h-12 w-12 text-primary mx-auto mb-2 animate-pulse" />
             <h2 className="text-xl font-display font-bold neon-text">¡Rutina Completada!</h2>
             <p className="text-sm text-muted-foreground mt-1">Excelente trabajo hoy 💪</p>
           </CardContent>
         </Card>
       )}
 
-      {todayExercises.length === 0 ? (
+      {exercises.length === 0 ? (
         <Card className="card-glass">
           <CardContent className="p-8 text-center">
             <CalendarCheck className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
@@ -49,18 +117,18 @@ export default function TodayRoutinePage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {todayExercises.map((exercise) => (
+          {exercises.map((exercise) => (
             <Card
               key={exercise.id}
               className={`card-glass transition-all duration-300 cursor-pointer ${
                 exercise.completed ? "neon-border opacity-70" : "hover:neon-border"
               }`}
-              onClick={() => toggleExerciseComplete(currentStudent.id, exercise.id)}
+              onClick={() => toggleComplete(exercise.id, exercise.completed)}
             >
               <CardContent className="p-4 flex items-center gap-4">
                 <Checkbox
                   checked={exercise.completed}
-                  onCheckedChange={() => toggleExerciseComplete(currentStudent.id, exercise.id)}
+                  onCheckedChange={() => toggleComplete(exercise.id, exercise.completed)}
                   className="h-6 w-6 border-primary/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                   onClick={(e) => e.stopPropagation()}
                 />

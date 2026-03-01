@@ -60,7 +60,7 @@ export default function RoutinesPage() {
       toast.error("Completa todos los campos obligatorios");
       return;
     }
-    const { error } = await supabase.from("exercises").insert({
+    const { data, error } = await supabase.from("exercises").insert({
       trainer_id: user.id,
       student_id: selectedStudent,
       name: form.name,
@@ -68,10 +68,18 @@ export default function RoutinesPage() {
       reps: parseInt(form.reps),
       weight: parseFloat(form.weight) || 0,
       day: form.day,
-    });
+    }).select("id").single();
     if (error) {
       toast.error("Error al agregar ejercicio");
     } else {
+      // Log change for student feed
+      await supabase.from("trainer_changes").insert({
+        trainer_id: user.id,
+        student_id: selectedStudent,
+        change_type: "exercise_added",
+        description: `Nuevo ejercicio: ${form.name} (${form.sets}×${form.reps} - ${form.day})`,
+        entity_id: data?.id,
+      });
       toast.success("Ejercicio agregado");
       setForm({ name: "", sets: "", reps: "", weight: "", day: "" });
       fetchExercises();
@@ -79,9 +87,22 @@ export default function RoutinesPage() {
   };
 
   const handleRemove = async (exerciseId: string) => {
+    const exercise = exercises.find((e) => e.id === exerciseId);
     const { error } = await supabase.from("exercises").delete().eq("id", exerciseId);
-    if (error) toast.error("Error al eliminar");
-    else fetchExercises();
+    if (error) {
+      toast.error("Error al eliminar");
+    } else {
+      if (exercise) {
+        await supabase.from("trainer_changes").insert({
+          trainer_id: user!.id,
+          student_id: selectedStudent,
+          change_type: "exercise_removed",
+          description: `Ejercicio eliminado: ${exercise.name} (${exercise.day})`,
+          entity_id: exerciseId,
+        });
+      }
+      fetchExercises();
+    }
   };
 
   const student = students.find((s) => s.user_id === selectedStudent);
