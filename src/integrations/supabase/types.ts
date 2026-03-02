@@ -170,6 +170,72 @@ export type Database = {
         }
         Relationships: []
       }
+      seguimiento_personal: {
+        Row: {
+          bano_levantarse: string
+          created_at: string
+          desayuno_habito: string
+          dificultad_levantarse: string
+          entrena: boolean
+          hora_despertar: string
+          hora_dormir: string
+          hora_ideal_despertar: string
+          horario_entrenamiento: string
+          horarios_ocupados: string
+          id: string
+          nuevos_habitos: string
+          obligaciones_diarias: string
+          organizacion_comidas: string
+          personas_cargo: string
+          student_id: string
+          tiempo_para_si: string
+          tipo_entrenamiento: string
+          updated_at: string
+        }
+        Insert: {
+          bano_levantarse?: string
+          created_at?: string
+          desayuno_habito?: string
+          dificultad_levantarse?: string
+          entrena?: boolean
+          hora_despertar?: string
+          hora_dormir?: string
+          hora_ideal_despertar?: string
+          horario_entrenamiento?: string
+          horarios_ocupados?: string
+          id?: string
+          nuevos_habitos?: string
+          obligaciones_diarias?: string
+          organizacion_comidas?: string
+          personas_cargo?: string
+          student_id: string
+          tiempo_para_si?: string
+          tipo_entrenamiento?: string
+          updated_at?: string
+        }
+        Update: {
+          bano_levantarse?: string
+          created_at?: string
+          desayuno_habito?: string
+          dificultad_levantarse?: string
+          entrena?: boolean
+          hora_despertar?: string
+          hora_dormir?: string
+          hora_ideal_despertar?: string
+          horario_entrenamiento?: string
+          horarios_ocupados?: string
+          id?: string
+          nuevos_habitos?: string
+          obligaciones_diarias?: string
+          organizacion_comidas?: string
+          personas_cargo?: string
+          student_id?: string
+          tiempo_para_si?: string
+          tipo_entrenamiento?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       trainer_changes: {
         Row: {
           change_type: string

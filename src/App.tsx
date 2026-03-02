@@ -16,6 +16,7 @@ import TodayRoutinePage from "@/pages/student/TodayRoutinePage";
 import MyPlansPage from "@/pages/student/MyPlansPage";
 import ProgressPage from "@/pages/student/ProgressPage";
 import StudentFeedPage from "@/pages/student/StudentFeedPage";
+import PersonalChangePage from "@/pages/student/PersonalChangePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,6 +55,7 @@ const App = () => (
               <Route path="/student/today" element={<ProtectedRoute requiredRole="student"><TodayRoutinePage /></ProtectedRoute>} />
               <Route path="/student/plans" element={<ProtectedRoute requiredRole="student"><MyPlansPage /></ProtectedRoute>} />
               <Route path="/student/progress" element={<ProtectedRoute requiredRole="student"><ProgressPage /></ProtectedRoute>} />
+              <Route path="/student/personal-change" element={<ProtectedRoute requiredRole="student"><PersonalChangePage /></ProtectedRoute>} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

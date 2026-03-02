@@ -6,7 +6,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Dumbbell, CheckCircle, Lock, Unlock, Apple, TrendingUp, User, Loader2 } from "lucide-react";
+import { ArrowLeft, Dumbbell, CheckCircle, Lock, Unlock, Apple, TrendingUp, User, Loader2, Sparkles } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import PersonalDiagnosticTab from "@/components/trainer/PersonalDiagnosticTab";
 
 interface StudentProfile {
   display_name: string;
@@ -157,79 +159,95 @@ export default function StudentDetailPage() {
         </Card>
       </div>
 
-      {/* Plan Levels Overview */}
-      <Card className="card-glass">
-        <CardHeader>
-          <CardTitle className="text-lg">Planes y Niveles</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {planTypes.map((type) => {
-            const Icon = PLAN_ICONS[type];
-            const typeLevels = planLevels.filter((p) => p.plan_type === type);
-            return (
-              <div key={type} className="p-4 rounded-lg bg-secondary/30 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Icon className="h-4 w-4 text-primary" />
+      {/* Tabs */}
+      <Tabs defaultValue="plans" className="space-y-4">
+        <TabsList className="w-full grid grid-cols-3 bg-secondary/50">
+          <TabsTrigger value="plans">Planes</TabsTrigger>
+          <TabsTrigger value="routine">Rutina</TabsTrigger>
+          <TabsTrigger value="diagnostic" className="gap-1">
+            <Sparkles className="h-3 w-3" /> Diagnóstico
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="plans">
+          <Card className="card-glass">
+            <CardHeader>
+              <CardTitle className="text-lg">Planes y Niveles</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {planTypes.map((type) => {
+                const Icon = PLAN_ICONS[type];
+                const typeLevels = planLevels.filter((p) => p.plan_type === type);
+                return (
+                  <div key={type} className="p-4 rounded-lg bg-secondary/30 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Icon className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold">{PLAN_LABELS[type]}</p>
+                        <p className="text-[10px] text-muted-foreground">Nivel más alto: {getHighestLevel(type)}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {typeLevels.map((l) => (
+                        <Badge
+                          key={`${l.plan_type}-${l.level}`}
+                          variant="outline"
+                          className={`text-[10px] gap-1 ${l.unlocked ? "border-primary/40 text-primary" : "border-border text-muted-foreground"}`}
+                        >
+                          {l.unlocked ? <Unlock className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
+                          {LEVEL_LABELS[l.level]}
+                        </Badge>
+                      ))}
+                    </div>
+                    {typeLevels.filter((l) => l.unlocked && l.content).map((l) => (
+                      <div key={`${l.plan_type}-${l.level}-content`} className="text-xs text-muted-foreground bg-background/50 p-3 rounded-md">
+                        <span className="font-medium text-foreground">{LEVEL_LABELS[l.level]}:</span> {l.content.length > 150 ? l.content.slice(0, 150) + "..." : l.content}
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold">{PLAN_LABELS[type]}</p>
-                    <p className="text-[10px] text-muted-foreground">Nivel más alto: {getHighestLevel(type)}</p>
-                  </div>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  {typeLevels.map((l) => (
-                    <Badge
-                      key={`${l.plan_type}-${l.level}`}
-                      variant="outline"
-                      className={`text-[10px] gap-1 ${l.unlocked ? "border-primary/40 text-primary" : "border-border text-muted-foreground"}`}
-                    >
-                      {l.unlocked ? <Unlock className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
-                      {LEVEL_LABELS[l.level]}
-                    </Badge>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="routine">
+          <Card className="card-glass">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Dumbbell className="h-5 w-5 text-primary" />
+                Rutina Actual
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {exercises.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Sin ejercicios asignados</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {exercises.map((ex) => (
+                    <div key={ex.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
+                      <CheckCircle className={`h-4 w-4 flex-shrink-0 ${ex.completed ? "text-primary" : "text-muted-foreground/30"}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{ex.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{ex.day} · {ex.sets}×{ex.reps} · {ex.weight}kg</p>
+                      </div>
+                      <Badge variant="outline" className={`text-[10px] flex-shrink-0 ${ex.completed ? "border-primary/40 text-primary" : "border-border"}`}>
+                        {ex.completed ? "✓" : "—"}
+                      </Badge>
+                    </div>
                   ))}
                 </div>
-                {/* Show unlocked content preview */}
-                {typeLevels.filter((l) => l.unlocked && l.content).map((l) => (
-                  <div key={`${l.plan_type}-${l.level}-content`} className="text-xs text-muted-foreground bg-background/50 p-3 rounded-md">
-                    <span className="font-medium text-foreground">{LEVEL_LABELS[l.level]}:</span> {l.content.length > 150 ? l.content.slice(0, 150) + "..." : l.content}
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* Exercises */}
-      <Card className="card-glass">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Dumbbell className="h-5 w-5 text-primary" />
-            Rutina Actual
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {exercises.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">Sin ejercicios asignados</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {exercises.map((ex) => (
-                <div key={ex.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
-                  <CheckCircle className={`h-4 w-4 flex-shrink-0 ${ex.completed ? "text-primary" : "text-muted-foreground/30"}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{ex.name}</p>
-                    <p className="text-[10px] text-muted-foreground">{ex.day} · {ex.sets}×{ex.reps} · {ex.weight}kg</p>
-                  </div>
-                  <Badge variant="outline" className={`text-[10px] flex-shrink-0 ${ex.completed ? "border-primary/40 text-primary" : "border-border"}`}>
-                    {ex.completed ? "✓" : "—"}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        <TabsContent value="diagnostic">
+          {studentId && <PersonalDiagnosticTab studentId={studentId} />}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
