@@ -1,9 +1,14 @@
+// ... (mantenemos los mismos imports y tipos arriba)
+
 interface AuthContextType {
+  // ... (otros campos)
   // Actualizamos la firma de signUp para recibir el código opcional
   signUp: (email: string, password: string, name: string, role: AppRole, trainerCode?: string) => Promise<{ error: Error | null }>;
+  // ...
 }
 
-//(dentro de AuthProvider)
+// ... (dentro de AuthProvider)
+
   const signUp = async (email: string, password: string, name: string, role: AppRole, trainerCode?: string) => {
     
     // 1. VALIDACIÓN DEL CÓDIGO ESPECIAL
