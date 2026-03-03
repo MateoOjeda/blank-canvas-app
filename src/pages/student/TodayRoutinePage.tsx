@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { CalendarCheck, Dumbbell, Flame, Loader2, ClipboardEdit } from "lucide-react";
 import { toast } from "sonner";
 import DailyLogDialog from "@/components/student/DailyLogDialog";
+import RestTimer from "@/components/student/RestTimer";
+import ExerciseVideoButton from "@/components/student/ExerciseVideoButton";
 
 type DayOfWeek = "Domingo" | "Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes" | "Sábado";
 
@@ -100,6 +102,9 @@ export default function TodayRoutinePage() {
         </div>
       </div>
 
+      {/* Rest Timer */}
+      <RestTimer />
+
       {allDone && (
         <Card className="card-glass neon-border neon-glow">
           <CardContent className="p-6 text-center">
@@ -144,6 +149,7 @@ export default function TodayRoutinePage() {
                     {exercise.sets} series × {exercise.reps} reps — {exercise.weight > 0 ? `${exercise.weight} kg` : "Sin peso"}
                   </p>
                 </div>
+                <ExerciseVideoButton exerciseName={exercise.name} />
                 <Button
                   size="icon"
                   variant="ghost"

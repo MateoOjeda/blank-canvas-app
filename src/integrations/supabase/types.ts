@@ -186,6 +186,7 @@ export type Database = {
         Row: {
           age: number | null
           avatar_initials: string | null
+          avatar_url: string | null
           created_at: string
           display_name: string
           id: string
@@ -196,6 +197,7 @@ export type Database = {
         Insert: {
           age?: number | null
           avatar_initials?: string | null
+          avatar_url?: string | null
           created_at?: string
           display_name: string
           id?: string
@@ -206,6 +208,7 @@ export type Database = {
         Update: {
           age?: number | null
           avatar_initials?: string | null
+          avatar_url?: string | null
           created_at?: string
           display_name?: string
           id?: string
@@ -347,6 +350,27 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      weight_history: {
+        Row: {
+          id: string
+          recorded_at: string
+          student_id: string
+          weight: number
+        }
+        Insert: {
+          id?: string
+          recorded_at?: string
+          student_id: string
+          weight: number
+        }
+        Update: {
+          id?: string
+          recorded_at?: string
+          student_id?: string
+          weight?: number
         }
         Relationships: []
       }

@@ -2,18 +2,29 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Users, Search, UserPlus, X, Loader2, ChevronRight } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Users, Search, UserPlus, X, Loader2, ChevronRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface LinkedStudent {
   user_id: string;
   display_name: string;
   avatar_initials: string | null;
+  avatar_url: string | null;
   weight: number | null;
   age: number | null;
   linked_at: string;
@@ -37,6 +48,8 @@ export default function StudentsPage() {
   const [linking, setLinking] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<LinkedStudent | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchLinkedStudents = useCallback(async () => {
     if (!user) return;
@@ -54,7 +67,7 @@ export default function StudentsPage() {
     const studentIds = links.map((l) => l.student_id);
 
     const [profilesRes, levelsRes] = await Promise.all([
-      supabase.from("profiles").select("user_id, display_name, avatar_initials, weight, age").in("user_id", studentIds),
+      supabase.from("profiles").select("user_id, display_name, avatar_initials, avatar_url, weight, age").in("user_id", studentIds),
       supabase.from("plan_levels").select("student_id, level, unlocked").eq("trainer_id", user.id).in("student_id", studentIds),
     ]);
 
@@ -69,7 +82,7 @@ export default function StudentsPage() {
       return "Sin desbloquear";
     };
 
-    const merged: LinkedStudent[] = profiles.map((p) => ({
+    const merged: LinkedStudent[] = profiles.map((p: any) => ({
       ...p,
       linked_at: links.find((l) => l.student_id === p.user_id)?.created_at || "",
       highestLevel: getHighest(p.user_id),
@@ -87,26 +100,13 @@ export default function StudentsPage() {
   const handleSearch = async () => {
     if (!user || searchQuery.trim().length < 2) return;
     setSearching(true);
-
     const { data: links } = await supabase.from("trainer_students").select("student_id").eq("trainer_id", user.id);
     const linkedIds = (links || []).map((l) => l.student_id);
     const excludeIds = [...linkedIds, user.id];
-
     const { data: studentRoles } = await supabase.from("user_roles").select("user_id").eq("role", "student");
     const studentUserIds = (studentRoles || []).map((r) => r.user_id).filter((id) => !excludeIds.includes(id));
-
-    if (studentUserIds.length === 0) {
-      setSearchResults([]);
-      setSearching(false);
-      return;
-    }
-
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("user_id, display_name, avatar_initials")
-      .in("user_id", studentUserIds)
-      .ilike("display_name", `%${searchQuery.trim()}%`);
-
+    if (studentUserIds.length === 0) { setSearchResults([]); setSearching(false); return; }
+    const { data: profiles } = await supabase.from("profiles").select("user_id, display_name, avatar_initials").in("user_id", studentUserIds).ilike("display_name", `%${searchQuery.trim()}%`);
     setSearchResults(profiles || []);
     setSearching(false);
   };
@@ -115,9 +115,8 @@ export default function StudentsPage() {
     if (!user) return;
     setLinking(studentId);
     const { error } = await supabase.from("trainer_students").insert({ trainer_id: user.id, student_id: studentId });
-    if (error) {
-      toast.error("Error al vincular alumno");
-    } else {
+    if (error) toast.error("Error al vincular alumno");
+    else {
       toast.success("Alumno vinculado correctamente");
       setSearchResults((prev) => prev.filter((s) => s.user_id !== studentId));
       fetchLinkedStudents();
@@ -125,15 +124,25 @@ export default function StudentsPage() {
     setLinking(null);
   };
 
-  const unlinkStudent = async (e: React.MouseEvent, studentId: string) => {
-    e.stopPropagation();
-    if (!user) return;
-    const { error } = await supabase.from("trainer_students").delete().eq("trainer_id", user.id).eq("student_id", studentId);
-    if (error) toast.error("Error al desvincular alumno");
+  const confirmDeleteStudent = async () => {
+    if (!user || !deleteTarget) return;
+    setDeleting(true);
+    // Delete related data to maintain referential integrity
+    const sid = deleteTarget.user_id;
+    await Promise.all([
+      supabase.from("exercise_logs").delete().eq("student_id", sid).eq("trainer_id", user.id),
+      supabase.from("exercises").delete().eq("student_id", sid).eq("trainer_id", user.id),
+      supabase.from("plan_levels").delete().eq("student_id", sid).eq("trainer_id", user.id),
+      supabase.from("trainer_changes").delete().eq("student_id", sid).eq("trainer_id", user.id),
+    ]);
+    const { error } = await supabase.from("trainer_students").delete().eq("trainer_id", user.id).eq("student_id", sid);
+    if (error) toast.error("Error al eliminar alumno");
     else {
-      toast.success("Alumno desvinculado");
+      toast.success("Alumno eliminado permanentemente");
       fetchLinkedStudents();
     }
+    setDeleting(false);
+    setDeleteTarget(null);
   };
 
   return (
@@ -167,13 +176,7 @@ export default function StudentsPage() {
           <CardContent className="p-4 space-y-4">
             <h2 className="font-semibold text-sm text-primary">Buscar alumno registrado</h2>
             <div className="flex gap-2">
-              <Input
-                placeholder="Nombre del alumno..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="flex-1"
-              />
+              <Input placeholder="Nombre del alumno..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSearch()} className="flex-1" />
               <Button onClick={handleSearch} disabled={searching || searchQuery.trim().length < 2} size="sm">
                 {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
@@ -213,7 +216,7 @@ export default function StudentsPage() {
           <Card className="card-glass">
             <CardContent className="p-8 text-center">
               <Users className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">Aún no tienes alumnos vinculados. Usa el botón "Agregar alumno" para buscar y vincular.</p>
+              <p className="text-sm text-muted-foreground">Aún no tienes alumnos vinculados.</p>
             </CardContent>
           </Card>
         ) : (
@@ -225,6 +228,7 @@ export default function StudentsPage() {
             >
               <CardContent className="p-4 flex items-center gap-4">
                 <Avatar className="h-12 w-12 border-2 border-primary/30">
+                  <AvatarImage src={student.avatar_url || undefined} />
                   <AvatarFallback className="bg-primary/10 text-primary font-bold">
                     {student.avatar_initials || student.display_name.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
@@ -232,12 +236,8 @@ export default function StudentsPage() {
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold truncate">{student.display_name}</h3>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
-                      {student.highestLevel}
-                    </Badge>
-                    <span className="text-[10px] text-muted-foreground">
-                      {student.unlockedCount}/12 niveles
-                    </span>
+                    <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">{student.highestLevel}</Badge>
+                    <span className="text-[10px] text-muted-foreground">{student.unlockedCount}/12 niveles</span>
                   </div>
                 </div>
                 <div className="hidden sm:flex items-center gap-4 text-sm">
@@ -254,15 +254,15 @@ export default function StudentsPage() {
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    onClick={(e) => unlinkStudent(e, student.user_id)}
-                    title="Desvincular alumno"
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(student); }}
+                    title="Eliminar alumno"
                   >
-                    <X className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
@@ -271,6 +271,31 @@ export default function StudentsPage() {
           ))
         )}
       </div>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar alumno permanentemente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de que deseas eliminar a <strong>{deleteTarget?.display_name}</strong> de forma permanente?
+              Esta acción eliminará todos los ejercicios, planes, registros y seguimiento asociados.
+              <span className="block mt-2 font-semibold text-destructive">Esta acción no se puede deshacer.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteStudent}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Sí, eliminar permanentemente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
