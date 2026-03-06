@@ -84,7 +84,7 @@ export default function AuthPage() {
         <div className="w-full max-w-md space-y-6">
           <div className="text-center space-y-2">
             <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-primary neon-glow">
-              <Zap className="h-7 w-7 text-primary-foreground" />
+              <span className="text-lg font-bold text-primary-foreground" style={{ fontFamily: 'Orbitron' }}>CF</span>
             </div>
             <h1 className="font-display text-2xl font-bold tracking-wider neon-text" style={{ fontFamily: 'Orbitron' }}>
               FITPRO
@@ -139,7 +139,7 @@ export default function AuthPage() {
         {/* Logo */}
         <div className="text-center space-y-2">
           <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-primary neon-glow">
-            <Zap className="h-7 w-7 text-primary-foreground" />
+            <span className="text-lg font-bold text-primary-foreground" style={{ fontFamily: 'Orbitron' }}>CF</span>
           </div>
           <h1 className="font-display text-2xl font-bold tracking-wider neon-text" style={{ fontFamily: 'Orbitron' }}>
             CipriFitness
