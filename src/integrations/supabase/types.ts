@@ -123,6 +123,7 @@ export type Database = {
           created_at: string
           day: string
           id: string
+          is_to_failure: boolean
           name: string
           reps: number
           sets: number
@@ -136,6 +137,7 @@ export type Database = {
           created_at?: string
           day: string
           id?: string
+          is_to_failure?: boolean
           name: string
           reps?: number
           sets?: number
@@ -149,6 +151,7 @@ export type Database = {
           created_at?: string
           day?: string
           id?: string
+          is_to_failure?: boolean
           name?: string
           reps?: number
           sets?: number

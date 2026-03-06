@@ -1,0 +1,1 @@
+ALTER TABLE public.exercises ADD COLUMN IF NOT EXISTS is_to_failure boolean NOT NULL DEFAULT false;

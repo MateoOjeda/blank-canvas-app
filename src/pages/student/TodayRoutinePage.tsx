@@ -29,6 +29,7 @@ interface Exercise {
   completed: boolean;
   trainer_id: string;
   body_part: string;
+  is_to_failure: boolean;
 }
 
 export default function TodayRoutinePage() {
@@ -45,13 +46,12 @@ export default function TodayRoutinePage() {
     setLoading(true);
     const { data } = await supabase
       .from("exercises")
-      .select("id, name, sets, reps, weight, day, completed, trainer_id, body_part")
+      .select("id, name, sets, reps, weight, day, completed, trainer_id, body_part, is_to_failure")
       .eq("student_id", user.id)
       .eq("day", today) as any;
     const exercises = (data || []) as Exercise[];
     setExercises(exercises);
     
-    // Load today's logged weights
     const todayDate = new Date().toISOString().split("T")[0];
     const exerciseIds = exercises.map((e: Exercise) => e.id);
     if (exerciseIds.length > 0) {
@@ -113,7 +113,7 @@ export default function TodayRoutinePage() {
         completed: true,
         actual_weight: weight,
         actual_sets: exercise.sets,
-        actual_reps: exercise.reps,
+        actual_reps: exercise.is_to_failure ? null : exercise.reps,
       }, { onConflict: "exercise_id,log_date" });
 
     setSavingWeight(null);
@@ -131,6 +131,12 @@ export default function TodayRoutinePage() {
     return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
 
+  // Collect all unique body parts for the day header
+  const allBodyParts = [...new Set(exercises.map((e) => e.body_part).filter(Boolean))];
+  const dayHeader = allBodyParts.length > 0
+    ? `${today.toUpperCase()} — ${allBodyParts.join(" · ").toUpperCase()}`
+    : today.toUpperCase();
+
   // Group by body part
   const grouped: Record<string, Exercise[]> = {};
   exercises.forEach((ex) => {
@@ -143,8 +149,8 @@ export default function TodayRoutinePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Mi Rutina Hoy</h1>
-        <div className="flex items-center gap-2 mt-1">
-          <Badge variant="outline" className="border-primary/40 text-primary text-xs">{today}</Badge>
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
+          <Badge variant="outline" className="border-primary/40 text-primary text-xs font-bold">{dayHeader}</Badge>
           <span className="text-sm text-muted-foreground">{completedCount}/{exercises.length} completados</span>
         </div>
       </div>
@@ -195,7 +201,10 @@ export default function TodayRoutinePage() {
                             {exercise.name}
                           </h3>
                           <p className="text-xs text-muted-foreground">
-                            {exercise.sets} series × {exercise.reps} reps
+                            {exercise.sets} series × {exercise.is_to_failure
+                              ? <span className="text-amber-400 font-bold">AL FALLO 🔥</span>
+                              : <span>{exercise.reps} reps</span>
+                            }
                           </p>
                         </div>
                         <ExerciseVideoButton exerciseName={exercise.name} />
@@ -210,7 +219,7 @@ export default function TodayRoutinePage() {
                         {exercise.completed && <Badge className="bg-primary/15 text-primary border-0 text-xs">Hecho</Badge>}
                       </div>
                       
-                      {/* Weight input for student */}
+                      {/* Weight input for student - always enabled even for "al fallo" */}
                       <div className="flex items-center gap-2 pl-10">
                         <span className="text-xs text-muted-foreground whitespace-nowrap">Peso usado:</span>
                         <Input
