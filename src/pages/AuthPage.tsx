@@ -67,7 +67,7 @@ export default function AuthPage() {
     if (!resetEmail.trim()) return;
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: window.location.origin,
+      redirectTo: window.location.origin
     });
     setLoading(false);
     if (error) {
@@ -96,27 +96,27 @@ export default function AuthPage() {
               <CardDescription>Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.</CardDescription>
             </CardHeader>
             <CardContent>
-              {resetSent ? (
-                <div className="text-center space-y-4">
+              {resetSent ?
+              <div className="text-center space-y-4">
                   <p className="text-sm text-muted-foreground">
                     Hemos enviado un enlace a <strong>{resetEmail}</strong>. Revisa tu correo (incluyendo spam).
                   </p>
-                  <Button variant="outline" onClick={() => { setShowReset(false); setResetSent(false); }} className="gap-2">
+                  <Button variant="outline" onClick={() => {setShowReset(false);setResetSent(false);}} className="gap-2">
                     <ArrowLeft className="h-4 w-4" /> Volver al inicio
                   </Button>
-                </div>
-              ) : (
-                <form onSubmit={handlePasswordReset} className="space-y-4">
+                </div> :
+
+              <form onSubmit={handlePasswordReset} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="reset-email">Correo electrónico</Label>
                     <Input
-                      id="reset-email"
-                      type="email"
-                      placeholder="tu@email.com"
-                      value={resetEmail}
-                      onChange={(e) => setResetEmail(e.target.value)}
-                      required
-                    />
+                    id="reset-email"
+                    type="email"
+                    placeholder="tu@email.com"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    required />
+                  
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? "Enviando..." : "Enviar enlace"}
@@ -125,12 +125,12 @@ export default function AuthPage() {
                     <ArrowLeft className="h-4 w-4" /> Volver
                   </Button>
                 </form>
-              )}
+              }
             </CardContent>
           </Card>
         </div>
-      </div>
-    );
+      </div>);
+
   }
 
   return (
@@ -142,7 +142,7 @@ export default function AuthPage() {
             <Zap className="h-7 w-7 text-primary-foreground" />
           </div>
           <h1 className="font-display text-2xl font-bold tracking-wider neon-text" style={{ fontFamily: 'Orbitron' }}>
-            FITPRO
+            CipriFitness
           </h1>
           <p className="text-sm text-muted-foreground">Gestión de entrenamiento físico</p>
         </div>
@@ -174,8 +174,8 @@ export default function AuthPage() {
                   <button
                     type="button"
                     onClick={() => setShowReset(true)}
-                    className="w-full text-center text-sm text-primary hover:underline"
-                  >
+                    className="w-full text-center text-sm text-primary hover:underline">
+                    
                     ¿Olvidaste tu contraseña?
                   </button>
                 </form>
@@ -209,13 +209,13 @@ export default function AuthPage() {
                       </button>
                     </div>
                   </div>
-                  {regRole === "trainer" && (
-                    <div className="space-y-2">
+                  {regRole === "trainer" &&
+                  <div className="space-y-2">
                       <Label htmlFor="trainer-code">Código de entrenador</Label>
                       <Input id="trainer-code" type="password" placeholder="Ingresa el código de validación" value={trainerCode} onChange={(e) => setTrainerCode(e.target.value)} required className="bg-secondary/30 border-primary/30" />
                       <p className="text-[11px] text-muted-foreground">Necesitas un código especial para registrarte como entrenador.</p>
                     </div>
-                  )}
+                  }
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? "Cargando..." : "Crear Cuenta"}
                   </Button>
@@ -225,6 +225,6 @@ export default function AuthPage() {
           </Tabs>
         </Card>
       </div>
-    </div>
-  );
+    </div>);
+
 }
