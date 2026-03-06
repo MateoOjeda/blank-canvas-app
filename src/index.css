@@ -72,20 +72,24 @@
 
 @layer utilities {
   .neon-text {
-    color: hsl(var(--primary));
-    text-shadow: 0 0 10px hsl(var(--primary) / 0.5), 0 0 30px hsl(var(--primary) / 0.2);
+    color: hsl(var(--brand-red));
+    text-shadow: 0 0 10px hsl(var(--brand-red) / 0.3), 0 0 30px hsl(var(--brand-red) / 0.1);
   }
 
   .neon-border {
-    border-color: hsl(var(--primary) / 0.4);
-    box-shadow: 0 0 8px hsl(var(--primary) / 0.15), inset 0 0 8px hsl(var(--primary) / 0.05);
+    border-color: hsl(var(--primary) / 0.3);
+    box-shadow: 0 0 8px hsl(var(--primary) / 0.1), inset 0 0 8px hsl(var(--primary) / 0.03);
   }
 
   .neon-glow {
-    box-shadow: 0 0 15px hsl(var(--primary) / 0.3), 0 0 45px hsl(var(--primary) / 0.1);
+    box-shadow: 0 0 15px hsl(var(--brand-red) / 0.2), 0 0 45px hsl(var(--brand-red) / 0.08);
   }
 
   .card-glass {
-    @apply bg-card/80 backdrop-blur-sm border border-border/50;
+    @apply bg-card/90 backdrop-blur-sm border border-border/50;
+  }
+
+  .btn-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(230 28% 28%));
   }
 }

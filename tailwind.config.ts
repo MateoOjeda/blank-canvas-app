@@ -65,6 +65,7 @@ export default {
           DEFAULT: "hsl(var(--neon-glow))",
           orange: "hsl(var(--neon-orange))",
         },
+        brand: "hsl(var(--brand-red))",
         success: "hsl(var(--success))",
         warning: "hsl(var(--warning))",
       },
