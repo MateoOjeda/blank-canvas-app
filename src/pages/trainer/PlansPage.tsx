@@ -5,27 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Apple, Dumbbell, TrendingUp, User, ClipboardList, Loader2, Save, Lock, Unlock } from "lucide-react";
+import { Loader2, Save, Lock, Unlock, ClipboardList, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
-
-const PLAN_TYPES = [
-  { key: "nutricion", label: "Plan de Nutrición", icon: Apple },
-  { key: "entrenamiento", label: "Plan de Entrenamiento", icon: Dumbbell },
-  { key: "cambios_fisicos", label: "Cambios Físicos", icon: TrendingUp },
-  { key: "cambios_personales", label: "Cambios Personales", icon: User },
-];
-
-const LEVELS = ["principiante", "intermedio", "avanzado"];
-const LEVEL_LABELS: Record<string, string> = {
-  principiante: "Principiante",
-  intermedio: "Intermedio",
-  avanzado: "Avanzado",
-};
+import { PLAN_TYPES, LEVELS, LEVEL_LABELS, DEFAULT_PRICES, formatPrice } from "@/lib/planConstants";
 
 interface PlanLevel {
   id: string;
@@ -42,11 +28,10 @@ export default function PlansPage() {
   const [planLevels, setPlanLevels] = useState<PlanLevel[]>([]);
   const [loadingLevels, setLoadingLevels] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
+  const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
 
   useEffect(() => {
-    if (students.length > 0 && !selectedStudent) {
-      setSelectedStudent(students[0].user_id);
-    }
+    if (students.length > 0 && !selectedStudent) setSelectedStudent(students[0].user_id);
   }, [students, selectedStudent]);
 
   const fetchPlanLevels = useCallback(async () => {
@@ -61,32 +46,24 @@ export default function PlansPage() {
     setLoadingLevels(false);
   }, [user, selectedStudent]);
 
-  useEffect(() => {
-    fetchPlanLevels();
-  }, [fetchPlanLevels]);
+  useEffect(() => { fetchPlanLevels(); }, [fetchPlanLevels]);
 
   const toggleUnlock = async (id: string, current: boolean) => {
-    const { error } = await supabase
-      .from("plan_levels")
-      .update({ unlocked: !current })
-      .eq("id", id);
-    if (error) toast.error("Error al actualizar");
-    else {
-      const level = planLevels.find((p) => p.id === id);
-      setPlanLevels((prev) => prev.map((p) => (p.id === id ? { ...p, unlocked: !current } : p)));
-      // Log change
-      if (level) {
-        const typeLabel = PLAN_TYPES.find((pt) => pt.key === level.plan_type)?.label || level.plan_type;
-        await supabase.from("trainer_changes").insert({
-          trainer_id: user!.id,
-          student_id: selectedStudent,
-          change_type: !current ? "level_unlocked" : "level_locked",
-          description: `${typeLabel} - ${LEVEL_LABELS[level.level]} ${!current ? "desbloqueado" : "bloqueado"}`,
-          entity_id: id,
-        });
-      }
-      toast.success(!current ? "Nivel desbloqueado" : "Nivel bloqueado");
+    const { error } = await supabase.from("plan_levels").update({ unlocked: !current }).eq("id", id);
+    if (error) { toast.error("Error al actualizar"); return; }
+    const level = planLevels.find((p) => p.id === id);
+    setPlanLevels((prev) => prev.map((p) => (p.id === id ? { ...p, unlocked: !current } : p)));
+    if (level) {
+      const typeLabel = PLAN_TYPES.find((pt) => pt.key === level.plan_type)?.label || level.plan_type;
+      await supabase.from("trainer_changes").insert({
+        trainer_id: user!.id,
+        student_id: selectedStudent,
+        change_type: !current ? "level_unlocked" : "level_locked",
+        description: `${typeLabel} - ${LEVEL_LABELS[level.level]} ${!current ? "desbloqueado" : "bloqueado"}`,
+        entity_id: id,
+      });
     }
+    toast.success(!current ? "Nivel desbloqueado" : "Nivel bloqueado");
   };
 
   const updateContent = (id: string, content: string) => {
@@ -97,10 +74,7 @@ export default function PlansPage() {
     setSaving(id);
     const level = planLevels.find((p) => p.id === id);
     if (!level) return;
-    const { error } = await supabase
-      .from("plan_levels")
-      .update({ content: level.content })
-      .eq("id", id);
+    const { error } = await supabase.from("plan_levels").update({ content: level.content }).eq("id", id);
     if (error) {
       toast.error("Error al guardar");
     } else {
@@ -142,7 +116,7 @@ export default function PlansPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Gestión de Planes</h1>
-        <p className="text-muted-foreground text-sm mt-1">Contenido y niveles por alumno</p>
+        <p className="text-muted-foreground text-sm mt-1">Editá contenido, precios y desbloquea niveles por alumno</p>
       </div>
 
       <div className="max-w-xs">
@@ -162,57 +136,73 @@ export default function PlansPage() {
       {loadingLevels ? (
         <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
       ) : (
-        <Tabs defaultValue="nutricion" className="space-y-4">
-          <TabsList className="bg-secondary/50 w-full justify-start overflow-x-auto">
-            {PLAN_TYPES.map((pt) => (
-              <TabsTrigger key={pt.key} value={pt.key} className="gap-2 text-xs">
-                <pt.icon className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{pt.label}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <div className="space-y-4">
+          {PLAN_TYPES.map((pt) => {
+            const Icon = pt.icon;
+            const isExpanded = expandedPlan === pt.key;
+            const levels = planLevels.filter((p) => p.plan_type === pt.key);
+            const unlockedCount = levels.filter((l) => l.unlocked).length;
 
-          {PLAN_TYPES.map((pt) => (
-            <TabsContent key={pt.key} value={pt.key} className="space-y-4">
-              {LEVELS.map((level) => {
-                const pl = planLevels.find((p) => p.plan_type === pt.key && p.level === level);
-                if (!pl) return null;
-                return (
-                  <Card key={pl.id} className={`card-glass transition-all ${pl.unlocked ? "neon-border" : "opacity-70"}`}>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${pl.unlocked ? "bg-primary/15" : "bg-secondary"}`}>
-                            {pl.unlocked ? <Unlock className="h-4 w-4 text-primary" /> : <Lock className="h-4 w-4 text-muted-foreground" />}
-                          </div>
-                          <div>
-                            <CardTitle className="text-sm">{LEVEL_LABELS[level]}</CardTitle>
-                            <Badge variant="outline" className={`text-[10px] ${pl.unlocked ? "border-primary/40 text-primary" : "border-border text-muted-foreground"}`}>
-                              {pl.unlocked ? "Desbloqueado" : "Bloqueado"}
-                            </Badge>
-                          </div>
-                        </div>
-                        <Switch checked={pl.unlocked} onCheckedChange={() => toggleUnlock(pl.id, pl.unlocked)} />
+            return (
+              <Card key={pt.key} className="card-glass overflow-hidden">
+                <CardHeader
+                  className="cursor-pointer hover:bg-secondary/20 transition-colors"
+                  onClick={() => setExpandedPlan(isExpanded ? null : pt.key)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <Icon className="h-5 w-5 text-primary" />
                       </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <Textarea
-                        placeholder={`Escribe el contenido de ${pt.label} - ${LEVEL_LABELS[level]}...`}
-                        value={pl.content}
-                        onChange={(e) => updateContent(pl.id, e.target.value)}
-                        className="bg-secondary/30 border-border min-h-[100px] text-sm"
-                      />
-                      <Button size="sm" variant="outline" className="gap-2" onClick={() => saveContent(pl.id)} disabled={saving === pl.id}>
-                        {saving === pl.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                        Guardar
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </TabsContent>
-          ))}
-        </Tabs>
+                      <div>
+                        <CardTitle className="text-sm">{pt.label}</CardTitle>
+                        <Badge variant="outline" className="text-[10px] mt-0.5">
+                          {unlockedCount}/3 desbloqueados
+                        </Badge>
+                      </div>
+                    </div>
+                    {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  </div>
+                </CardHeader>
+
+                {isExpanded && (
+                  <CardContent className="space-y-4 pt-0">
+                    {LEVELS.map((level) => {
+                      const pl = levels.find((p) => p.level === level);
+                      if (!pl) return null;
+                      const price = DEFAULT_PRICES[level];
+
+                      return (
+                        <div key={pl.id} className={`rounded-lg border p-4 space-y-3 transition-all ${pl.unlocked ? "border-primary/30 bg-primary/5" : "border-border bg-secondary/10"}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              {pl.unlocked ? <Unlock className="h-4 w-4 text-primary" /> : <Lock className="h-4 w-4 text-muted-foreground" />}
+                              <div>
+                                <span className="text-sm font-semibold">{LEVEL_LABELS[level]}</span>
+                                <span className="text-xs text-accent font-bold ml-2">{formatPrice(price)}</span>
+                              </div>
+                            </div>
+                            <Switch checked={pl.unlocked} onCheckedChange={() => toggleUnlock(pl.id, pl.unlocked)} />
+                          </div>
+                          <Textarea
+                            placeholder={`Contenido de ${pt.shortLabel} - ${LEVEL_LABELS[level]}...`}
+                            value={pl.content}
+                            onChange={(e) => updateContent(pl.id, e.target.value)}
+                            className="bg-secondary/30 border-border min-h-[100px] text-sm"
+                          />
+                          <Button size="sm" variant="outline" className="gap-2" onClick={() => saveContent(pl.id)} disabled={saving === pl.id}>
+                            {saving === pl.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                            Guardar contenido
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
+        </div>
       )}
     </div>
   );
