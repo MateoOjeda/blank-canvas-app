@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.4"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -71,68 +71,6 @@ export type Database = {
         }
         Relationships: []
       }
-      custom_survey_questions: {
-        Row: {
-          created_at: string
-          id: string
-          options: string | null
-          question_text: string
-          question_type: string
-          sort_order: number
-          trainer_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          options?: string | null
-          question_text: string
-          question_type?: string
-          sort_order?: number
-          trainer_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          options?: string | null
-          question_text?: string
-          question_type?: string
-          sort_order?: number
-          trainer_id?: string
-        }
-        Relationships: []
-      }
-      custom_survey_responses: {
-        Row: {
-          created_at: string
-          id: string
-          question_id: string
-          response_value: string
-          student_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          question_id: string
-          response_value?: string
-          student_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          question_id?: string
-          response_value?: string
-          student_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "custom_survey_responses_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "custom_survey_questions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       exercise_logs: {
         Row: {
           actual_reps: number | null
@@ -176,15 +114,7 @@ export type Database = {
           trainer_id?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "exercise_logs_exercise_id_fkey"
-            columns: ["exercise_id"]
-            isOneToOne: false
-            referencedRelation: "exercises"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       exercises: {
         Row: {
