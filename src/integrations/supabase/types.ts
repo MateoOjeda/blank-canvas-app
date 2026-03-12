@@ -14,7 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      custom_survey_questions: {
+        Row: {
+          created_at: string
+          id: string
+          options: string | null
+          question_text: string
+          question_type: string
+          sort_order: number
+          trainer_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          options?: string | null
+          question_text: string
+          question_type?: string
+          sort_order?: number
+          trainer_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          options?: string | null
+          question_text?: string
+          question_type?: string
+          sort_order?: number
+          trainer_id?: string
+        }
+        Relationships: []
+      }
+      custom_survey_responses: {
+        Row: {
+          created_at: string
+          id: string
+          question_id: string
+          response_value: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          question_id: string
+          response_value?: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          question_id?: string
+          response_value?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_survey_responses_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "custom_survey_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
