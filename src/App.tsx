@@ -12,6 +12,8 @@ import StudentDetailPage from "@/pages/trainer/StudentDetailPage";
 import RoutinesPage from "@/pages/trainer/RoutinesPage";
 import PlansPage from "@/pages/trainer/PlansPage";
 import TrackingPage from "@/pages/trainer/TrackingPage";
+import SurveyConfigPage from "@/pages/trainer/SurveyConfigPage";
+import NotificationsPage from "@/pages/trainer/NotificationsPage";
 import TodayRoutinePage from "@/pages/student/TodayRoutinePage";
 import MyPlansPage from "@/pages/student/MyPlansPage";
 import ProgressPage from "@/pages/student/ProgressPage";
@@ -52,6 +54,8 @@ const App = () => (
               <Route path="/trainer/routines" element={<ProtectedRoute requiredRole="trainer"><RoutinesPage /></ProtectedRoute>} />
               <Route path="/trainer/plans" element={<ProtectedRoute requiredRole="trainer"><PlansPage /></ProtectedRoute>} />
               <Route path="/trainer/tracking" element={<ProtectedRoute requiredRole="trainer"><TrackingPage /></ProtectedRoute>} />
+              <Route path="/trainer/survey" element={<ProtectedRoute requiredRole="trainer"><SurveyConfigPage /></ProtectedRoute>} />
+              <Route path="/trainer/notifications" element={<ProtectedRoute requiredRole="trainer"><NotificationsPage /></ProtectedRoute>} />
               <Route path="/student/feed" element={<ProtectedRoute requiredRole="student"><StudentFeedPage /></ProtectedRoute>} />
               <Route path="/student/today" element={<ProtectedRoute requiredRole="student"><TodayRoutinePage /></ProtectedRoute>} />
               <Route path="/student/plans" element={<ProtectedRoute requiredRole="student"><MyPlansPage /></ProtectedRoute>} />

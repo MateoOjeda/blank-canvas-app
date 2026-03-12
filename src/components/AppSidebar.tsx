@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, Dumbbell, ClipboardList, BarChart3, CalendarCheck, Trophy, User, Zap, LogOut, Bell, Sparkles, Camera } from "lucide-react";
+import { Users, Dumbbell, ClipboardList, BarChart3, CalendarCheck, Trophy, User, Zap, LogOut, Bell, Sparkles, Camera, FileText } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,7 +15,9 @@ const trainerItems = [
 { title: "Alumnos", url: "/trainer/students", icon: Users },
 { title: "Rutinas", url: "/trainer/routines", icon: Dumbbell },
 { title: "Planes", url: "/trainer/plans", icon: ClipboardList },
-{ title: "Seguimiento", url: "/trainer/tracking", icon: BarChart3 }];
+{ title: "Seguimiento", url: "/trainer/tracking", icon: BarChart3 },
+{ title: "Encuestas", url: "/trainer/survey", icon: FileText },
+{ title: "Notificaciones", url: "/trainer/notifications", icon: Bell }];
 
 
 const studentItems = [
