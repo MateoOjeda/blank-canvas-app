@@ -12,6 +12,8 @@ import StudentDetailPage from "@/pages/trainer/StudentDetailPage";
 import RoutinesPage from "@/pages/trainer/RoutinesPage";
 import PlansPage from "@/pages/trainer/PlansPage";
 import TrackingPage from "@/pages/trainer/TrackingPage";
+import SurveyConfigPage from "@/pages/trainer/SurveyConfigPage";
+import NotificationsPage from "@/pages/trainer/NotificationsPage";
 import TodayRoutinePage from "@/pages/student/TodayRoutinePage";
 import MyPlansPage from "@/pages/student/MyPlansPage";
 import ProgressPage from "@/pages/student/ProgressPage";
