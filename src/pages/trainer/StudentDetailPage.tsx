@@ -56,6 +56,7 @@ export default function StudentDetailPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [planLevels, setPlanLevels] = useState<PlanLevel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("history");
 
   const fetchData = useCallback(async () => {
     if (!user || !studentId) return;
@@ -115,6 +116,16 @@ export default function StudentDetailPage() {
         </div>
       </div>
 
+      {/* Quick Actions */}
+      <div className="flex gap-2 flex-wrap">
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => setActiveTab("weight")}>
+          <TrendingUp className="h-4 w-4" /> Ver Progreso
+        </Button>
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => setActiveTab("diagnostic")}>
+          <Sparkles className="h-4 w-4" /> Ver Encuesta
+        </Button>
+      </div>
+
       {/* Quick Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card className="card-glass neon-border"><CardContent className="p-4 text-center"><p className="text-3xl font-bold text-primary">{completionRate}%</p><p className="text-xs text-muted-foreground mt-1">Completitud</p></CardContent></Card>
@@ -124,7 +135,7 @@ export default function StudentDetailPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="history" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="w-full grid grid-cols-5 bg-secondary/50">
           <TabsTrigger value="history" className="text-xs">📋 Historial</TabsTrigger>
           <TabsTrigger value="weight" className="text-xs">📈 Peso</TabsTrigger>
