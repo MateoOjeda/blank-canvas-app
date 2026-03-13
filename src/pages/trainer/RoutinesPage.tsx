@@ -53,9 +53,13 @@ export default function RoutinesPage() {
 
   useEffect(() => {
     if (students.length > 0 && !selectedStudent) {
-      setSelectedStudent(students[0].user_id);
+      if (urlStudentId && students.some(s => s.user_id === urlStudentId)) {
+        setSelectedStudent(urlStudentId);
+      } else {
+        setSelectedStudent(students[0].user_id);
+      }
     }
-  }, [students, selectedStudent]);
+  }, [students, selectedStudent, urlStudentId]);
 
   const fetchExercises = useCallback(async () => {
     if (!user || !selectedStudent) return;

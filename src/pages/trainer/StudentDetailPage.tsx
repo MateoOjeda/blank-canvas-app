@@ -118,6 +118,9 @@ export default function StudentDetailPage() {
 
       {/* Quick Actions */}
       <div className="flex gap-2 flex-wrap">
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate(`/trainer/routines/${studentId}`)}>
+          <Dumbbell className="h-4 w-4" /> Editar Rutina
+        </Button>
         <Button variant="outline" size="sm" className="gap-2" onClick={() => setActiveTab("weight")}>
           <TrendingUp className="h-4 w-4" /> Ver Progreso
         </Button>

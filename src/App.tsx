@@ -51,6 +51,7 @@ const App = () => (
               <Route path="/trainer/students" element={<ProtectedRoute requiredRole="trainer"><StudentsPage /></ProtectedRoute>} />
               <Route path="/trainer/students/:studentId" element={<ProtectedRoute requiredRole="trainer"><StudentDetailPage /></ProtectedRoute>} />
               <Route path="/trainer/routines" element={<ProtectedRoute requiredRole="trainer"><RoutinesPage /></ProtectedRoute>} />
+              <Route path="/trainer/routines/:studentId" element={<ProtectedRoute requiredRole="trainer"><RoutinesPage /></ProtectedRoute>} />
               <Route path="/trainer/plans" element={<ProtectedRoute requiredRole="trainer"><PlansPage /></ProtectedRoute>} />
               <Route path="/trainer/tracking" element={<ProtectedRoute requiredRole="trainer"><TrackingPage /></ProtectedRoute>} />
               <Route path="/trainer/notifications" element={<ProtectedRoute requiredRole="trainer"><NotificationsPage /></ProtectedRoute>} />
