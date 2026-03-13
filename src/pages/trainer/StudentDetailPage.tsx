@@ -135,7 +135,7 @@ export default function StudentDetailPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="history" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="w-full grid grid-cols-5 bg-secondary/50">
           <TabsTrigger value="history" className="text-xs">📋 Historial</TabsTrigger>
           <TabsTrigger value="weight" className="text-xs">📈 Peso</TabsTrigger>
