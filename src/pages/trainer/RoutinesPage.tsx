@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useLinkedStudents } from "@/hooks/useLinkedStudents";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +41,7 @@ interface Exercise {
 
 export default function RoutinesPage() {
   const { user } = useAuth();
+  const { studentId: urlStudentId } = useParams<{ studentId?: string }>();
   const { students, loading: loadingStudents } = useLinkedStudents();
   const [selectedStudent, setSelectedStudent] = useState("");
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -51,9 +53,13 @@ export default function RoutinesPage() {
 
   useEffect(() => {
     if (students.length > 0 && !selectedStudent) {
-      setSelectedStudent(students[0].user_id);
+      if (urlStudentId && students.some(s => s.user_id === urlStudentId)) {
+        setSelectedStudent(urlStudentId);
+      } else {
+        setSelectedStudent(students[0].user_id);
+      }
     }
-  }, [students, selectedStudent]);
+  }, [students, selectedStudent, urlStudentId]);
 
   const fetchExercises = useCallback(async () => {
     if (!user || !selectedStudent) return;
