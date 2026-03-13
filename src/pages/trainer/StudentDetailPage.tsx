@@ -115,6 +115,22 @@ export default function StudentDetailPage() {
         </div>
       </div>
 
+      {/* Quick Actions */}
+      <div className="flex gap-2 flex-wrap">
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => {
+          const tabsList = document.querySelector('[value="weight"]') as HTMLElement;
+          tabsList?.click();
+        }}>
+          <TrendingUp className="h-4 w-4" /> Ver Progreso
+        </Button>
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => {
+          const tabsList = document.querySelector('[value="diagnostic"]') as HTMLElement;
+          tabsList?.click();
+        }}>
+          <Sparkles className="h-4 w-4" /> Ver Encuesta
+        </Button>
+      </div>
+
       {/* Quick Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card className="card-glass neon-border"><CardContent className="p-4 text-center"><p className="text-3xl font-bold text-primary">{completionRate}%</p><p className="text-xs text-muted-foreground mt-1">Completitud</p></CardContent></Card>
