@@ -41,6 +41,7 @@ interface Exercise {
 
 export default function RoutinesPage() {
   const { user } = useAuth();
+  const { studentId: urlStudentId } = useParams<{ studentId?: string }>();
   const { students, loading: loadingStudents } = useLinkedStudents();
   const [selectedStudent, setSelectedStudent] = useState("");
   const [exercises, setExercises] = useState<Exercise[]>([]);
