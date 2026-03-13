@@ -42,7 +42,49 @@ export default function PlansPage() {
       .select("id, plan_type, level, content, unlocked")
       .eq("trainer_id", user.id)
       .eq("student_id", selectedStudent);
-    setPlanLevels(data || []);
+
+    // Auto-create missing plan_levels for this student
+    if (!data || data.length === 0) {
+      const rows = PLAN_TYPES.flatMap((pt) =>
+        LEVELS.map((level) => ({
+          trainer_id: user.id,
+          student_id: selectedStudent,
+          plan_type: pt.key,
+          level,
+          content: "",
+          unlocked: false,
+        }))
+      );
+      const { data: inserted } = await supabase
+        .from("plan_levels")
+        .insert(rows)
+        .select("id, plan_type, level, content, unlocked");
+      setPlanLevels(inserted || []);
+    } else if (data.length < PLAN_TYPES.length * LEVELS.length) {
+      // Fill in any missing combinations
+      const existing = new Set(data.map((d) => `${d.plan_type}-${d.level}`));
+      const missing = PLAN_TYPES.flatMap((pt) =>
+        LEVELS.filter((level) => !existing.has(`${pt.key}-${level}`)).map((level) => ({
+          trainer_id: user.id,
+          student_id: selectedStudent,
+          plan_type: pt.key,
+          level,
+          content: "",
+          unlocked: false,
+        }))
+      );
+      if (missing.length > 0) {
+        const { data: inserted } = await supabase
+          .from("plan_levels")
+          .insert(missing)
+          .select("id, plan_type, level, content, unlocked");
+        setPlanLevels([...data, ...(inserted || [])]);
+      } else {
+        setPlanLevels(data);
+      }
+    } else {
+      setPlanLevels(data);
+    }
     setLoadingLevels(false);
   }, [user, selectedStudent]);
 

@@ -37,7 +37,7 @@ export default function TransformationPage() {
       .eq("student_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
-      .single() as any;
+      .maybeSingle();
     
     if (data) {
       setTransformation(data);

@@ -120,12 +120,31 @@ export default function PersonalChangePage() {
     }
 
     if (!error) {
-      await supabase.from("trainer_changes").insert({
-        student_id: user.id,
-        trainer_id: user.id,
-        change_type: "personal_survey",
-        description: existingId ? "Actualizó su encuesta de Cambio Personal" : "Completó su encuesta de Cambio Personal",
-      }).then(() => {});
+      // Notify linked trainer(s) via notifications table
+      const { data: links } = await supabase
+        .from("trainer_students")
+        .select("trainer_id")
+        .eq("student_id", user.id);
+
+      if (links && links.length > 0) {
+        const trainerIds = [...new Set(links.map((l) => l.trainer_id))];
+        const notifications = trainerIds.map((tid) => ({
+          user_id: tid,
+          type: "personal_survey",
+          title: "Encuesta de Cambio Personal completada",
+          message: `Un alumno ${existingId ? "actualizó" : "completó"} su encuesta de Cambio Personal`,
+          related_id: user.id,
+        }));
+        await supabase.from("notifications").insert(notifications);
+
+        const changes = trainerIds.map((tid) => ({
+          student_id: user.id,
+          trainer_id: tid,
+          change_type: "personal_survey",
+          description: existingId ? "Actualizó su encuesta de Cambio Personal" : "Completó su encuesta de Cambio Personal",
+        }));
+        await supabase.from("trainer_changes").insert(changes);
+      }
       toast({ title: "¡Guardado!", description: "Tu información de cambio personal ha sido registrada." });
       setExistingId(existingId || "saved");
     } else {
