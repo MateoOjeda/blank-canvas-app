@@ -1,11 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Lock, Unlock, Copy, MessageCircle, Check, ArrowLeft } from "lucide-react";
+import { Lock, Unlock, Copy, MessageCircle, Check, ArrowLeft, CreditCard } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { LEVELS, LEVEL_LABELS, PLAN_TYPES, DEFAULT_PRICES, formatPrice } from "@/lib/planConstants";
-import type { LucideIcon } from "lucide-react";
 
 interface PlanLevel {
   id: string;
@@ -31,6 +30,7 @@ interface Props {
 export default function PlanLevelDetail({ planType, planLevels, trainerInfo, onBack }: Props) {
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   const [copiedAlias, setCopiedAlias] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
   const Icon = planType.icon;
 
   const copyAlias = async () => {
@@ -48,7 +48,7 @@ export default function PlanLevelDetail({ planType, planLevels, trainerInfo, onB
   const openWhatsApp = (levelLabel: string) => {
     const phone = trainerInfo?.whatsapp_number || "";
     const message = encodeURIComponent(
-      `Hola, envío el comprobante de pago para el ${planType.label} - Nivel ${levelLabel}.`
+      `Hola, acabo de realizar el pago del ${planType.label} - Nivel ${levelLabel}. Adjunto el comprobante.`
     );
     window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
   };
@@ -61,7 +61,7 @@ export default function PlanLevelDetail({ planType, planLevels, trainerInfo, onB
 
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => setSelectedLevel(null)} className="gap-2 text-muted-foreground">
+        <Button variant="ghost" size="sm" onClick={() => { setSelectedLevel(null); setShowPayment(false); }} className="gap-2 text-muted-foreground">
           <ArrowLeft className="h-4 w-4" /> Volver a niveles
         </Button>
 
@@ -77,21 +77,18 @@ export default function PlanLevelDetail({ planType, planLevels, trainerInfo, onB
 
         <Card className={`card-glass ${pl?.unlocked ? "neon-border" : ""}`}>
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {pl?.unlocked ? (
-                  <Unlock className="h-4 w-4 text-primary" />
-                ) : (
-                  <Lock className="h-4 w-4 text-muted-foreground" />
-                )}
-                <Badge
-                  variant="outline"
-                  className={`text-[10px] ${pl?.unlocked ? "border-primary/40 text-primary" : "border-border text-muted-foreground"}`}
-                >
-                  {pl?.unlocked ? "Desbloqueado" : "Bloqueado"}
-                </Badge>
-              </div>
-              <span className="text-sm font-bold text-accent">{formatPrice(price)}</span>
+            <div className="flex items-center gap-2">
+              {pl?.unlocked ? (
+                <Unlock className="h-4 w-4 text-primary" />
+              ) : (
+                <Lock className="h-4 w-4 text-muted-foreground" />
+              )}
+              <Badge
+                variant="outline"
+                className={`text-[10px] ${pl?.unlocked ? "border-primary/40 text-primary" : "border-border text-muted-foreground"}`}
+              >
+                {pl?.unlocked ? "Desbloqueado" : "Bloqueado"}
+              </Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -115,29 +112,48 @@ export default function PlanLevelDetail({ planType, planLevels, trainerInfo, onB
                     Este nivel está bloqueado. Realizá el pago para desbloquearlo.
                   </p>
 
-                  <div className="text-2xl font-display font-bold text-primary">
-                    {formatPrice(price)}
-                  </div>
+                  {!showPayment ? (
+                    <Button
+                      className="gap-2 w-full"
+                      size="lg"
+                      onClick={() => setShowPayment(true)}
+                    >
+                      <CreditCard className="h-5 w-5" />
+                      Pagar Plan
+                    </Button>
+                  ) : (
+                    <div className="space-y-3 pt-2">
+                      <div className="bg-background/60 rounded-lg p-4 space-y-2">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Valor del plan</p>
+                        <p className="text-2xl font-display font-bold text-primary">{formatPrice(price)}</p>
+                      </div>
 
-                  {trainerInfo && (trainerInfo.mercadopago_alias || trainerInfo.whatsapp_number) && (
-                    <div className="flex flex-col gap-2 pt-2">
-                      {trainerInfo.mercadopago_alias && (
+                      {trainerInfo?.mercadopago_alias && (
+                        <div className="bg-background/60 rounded-lg p-4 space-y-2">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">CVU / Alias</p>
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="text-sm font-semibold">{trainerInfo.mercadopago_alias}</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1 h-7 px-2"
+                              onClick={copyAlias}
+                            >
+                              {copiedAlias ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+                              {copiedAlias ? "¡Copiado!" : "Copiar"}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {trainerInfo?.whatsapp_number && (
                         <Button
                           variant="outline"
-                          className="gap-2 w-full"
-                          onClick={copyAlias}
-                        >
-                          {copiedAlias ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
-                          {copiedAlias ? "¡Alias copiado!" : `Copiar CVU/Alias: ${trainerInfo.mercadopago_alias}`}
-                        </Button>
-                      )}
-                      {trainerInfo.whatsapp_number && (
-                        <Button
                           className="gap-2 w-full"
                           onClick={() => openWhatsApp(LEVEL_LABELS[selectedLevel])}
                         >
                           <MessageCircle className="h-4 w-4" />
-                          Enviar comprobante por WhatsApp
+                          Enviar Comprobante
                         </Button>
                       )}
                     </div>
@@ -170,23 +186,19 @@ export default function PlanLevelDetail({ planType, planLevels, trainerInfo, onB
       <div className="space-y-3">
         {LEVELS.map((level) => {
           const pl = planLevels.find((p) => p.plan_type === planType.key && p.level === level);
-          const price = DEFAULT_PRICES[level] || 0;
 
           return (
             <Card
               key={level}
               className={`card-glass cursor-pointer group hover:neon-border transition-all ${pl?.unlocked ? "neon-border" : "opacity-70"}`}
-              onClick={() => setSelectedLevel(level)}
+              onClick={() => { setSelectedLevel(level); setShowPayment(false); }}
             >
               <CardContent className="p-5 flex items-center gap-4">
                 <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${pl?.unlocked ? "bg-primary/15" : "bg-secondary"}`}>
                   {pl?.unlocked ? <Unlock className="h-5 w-5 text-primary" /> : <Lock className="h-5 w-5 text-muted-foreground" />}
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-sm">{LEVEL_LABELS[level]}</h3>
-                    <span className="text-xs font-bold text-accent">{formatPrice(price)}</span>
-                  </div>
+                  <h3 className="font-semibold text-sm">{LEVEL_LABELS[level]}</h3>
                   <p className="text-[11px] text-muted-foreground mt-0.5">{levelDesc[level]}</p>
                   <Badge
                     variant="outline"
