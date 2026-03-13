@@ -1,142 +1,134 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Loader2, AlertCircle, Clock } from "lucide-react";
+import { Moon, Sun, Dumbbell, Briefcase, Sparkles, Loader2, Clock, AlertCircle } from "lucide-react";
 
-interface SurveyQuestion {
-  id: string;
-  question_text: string;
-  question_type: string;
-  options: string | null;
-  sort_order: number;
-}
-
-interface SurveyResponse {
-  question_id: string;
-  response_value: string;
-  created_at: string;
+interface SurveyData {
+  hora_dormir: string;
+  hora_despertar: string;
+  dificultad_levantarse: string;
+  hora_ideal_despertar: string;
+  desayuno_habito: string;
+  bano_levantarse: string;
+  entrena: boolean;
+  tipo_entrenamiento: string;
+  horario_entrenamiento: string;
+  obligaciones_diarias: string;
+  horarios_ocupados: string;
+  personas_cargo: string;
+  organizacion_comidas: string;
+  nuevos_habitos: string;
+  tiempo_para_si: string;
+  updated_at: string;
 }
 
 interface Props {
   studentId: string;
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  text: "Texto Libre",
-  multiple_choice: "Opción Múltiple",
-  yes_no: "Sí / No",
-};
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</span>
+      <span className="text-sm">{value || "—"}</span>
+    </div>
+  );
+}
+
+function Section({ icon: Icon, title, children }: { icon: React.ElementType; title: string; children: React.ReactNode }) {
+  return (
+    <div className="p-4 rounded-lg bg-secondary/30 space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Icon className="h-3.5 w-3.5 text-primary" />
+        </div>
+        <span className="text-sm font-semibold">{title}</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function PersonalDiagnosticTab({ studentId }: Props) {
-  const { user } = useAuth();
-  const [questions, setQuestions] = useState<SurveyQuestion[]>([]);
-  const [responses, setResponses] = useState<SurveyResponse[]>([]);
+  const [data, setData] = useState<SurveyData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
-
-    const load = async () => {
-      const [qRes, rRes] = await Promise.all([
-        supabase
-          .from("custom_survey_questions" as any)
-          .select("*")
-          .eq("trainer_id", user.id)
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("custom_survey_responses" as any)
-          .select("question_id, response_value, created_at")
-          .eq("student_id", studentId),
-      ]);
-
-      setQuestions((qRes.data as any as SurveyQuestion[]) || []);
-      setResponses((rRes.data as any as SurveyResponse[]) || []);
-      setLoading(false);
-    };
-
-    load();
-  }, [user, studentId]);
+    supabase
+      .from("seguimiento_personal")
+      .select("*")
+      .eq("student_id", studentId)
+      .maybeSingle()
+      .then(({ data: d }) => {
+        if (d) {
+          const { id, student_id, created_at, ...rest } = d as any;
+          setData(rest);
+        }
+        setLoading(false);
+      });
+  }, [studentId]);
 
   if (loading) {
     return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
   }
 
-  if (questions.length === 0) {
+  if (!data) {
     return (
       <Card className="card-glass">
         <CardContent className="py-8 text-center space-y-2">
           <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto" />
-          <p className="text-sm text-muted-foreground">
-            No has configurado preguntas de encuesta aún. Ve a <strong>Encuesta</strong> en el menú para crear tus preguntas.
-          </p>
+          <p className="text-sm text-muted-foreground">El alumno aún no ha completado la encuesta de Cambio Personal.</p>
         </CardContent>
       </Card>
     );
   }
 
-  const responseMap: Record<string, SurveyResponse> = {};
-  for (const r of responses) {
-    responseMap[r.question_id] = r;
-  }
-
-  const hasResponses = responses.length > 0;
-  const lastResponse = responses.reduce((latest, r) => {
-    return !latest || new Date(r.created_at) > new Date(latest.created_at) ? r : latest;
-  }, null as SurveyResponse | null);
-
-  const updatedDate = lastResponse
-    ? new Date(lastResponse.created_at).toLocaleDateString("es-ES", {
-        day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
-      })
-    : null;
-
-  if (!hasResponses) {
-    return (
-      <Card className="card-glass">
-        <CardContent className="py-8 text-center space-y-2">
-          <Clock className="h-8 w-8 text-primary/50 mx-auto" />
-          <p className="text-sm text-muted-foreground">El alumno aún no ha completado la encuesta personalizada.</p>
-          <p className="text-xs text-muted-foreground">{questions.length} preguntas configuradas</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  const updatedDate = new Date(data.updated_at).toLocaleDateString("es-ES", {
+    day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-sm font-semibold">Diagnóstico Personalizado</span>
+          <span className="text-sm font-semibold">Diagnóstico de Cambio Personal</span>
         </div>
-        {updatedDate && (
-          <Badge variant="outline" className="gap-1 text-[10px] border-primary/30 text-primary">
-            <Clock className="h-2.5 w-2.5" />
-            {updatedDate}
-          </Badge>
-        )}
+        <Badge variant="outline" className="gap-1 text-[10px] border-primary/30 text-primary">
+          <Clock className="h-2.5 w-2.5" />
+          {updatedDate}
+        </Badge>
       </div>
 
-      <div className="space-y-3">
-        {questions.map((q, i) => {
-          const response = responseMap[q.id];
-          return (
-            <div key={q.id} className="p-4 rounded-lg bg-secondary/30 space-y-1.5">
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-sm font-medium">{i + 1}. {q.question_text}</span>
-                <Badge variant="outline" className="text-[9px] border-border shrink-0">
-                  {TYPE_LABELS[q.question_type] || q.question_type}
-                </Badge>
-              </div>
-              <p className="text-sm text-foreground bg-background/50 p-2.5 rounded-md">
-                {response?.response_value || <span className="text-muted-foreground italic">Sin respuesta</span>}
-              </p>
-            </div>
-          );
-        })}
-      </div>
+      <Section icon={Moon} title="Hábitos de Sueño">
+        <InfoRow label="Hora de dormir" value={data.hora_dormir} />
+        <InfoRow label="Hora de despertar" value={data.hora_despertar} />
+        <InfoRow label="Dificultad para levantarse" value={data.dificultad_levantarse} />
+        <InfoRow label="Horario ideal de despertar" value={data.hora_ideal_despertar} />
+      </Section>
+
+      <Section icon={Sun} title="Rutina de Mañana">
+        <InfoRow label="Hábitos de desayuno" value={data.desayuno_habito} />
+        <InfoRow label="Baño al levantarse" value={data.bano_levantarse} />
+      </Section>
+
+      <Section icon={Dumbbell} title="Actividad Física">
+        <InfoRow label="¿Entrena?" value={data.entrena ? "Sí" : "No"} />
+        <InfoRow label="Tipo de entrenamiento" value={data.tipo_entrenamiento} />
+        <InfoRow label="Horarios" value={data.horario_entrenamiento} />
+      </Section>
+
+      <Section icon={Briefcase} title="Responsabilidades y Bienestar">
+        <InfoRow label="Obligaciones diarias" value={data.obligaciones_diarias} />
+        <InfoRow label="Horarios ocupados" value={data.horarios_ocupados} />
+        <InfoRow label="Personas/mascotas a cargo" value={data.personas_cargo} />
+        <InfoRow label="Organización con comidas" value={data.organizacion_comidas} />
+        <InfoRow label="Nuevos hábitos deseados" value={data.nuevos_habitos} />
+        <InfoRow label="Tiempo para sí mismo/a" value={data.tiempo_para_si} />
+      </Section>
     </div>
   );
 }
