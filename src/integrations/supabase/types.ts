@@ -1,0 +1,616 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.1"
+  }
+  public: {
+    Tables: {
+      body_transformations: {
+        Row: {
+          after_date: string | null
+          after_photo_url: string | null
+          after_weight: number | null
+          before_date: string | null
+          before_photo_url: string | null
+          before_weight: number | null
+          created_at: string
+          id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          after_date?: string | null
+          after_photo_url?: string | null
+          after_weight?: number | null
+          before_date?: string | null
+          before_photo_url?: string | null
+          before_weight?: number | null
+          created_at?: string
+          id?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          after_date?: string | null
+          after_photo_url?: string | null
+          after_weight?: number | null
+          before_date?: string | null
+          before_photo_url?: string | null
+          before_weight?: number | null
+          created_at?: string
+          id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      change_readings: {
+        Row: {
+          id: string
+          last_read_at: string
+          student_id: string
+        }
+        Insert: {
+          id?: string
+          last_read_at?: string
+          student_id: string
+        }
+        Update: {
+          id?: string
+          last_read_at?: string
+          student_id?: string
+        }
+        Relationships: []
+      }
+      exercise_logs: {
+        Row: {
+          actual_reps: number | null
+          actual_sets: number | null
+          actual_weight: number | null
+          completed: boolean
+          created_at: string
+          exercise_id: string
+          id: string
+          log_date: string
+          notes: string
+          student_id: string
+          trainer_id: string
+          updated_at: string
+        }
+        Insert: {
+          actual_reps?: number | null
+          actual_sets?: number | null
+          actual_weight?: number | null
+          completed?: boolean
+          created_at?: string
+          exercise_id: string
+          id?: string
+          log_date?: string
+          notes?: string
+          student_id: string
+          trainer_id: string
+          updated_at?: string
+        }
+        Update: {
+          actual_reps?: number | null
+          actual_sets?: number | null
+          actual_weight?: number | null
+          completed?: boolean
+          created_at?: string
+          exercise_id?: string
+          id?: string
+          log_date?: string
+          notes?: string
+          student_id?: string
+          trainer_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      exercises: {
+        Row: {
+          body_part: string
+          completed: boolean
+          created_at: string
+          day: string
+          id: string
+          is_to_failure: boolean
+          name: string
+          reps: number
+          sets: number
+          student_id: string
+          trainer_id: string
+          weight: number
+        }
+        Insert: {
+          body_part?: string
+          completed?: boolean
+          created_at?: string
+          day: string
+          id?: string
+          is_to_failure?: boolean
+          name: string
+          reps?: number
+          sets?: number
+          student_id: string
+          trainer_id: string
+          weight?: number
+        }
+        Update: {
+          body_part?: string
+          completed?: boolean
+          created_at?: string
+          day?: string
+          id?: string
+          is_to_failure?: boolean
+          name?: string
+          reps?: number
+          sets?: number
+          student_id?: string
+          trainer_id?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          read: boolean
+          related_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message?: string
+          read?: boolean
+          related_id?: string | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          read?: boolean
+          related_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      plan_levels: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          level: string
+          plan_type: string
+          student_id: string
+          trainer_id: string
+          unlocked: boolean
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          level: string
+          plan_type: string
+          student_id: string
+          trainer_id: string
+          unlocked?: boolean
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          level?: string
+          plan_type?: string
+          student_id?: string
+          trainer_id?: string
+          unlocked?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      plans: {
+        Row: {
+          created_at: string
+          description: string | null
+          enabled: boolean
+          icon: string | null
+          id: string
+          name: string
+          price: number | null
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          icon?: string | null
+          id?: string
+          name: string
+          price?: number | null
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          icon?: string | null
+          id?: string
+          name?: string
+          price?: number | null
+          student_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          age: number | null
+          avatar_initials: string | null
+          avatar_url: string | null
+          created_at: string
+          display_name: string
+          id: string
+          mercadopago_alias: string | null
+          updated_at: string
+          user_id: string
+          weight: number | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          age?: number | null
+          avatar_initials?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          display_name: string
+          id?: string
+          mercadopago_alias?: string | null
+          updated_at?: string
+          user_id: string
+          weight?: number | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          age?: number | null
+          avatar_initials?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          mercadopago_alias?: string | null
+          updated_at?: string
+          user_id?: string
+          weight?: number | null
+          whatsapp_number?: string | null
+        }
+        Relationships: []
+      }
+      seguimiento_personal: {
+        Row: {
+          bano_levantarse: string
+          created_at: string
+          desayuno_habito: string
+          dificultad_levantarse: string
+          entrena: boolean
+          hora_despertar: string
+          hora_dormir: string
+          hora_ideal_despertar: string
+          horario_entrenamiento: string
+          horarios_ocupados: string
+          id: string
+          nuevos_habitos: string
+          obligaciones_diarias: string
+          organizacion_comidas: string
+          personas_cargo: string
+          student_id: string
+          tiempo_para_si: string
+          tipo_entrenamiento: string
+          updated_at: string
+        }
+        Insert: {
+          bano_levantarse?: string
+          created_at?: string
+          desayuno_habito?: string
+          dificultad_levantarse?: string
+          entrena?: boolean
+          hora_despertar?: string
+          hora_dormir?: string
+          hora_ideal_despertar?: string
+          horario_entrenamiento?: string
+          horarios_ocupados?: string
+          id?: string
+          nuevos_habitos?: string
+          obligaciones_diarias?: string
+          organizacion_comidas?: string
+          personas_cargo?: string
+          student_id: string
+          tiempo_para_si?: string
+          tipo_entrenamiento?: string
+          updated_at?: string
+        }
+        Update: {
+          bano_levantarse?: string
+          created_at?: string
+          desayuno_habito?: string
+          dificultad_levantarse?: string
+          entrena?: boolean
+          hora_despertar?: string
+          hora_dormir?: string
+          hora_ideal_despertar?: string
+          horario_entrenamiento?: string
+          horarios_ocupados?: string
+          id?: string
+          nuevos_habitos?: string
+          obligaciones_diarias?: string
+          organizacion_comidas?: string
+          personas_cargo?: string
+          student_id?: string
+          tiempo_para_si?: string
+          tipo_entrenamiento?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      trainer_changes: {
+        Row: {
+          change_type: string
+          created_at: string
+          description: string
+          entity_id: string | null
+          id: string
+          student_id: string
+          trainer_id: string
+        }
+        Insert: {
+          change_type: string
+          created_at?: string
+          description?: string
+          entity_id?: string | null
+          id?: string
+          student_id: string
+          trainer_id: string
+        }
+        Update: {
+          change_type?: string
+          created_at?: string
+          description?: string
+          entity_id?: string | null
+          id?: string
+          student_id?: string
+          trainer_id?: string
+        }
+        Relationships: []
+      }
+      trainer_students: {
+        Row: {
+          created_at: string
+          id: string
+          plan_type: string | null
+          student_id: string
+          trainer_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          plan_type?: string | null
+          student_id: string
+          trainer_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          plan_type?: string | null
+          student_id?: string
+          trainer_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      weight_history: {
+        Row: {
+          id: string
+          recorded_at: string
+          student_id: string
+          weight: number
+        }
+        Insert: {
+          id?: string
+          recorded_at?: string
+          student_id: string
+          weight: number
+        }
+        Update: {
+          id?: string
+          recorded_at?: string
+          student_id?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+    }
+    Enums: {
+      app_role: "trainer" | "student"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      app_role: ["trainer", "student"],
+    },
+  },
+} as const
