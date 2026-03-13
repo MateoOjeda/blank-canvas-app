@@ -56,6 +56,7 @@ export default function StudentDetailPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [planLevels, setPlanLevels] = useState<PlanLevel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("history");
 
   const fetchData = useCallback(async () => {
     if (!user || !studentId) return;
