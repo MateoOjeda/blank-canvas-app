@@ -1,0 +1,477 @@
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useLinkedStudents } from "@/hooks/useLinkedStudents";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, Trash2, Users2, Loader2, Dumbbell, UserPlus, X } from "lucide-react";
+import { toast } from "sonner";
+import { BODY_PARTS, EXERCISES_BY_BODY_PART, type BodyPart } from "@/lib/exercisesByBodyPart";
+
+const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+
+interface TrainingGroup {
+  id: string;
+  name: string;
+  trainer_id: string;
+  created_at: string;
+}
+
+interface GroupMember {
+  id: string;
+  group_id: string;
+  student_id: string;
+}
+
+interface GroupExercise {
+  id: string;
+  group_id: string;
+  name: string;
+  sets: number;
+  reps: number;
+  weight: number;
+  day: string;
+  body_part: string;
+  is_to_failure: boolean;
+}
+
+const sb = supabase as any;
+
+export default function TrainingGroupsPage() {
+  const { user } = useAuth();
+  const { students, loading: loadingStudents } = useLinkedStudents();
+
+  const [groups, setGroups] = useState<TrainingGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  // Selected group
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [members, setMembers] = useState<GroupMember[]>([]);
+  const [exercises, setExercises] = useState<GroupExercise[]>([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  // Add members
+  const [showAddMembers, setShowAddMembers] = useState(false);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
+
+  // Add exercise form
+  const [exForm, setExForm] = useState({ name: "", sets: "", reps: "", day: "", bodyPart: "", bodyPart2: "", isToFailure: false });
+
+  // Delete group
+  const [deleteTarget, setDeleteTarget] = useState<TrainingGroup | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const fetchGroups = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data } = await sb.from("training_groups").select("*").eq("trainer_id", user.id).order("created_at", { ascending: false });
+    setGroups(data || []);
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => { fetchGroups(); }, [fetchGroups]);
+
+  const fetchGroupDetail = useCallback(async (groupId: string) => {
+    if (!user) return;
+    setLoadingDetail(true);
+    const [membersRes, exercisesRes] = await Promise.all([
+      sb.from("training_group_members").select("*").eq("group_id", groupId),
+      sb.from("group_exercises").select("*").eq("group_id", groupId).order("day"),
+    ]);
+    setMembers(membersRes.data || []);
+    setExercises(exercisesRes.data || []);
+    setLoadingDetail(false);
+  }, [user]);
+
+  useEffect(() => {
+    if (selectedGroupId) fetchGroupDetail(selectedGroupId);
+  }, [selectedGroupId, fetchGroupDetail]);
+
+  const createGroup = async () => {
+    if (!user || !newGroupName.trim()) return;
+    setCreating(true);
+    const { error } = await sb.from("training_groups").insert({ trainer_id: user.id, name: newGroupName.trim() });
+    if (error) toast.error("Error al crear grupo. Verificá que la tabla 'training_groups' exista.");
+    else { toast.success("Grupo creado"); setNewGroupName(""); fetchGroups(); }
+    setCreating(false);
+  };
+
+  const deleteGroup = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    await sb.from("group_exercises").delete().eq("group_id", deleteTarget.id);
+    await sb.from("training_group_members").delete().eq("group_id", deleteTarget.id);
+    const { error } = await sb.from("training_groups").delete().eq("id", deleteTarget.id);
+    if (error) toast.error("Error al eliminar grupo");
+    else {
+      toast.success("Grupo eliminado");
+      if (selectedGroupId === deleteTarget.id) setSelectedGroupId(null);
+      fetchGroups();
+    }
+    setDeleting(false);
+    setDeleteTarget(null);
+  };
+
+  // Members
+  const toggleStudentSelection = (id: string) => {
+    setSelectedStudentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const addMembers = async () => {
+    if (!selectedGroupId || selectedStudentIds.size === 0) return;
+    const inserts = Array.from(selectedStudentIds).map((sid) => ({
+      group_id: selectedGroupId,
+      student_id: sid,
+    }));
+    const { error } = await sb.from("training_group_members").insert(inserts);
+    if (error) toast.error("Error al agregar miembros");
+    else {
+      toast.success(`${inserts.length} alumno(s) agregado(s) al grupo`);
+      setSelectedStudentIds(new Set());
+      setShowAddMembers(false);
+      fetchGroupDetail(selectedGroupId);
+    }
+  };
+
+  const removeMember = async (memberId: string) => {
+    await sb.from("training_group_members").delete().eq("id", memberId);
+    setMembers((prev) => prev.filter((m) => m.id !== memberId));
+    toast.success("Miembro eliminado del grupo");
+  };
+
+  // Exercises
+  const bodyPart1 = exForm.bodyPart as BodyPart;
+  const bodyPart2 = exForm.bodyPart2 as BodyPart;
+  const availableExercises = [
+    ...(bodyPart1 ? EXERCISES_BY_BODY_PART[bodyPart1] || [] : []),
+    ...(bodyPart2 && bodyPart2 !== bodyPart1 ? EXERCISES_BY_BODY_PART[bodyPart2] || [] : []),
+  ];
+  const combinedBodyPart = [exForm.bodyPart, exForm.bodyPart2].filter(Boolean).join(" y ");
+
+  const addExercise = async () => {
+    if (!user || !selectedGroupId) return;
+    if (!exForm.name || !exForm.sets || !exForm.day || !exForm.bodyPart) {
+      toast.error("Completa todos los campos obligatorios");
+      return;
+    }
+    if (!exForm.isToFailure && !exForm.reps) {
+      toast.error("Completa las repeticiones o activa 'Al Fallo'");
+      return;
+    }
+    const { error } = await sb.from("group_exercises").insert({
+      group_id: selectedGroupId,
+      trainer_id: user.id,
+      name: exForm.name,
+      sets: parseInt(exForm.sets),
+      reps: exForm.isToFailure ? 0 : parseInt(exForm.reps),
+      weight: 0,
+      day: exForm.day,
+      body_part: combinedBodyPart || exForm.bodyPart,
+      is_to_failure: exForm.isToFailure,
+    });
+    if (error) toast.error("Error al agregar ejercicio. Verificá que la tabla 'group_exercises' exista.");
+    else {
+      toast.success("Ejercicio agregado al grupo");
+      setExForm({ name: "", sets: "", reps: "", day: "", bodyPart: "", bodyPart2: "", isToFailure: false });
+      fetchGroupDetail(selectedGroupId);
+    }
+  };
+
+  const removeExercise = async (id: string) => {
+    await sb.from("group_exercises").delete().eq("id", id);
+    setExercises((prev) => prev.filter((e) => e.id !== id));
+    toast.success("Ejercicio eliminado");
+  };
+
+  const selectedGroup = groups.find((g) => g.id === selectedGroupId);
+  const memberStudentIds = new Set(members.map((m) => m.student_id));
+  const availableStudentsForGroup = students.filter((s) => !memberStudentIds.has(s.user_id));
+
+  if (loading || loadingStudents) {
+    return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Grupos de Entrenamiento</h1>
+        <p className="text-muted-foreground text-sm mt-1">Crea grupos y asigna rutinas compartidas</p>
+      </div>
+
+      {/* Create group */}
+      <Card className="card-glass">
+        <CardContent className="p-4">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Nombre del grupo (ej: Principiantes Mañana)"
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && createGroup()}
+              className="flex-1"
+            />
+            <Button onClick={createGroup} disabled={creating || !newGroupName.trim()} size="sm" className="gap-2">
+              <Plus className="h-4 w-4" /> Crear
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Group list */}
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Mis Grupos</h2>
+          {groups.length === 0 ? (
+            <Card className="card-glass">
+              <CardContent className="p-6 text-center">
+                <Users2 className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">Sin grupos creados</p>
+              </CardContent>
+            </Card>
+          ) : (
+            groups.map((g) => (
+              <Card
+                key={g.id}
+                className={`card-glass cursor-pointer transition-all duration-300 ${selectedGroupId === g.id ? "neon-border" : "hover:neon-border"}`}
+                onClick={() => setSelectedGroupId(g.id)}
+              >
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Users2 className="h-4 w-4 text-primary" />
+                    </div>
+                    <span className="font-medium text-sm">{g.name}</span>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(g); }}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+
+        {/* Group detail */}
+        {selectedGroup ? (
+          <div className="lg:col-span-2 space-y-4">
+            {loadingDetail ? (
+              <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+            ) : (
+              <>
+                {/* Members */}
+                <Card className="card-glass">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Users2 className="h-5 w-5 text-primary" />
+                        Miembros de "{selectedGroup.name}"
+                      </CardTitle>
+                      <Button size="sm" variant="outline" className="gap-1" onClick={() => setShowAddMembers(!showAddMembers)}>
+                        {showAddMembers ? <X className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
+                        {showAddMembers ? "Cerrar" : "Agregar"}
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {showAddMembers && (
+                      <div className="p-3 rounded-lg bg-secondary/30 space-y-3">
+                        <p className="text-xs font-semibold text-primary">Selecciona alumnos para agregar</p>
+                        {availableStudentsForGroup.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">Todos tus alumnos ya están en este grupo</p>
+                        ) : (
+                          <>
+                            <div className="space-y-2 max-h-40 overflow-y-auto">
+                              {availableStudentsForGroup.map((s) => (
+                                <label key={s.user_id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary/40 cursor-pointer">
+                                  <Checkbox
+                                    checked={selectedStudentIds.has(s.user_id)}
+                                    onCheckedChange={() => toggleStudentSelection(s.user_id)}
+                                  />
+                                  <span className="text-sm">{s.display_name}</span>
+                                </label>
+                              ))}
+                            </div>
+                            <Button size="sm" onClick={addMembers} disabled={selectedStudentIds.size === 0} className="gap-1">
+                              <UserPlus className="h-3 w-3" /> Agregar ({selectedStudentIds.size})
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {members.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">Sin miembros</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {members.map((m) => {
+                          const student = students.find((s) => s.user_id === m.student_id);
+                          return (
+                            <div key={m.id} className="flex items-center justify-between p-2 rounded-lg bg-secondary/30">
+                              <span className="text-sm">{student?.display_name || m.student_id}</span>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                onClick={() => removeMember(m.id)}>
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Group Routine */}
+                <Card className="card-glass neon-border">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Dumbbell className="h-5 w-5 text-primary" />
+                      Rutina del Grupo
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Add exercise form */}
+                    <div className="p-4 rounded-lg bg-secondary/30 space-y-3">
+                      <p className="text-sm font-semibold">Nuevo Ejercicio</p>
+                      <div>
+                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Día</Label>
+                        <Select value={exForm.day} onValueChange={(v) => setExForm({ ...exForm, day: v })}>
+                          <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Seleccionar día" /></SelectTrigger>
+                          <SelectContent>{DAYS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Grupo Muscular 1</Label>
+                          <Select value={exForm.bodyPart} onValueChange={(v) => setExForm({ ...exForm, bodyPart: v, name: "" })}>
+                            <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Principal" /></SelectTrigger>
+                            <SelectContent>{BODY_PARTS.map((bp) => <SelectItem key={bp} value={bp}>{bp}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Grupo Muscular 2</Label>
+                          <Select value={exForm.bodyPart2} onValueChange={(v) => setExForm({ ...exForm, bodyPart2: v, name: "" })}>
+                            <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Secundario" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">— Ninguno —</SelectItem>
+                              {BODY_PARTS.filter((bp) => bp !== exForm.bodyPart).map((bp) => <SelectItem key={bp} value={bp}>{bp}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Ejercicio</Label>
+                        {availableExercises.length > 0 ? (
+                          <Select value={exForm.name} onValueChange={(v) => setExForm({ ...exForm, name: v })}>
+                            <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Seleccionar ejercicio" /></SelectTrigger>
+                            <SelectContent>{availableExercises.map((ex) => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}</SelectContent>
+                          </Select>
+                        ) : (
+                          <Input placeholder="Primero selecciona el grupo muscular" value={exForm.name}
+                            onChange={(e) => setExForm({ ...exForm, name: e.target.value })} className="bg-secondary/50 border-border" disabled={!exForm.bodyPart} />
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Series</Label>
+                          <Input type="number" placeholder="4" value={exForm.sets} onChange={(e) => setExForm({ ...exForm, sets: e.target.value })} className="bg-secondary/50 border-border" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Reps</Label>
+                          <Input type="number" placeholder={exForm.isToFailure ? "Al Fallo" : "10"} value={exForm.isToFailure ? "" : exForm.reps}
+                            onChange={(e) => setExForm({ ...exForm, reps: e.target.value })} className="bg-secondary/50 border-border" disabled={exForm.isToFailure} />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/20">
+                        <Switch checked={exForm.isToFailure} onCheckedChange={(checked) => setExForm({ ...exForm, isToFailure: checked, reps: checked ? "" : exForm.reps })} />
+                        <div>
+                          <Label className="text-sm font-medium cursor-pointer">Al Fallo</Label>
+                          <p className="text-xs text-muted-foreground">Repeticiones hasta el fallo muscular</p>
+                        </div>
+                      </div>
+                      <Button onClick={addExercise} className="w-full"><Plus className="h-4 w-4 mr-2" /> Agregar al Grupo</Button>
+                    </div>
+
+                    {/* Exercise list */}
+                    {exercises.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">Sin ejercicios asignados al grupo</p>
+                    ) : (
+                      <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                        {DAYS.map((day) => {
+                          const dayExs = exercises.filter((e) => e.day === day);
+                          if (dayExs.length === 0) return null;
+                          return (
+                            <div key={day}>
+                              <Badge variant="outline" className="mb-2 border-primary/30 text-primary text-[10px]">{day}</Badge>
+                              {dayExs.map((ex) => (
+                                <div key={ex.id} className="flex items-center gap-2 p-3 rounded-lg bg-secondary/30 mb-1">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-sm">{ex.name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {ex.body_part && <span className="text-primary">{ex.body_part} · </span>}
+                                      {ex.sets}×{ex.is_to_failure ? <span className="text-amber-400 font-semibold">Al Fallo</span> : ex.reps}
+                                    </p>
+                                  </div>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => removeExercise(ex.id)}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="lg:col-span-2">
+            <Card className="card-glass">
+              <CardContent className="p-8 text-center">
+                <Users2 className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">Selecciona un grupo para ver sus miembros y rutina</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar grupo "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminarán todos los miembros y ejercicios del grupo. Los alumnos dejarán de ver la rutina grupal.
+              <span className="block mt-2 font-semibold text-destructive">Esta acción no se puede deshacer.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={deleteGroup} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Sí, eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
