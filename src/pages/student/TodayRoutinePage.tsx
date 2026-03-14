@@ -44,16 +44,47 @@ export default function TodayRoutinePage() {
   const fetchExercises = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
+    const sb = supabase as any;
+
+    // Fetch individual exercises
+    const { data: individualData } = await supabase
       .from("exercises")
       .select("id, name, sets, reps, weight, day, completed, trainer_id, body_part, is_to_failure")
       .eq("student_id", user.id)
       .eq("day", today) as any;
-    const exercises = (data || []) as Exercise[];
-    setExercises(exercises);
+    let allExercises = (individualData || []) as Exercise[];
+
+    // Fetch group exercises: find groups this student belongs to
+    const { data: memberships } = await sb
+      .from("training_group_members")
+      .select("group_id")
+      .eq("student_id", user.id);
+
+    if (memberships && memberships.length > 0) {
+      const groupIds = memberships.map((m: any) => m.group_id);
+      const { data: groupExData } = await sb
+        .from("group_exercises")
+        .select("id, name, sets, reps, weight, day, body_part, is_to_failure, trainer_id")
+        .in("group_id", groupIds)
+        .eq("day", today);
+
+      if (groupExData && groupExData.length > 0) {
+        const groupExercises: Exercise[] = groupExData.map((ge: any) => ({
+          ...ge,
+          completed: false,
+          trainer_id: ge.trainer_id || "",
+        }));
+        // Avoid duplicates by name+day
+        const existingNames = new Set(allExercises.map((e) => `${e.name}-${e.day}`));
+        const newGroupExs = groupExercises.filter((ge) => !existingNames.has(`${ge.name}-${ge.day}`));
+        allExercises = [...allExercises, ...newGroupExs];
+      }
+    }
+
+    setExercises(allExercises);
     
     const todayDate = new Date().toISOString().split("T")[0];
-    const exerciseIds = exercises.map((e: Exercise) => e.id);
+    const exerciseIds = allExercises.map((e: Exercise) => e.id);
     if (exerciseIds.length > 0) {
       const { data: logs } = await supabase
         .from("exercise_logs")
