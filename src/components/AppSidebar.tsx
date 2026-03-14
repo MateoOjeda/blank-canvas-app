@@ -16,6 +16,7 @@ const trainerItems = [
 { title: "Rutinas", url: "/trainer/routines", icon: Dumbbell },
 { title: "Planes", url: "/trainer/plans", icon: ClipboardList },
 { title: "Seguimiento", url: "/trainer/tracking", icon: BarChart3 },
+{ title: "Grupos", url: "/trainer/groups", icon: Users2 },
 { title: "Notificaciones", url: "/trainer/notifications", icon: Bell }];
 
 
