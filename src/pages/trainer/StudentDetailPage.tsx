@@ -8,9 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Dumbbell, CheckCircle, Lock, Unlock, Apple, TrendingUp, User, Loader2, Sparkles } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import PersonalDiagnosticTab from "@/components/trainer/PersonalDiagnosticTab";
-import ExerciseHistoryTab from "@/components/trainer/ExerciseHistoryTab";
 import WeightProgressChart from "@/components/trainer/WeightProgressChart";
+import MealsTab from "@/components/trainer/MealsTab";
+import { toast } from "sonner";
 
 interface StudentProfile {
   display_name: string;
@@ -37,6 +40,12 @@ interface PlanLevel {
   unlocked: boolean;
 }
 
+interface TrainerStudent {
+  id: string;
+  plan_type: string | null;
+  payment_status?: string;
+}
+
 const PLAN_LABELS: Record<string, string> = {
   nutricion: "Nutrición", entrenamiento: "Entrenamiento",
   cambios_fisicos: "Cambios Físicos", cambios_personales: "Cambios Personales",
@@ -55,24 +64,49 @@ export default function StudentDetailPage() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [planLevels, setPlanLevels] = useState<PlanLevel[]>([]);
+  const [trainerStudent, setTrainerStudent] = useState<TrainerStudent | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("history");
+  const [activeTab, setActiveTab] = useState("weight");
+  const [paymentPaid, setPaymentPaid] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!user || !studentId) return;
     setLoading(true);
-    const [profRes, exRes, plRes] = await Promise.all([
+    const [profRes, exRes, plRes, tsRes] = await Promise.all([
       supabase.from("profiles").select("display_name, avatar_initials, avatar_url, weight, age").eq("user_id", studentId).single(),
       supabase.from("exercises").select("id, name, sets, reps, weight, day, completed").eq("trainer_id", user.id).eq("student_id", studentId),
       supabase.from("plan_levels").select("plan_type, level, content, unlocked").eq("trainer_id", user.id).eq("student_id", studentId),
+      supabase.from("trainer_students").select("id, plan_type").eq("trainer_id", user.id).eq("student_id", studentId).single(),
     ]);
     setProfile(profRes.data as StudentProfile | null);
     setExercises(exRes.data || []);
     setPlanLevels(plRes.data || []);
+    
+    if (tsRes.data) {
+      const ts = tsRes.data as any;
+      setTrainerStudent(ts);
+      setPaymentPaid(ts.payment_status === "pagado");
+    }
     setLoading(false);
   }, [user, studentId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handlePaymentToggle = async (checked: boolean) => {
+    if (!trainerStudent) return;
+    setPaymentPaid(checked);
+    const newStatus = checked ? "pagado" : "pendiente";
+    const { error } = await supabase
+      .from("trainer_students")
+      .update({ payment_status: newStatus } as any)
+      .eq("id", trainerStudent.id);
+    if (error) {
+      toast.error("No se pudo actualizar el estado de pago. Verificá que la columna 'payment_status' exista.");
+      setPaymentPaid(!checked);
+    } else {
+      toast.success(checked ? "Marcado como pagado" : "Marcado como pendiente");
+    }
+  };
 
   if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
@@ -101,7 +135,7 @@ export default function StudentDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header - horizontal layout */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/trainer/students")}><ArrowLeft className="h-5 w-5" /></Button>
         <Avatar className="h-14 w-14 border-2 border-primary/30">
@@ -110,11 +144,35 @@ export default function StudentDetailPage() {
             {profile.avatar_initials || profile.display_name.slice(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-display font-bold tracking-wide neon-text">{profile.display_name}</h1>
-          <p className="text-sm text-muted-foreground">Perfil de avance detallado</p>
+          <div className="flex items-center gap-3 flex-wrap text-sm text-muted-foreground">
+            <span>Edad: {profile.age || "—"}</span>
+            <span>·</span>
+            <span>Plan: {trainerStudent?.plan_type || "Sin plan"}</span>
+          </div>
         </div>
       </div>
+
+      {/* Payment Status */}
+      <Card className="card-glass">
+        <CardContent className="p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold">Estado de pago del mes</p>
+            <p className="text-xs text-muted-foreground">{paymentPaid ? "Pagado ✓" : "Pendiente"}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="payment-switch" className="text-xs text-muted-foreground">
+              {paymentPaid ? "Pagado" : "Pendiente"}
+            </Label>
+            <Switch
+              id="payment-switch"
+              checked={paymentPaid}
+              onCheckedChange={handlePaymentToggle}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Quick Actions */}
       <div className="flex gap-2 flex-wrap">
@@ -140,19 +198,19 @@ export default function StudentDetailPage() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="w-full grid grid-cols-5 bg-secondary/50">
-          <TabsTrigger value="history" className="text-xs">📋 Historial</TabsTrigger>
           <TabsTrigger value="weight" className="text-xs">📈 Peso</TabsTrigger>
+          <TabsTrigger value="meals" className="text-xs">🍽️ Comidas</TabsTrigger>
           <TabsTrigger value="plans" className="text-xs">Planes</TabsTrigger>
           <TabsTrigger value="routine" className="text-xs">Rutina</TabsTrigger>
           <TabsTrigger value="diagnostic" className="text-xs"><Sparkles className="h-3 w-3 mr-1" />Diag.</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="history">
-          {studentId && <ExerciseHistoryTab studentId={studentId} />}
-        </TabsContent>
-
         <TabsContent value="weight">
           {studentId && <WeightProgressChart studentId={studentId} />}
+        </TabsContent>
+
+        <TabsContent value="meals">
+          {studentId && <MealsTab studentId={studentId} />}
         </TabsContent>
 
         <TabsContent value="plans">
