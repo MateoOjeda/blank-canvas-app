@@ -31,13 +31,13 @@ export default function MealsTab({ studentId }: MealsTabProps) {
   const fetchMeals = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await (supabase as any)
       .from("student_meals")
       .select("id, title, content, meal_type, created_at")
       .eq("trainer_id", user.id)
       .eq("student_id", studentId)
       .order("created_at", { ascending: false });
-    setMeals(data || []);
+    if (!error) setMeals(data || []);
     setLoading(false);
   }, [user, studentId]);
 
@@ -46,7 +46,7 @@ export default function MealsTab({ studentId }: MealsTabProps) {
   const handleAdd = async () => {
     if (!user || !newTitle.trim()) return;
     setAdding(true);
-    const { error } = await supabase.from("student_meals").insert({
+    const { error } = await (supabase as any).from("student_meals").insert({
       trainer_id: user.id,
       student_id: studentId,
       title: newTitle.trim(),
@@ -65,7 +65,7 @@ export default function MealsTab({ studentId }: MealsTabProps) {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("student_meals").delete().eq("id", id);
+    await (supabase as any).from("student_meals").delete().eq("id", id);
     setMeals((prev) => prev.filter((m) => m.id !== id));
     toast.success("Comida eliminada");
   };
