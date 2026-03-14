@@ -13,6 +13,7 @@ import RoutinesPage from "@/pages/trainer/RoutinesPage";
 import PlansPage from "@/pages/trainer/PlansPage";
 import TrackingPage from "@/pages/trainer/TrackingPage";
 import NotificationsPage from "@/pages/trainer/NotificationsPage";
+import TrainingGroupsPage from "@/pages/trainer/TrainingGroupsPage";
 import TodayRoutinePage from "@/pages/student/TodayRoutinePage";
 import MyPlansPage from "@/pages/student/MyPlansPage";
 import ProgressPage from "@/pages/student/ProgressPage";
