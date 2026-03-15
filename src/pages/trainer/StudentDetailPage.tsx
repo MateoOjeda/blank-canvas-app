@@ -83,9 +83,9 @@ export default function StudentDetailPage() {
     setPlanLevels(plRes.data || []);
     
     if (tsRes.data) {
-      const ts = tsRes.data as any;
-      setTrainerStudent(ts);
-      setPaymentPaid(ts.payment_status === "pagado");
+      const ts = tsRes.data;
+      setTrainerStudent(ts as TrainerStudent);
+      setPaymentPaid((ts as any).payment_status === "pagado");
     }
     setLoading(false);
   }, [user, studentId]);
