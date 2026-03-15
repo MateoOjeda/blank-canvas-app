@@ -31,7 +31,7 @@ export default function MealsTab({ studentId }: MealsTabProps) {
   const fetchMeals = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("student_meals")
       .select("id, title, content, meal_type, created_at")
       .eq("trainer_id", user.id)
@@ -46,7 +46,7 @@ export default function MealsTab({ studentId }: MealsTabProps) {
   const handleAdd = async () => {
     if (!user || !newTitle.trim()) return;
     setAdding(true);
-    const { error } = await (supabase as any).from("student_meals").insert({
+    const { error } = await supabase.from("student_meals").insert({
       trainer_id: user.id,
       student_id: studentId,
       title: newTitle.trim(),
@@ -54,7 +54,7 @@ export default function MealsTab({ studentId }: MealsTabProps) {
       meal_type: "general",
     });
     if (error) {
-      toast.error("Error al guardar. Verificá que la tabla 'student_meals' exista en la base de datos.");
+      toast.error("Error al guardar comida");
     } else {
       toast.success("Comida agregada");
       setNewTitle("");
@@ -65,7 +65,7 @@ export default function MealsTab({ studentId }: MealsTabProps) {
   };
 
   const handleDelete = async (id: string) => {
-    await (supabase as any).from("student_meals").delete().eq("id", id);
+    await supabase.from("student_meals").delete().eq("id", id);
     setMeals((prev) => prev.filter((m) => m.id !== id));
     toast.success("Comida eliminada");
   };
@@ -81,26 +81,14 @@ export default function MealsTab({ studentId }: MealsTabProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Add new meal - trainer only */}
         <div className="p-4 rounded-lg bg-secondary/30 space-y-3">
           <p className="text-sm font-semibold">Agregar comida</p>
-          <Input
-            placeholder="Título (ej: Desayuno, Almuerzo...)"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-          />
-          <Textarea
-            placeholder="Detalle de la comida..."
-            value={newContent}
-            onChange={(e) => setNewContent(e.target.value)}
-            rows={3}
-          />
+          <Input placeholder="Título (ej: Desayuno, Almuerzo...)" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
+          <Textarea placeholder="Detalle de la comida..." value={newContent} onChange={(e) => setNewContent(e.target.value)} rows={3} />
           <Button size="sm" onClick={handleAdd} disabled={adding || !newTitle.trim()} className="gap-2">
             <Plus className="h-4 w-4" /> {adding ? "Guardando..." : "Agregar"}
           </Button>
         </div>
-
-        {/* Meal list */}
         {meals.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">Sin comidas asignadas</p>
         ) : (

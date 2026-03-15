@@ -76,16 +76,16 @@ export default function StudentDetailPage() {
       supabase.from("profiles").select("display_name, avatar_initials, avatar_url, weight, age").eq("user_id", studentId).single(),
       supabase.from("exercises").select("id, name, sets, reps, weight, day, completed").eq("trainer_id", user.id).eq("student_id", studentId),
       supabase.from("plan_levels").select("plan_type, level, content, unlocked").eq("trainer_id", user.id).eq("student_id", studentId),
-      supabase.from("trainer_students").select("id, plan_type").eq("trainer_id", user.id).eq("student_id", studentId).single(),
+      supabase.from("trainer_students").select("id, plan_type, payment_status").eq("trainer_id", user.id).eq("student_id", studentId).single(),
     ]);
     setProfile(profRes.data as StudentProfile | null);
     setExercises(exRes.data || []);
     setPlanLevels(plRes.data || []);
     
     if (tsRes.data) {
-      const ts = tsRes.data as any;
-      setTrainerStudent(ts);
-      setPaymentPaid(ts.payment_status === "pagado");
+      const ts = tsRes.data;
+      setTrainerStudent(ts as TrainerStudent);
+      setPaymentPaid((ts as any).payment_status === "pagado");
     }
     setLoading(false);
   }, [user, studentId]);
@@ -98,7 +98,7 @@ export default function StudentDetailPage() {
     const newStatus = checked ? "pagado" : "pendiente";
     const { error } = await supabase
       .from("trainer_students")
-      .update({ payment_status: newStatus } as any)
+      .update({ payment_status: newStatus })
       .eq("id", trainerStudent.id);
     if (error) {
       toast.error("No se pudo actualizar el estado de pago. Verificá que la columna 'payment_status' exista.");

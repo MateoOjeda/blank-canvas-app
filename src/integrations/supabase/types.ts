@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.4"
   }
   public: {
     Tables: {
@@ -71,17 +71,79 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_survey_answers: {
+        Row: {
+          answer: string | null
+          created_at: string
+          id: string
+          question_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          answer?: string | null
+          created_at?: string
+          id?: string
+          question_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          answer?: string | null
+          created_at?: string
+          id?: string
+          question_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_survey_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "custom_survey_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_survey_questions: {
+        Row: {
+          created_at: string
+          id: string
+          question_text: string
+          question_type: string | null
+          sort_order: number | null
+          trainer_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          question_text: string
+          question_type?: string | null
+          sort_order?: number | null
+          trainer_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          question_text?: string
+          question_type?: string | null
+          sort_order?: number | null
+          trainer_id?: string
+        }
+        Relationships: []
+      }
       exercise_logs: {
         Row: {
           actual_reps: number | null
           actual_sets: number | null
           actual_weight: number | null
-          completed: boolean
+          completed: boolean | null
           created_at: string
           exercise_id: string
           id: string
           log_date: string
-          notes: string
+          notes: string | null
           student_id: string
           trainer_id: string
           updated_at: string
@@ -90,12 +152,12 @@ export type Database = {
           actual_reps?: number | null
           actual_sets?: number | null
           actual_weight?: number | null
-          completed?: boolean
+          completed?: boolean | null
           created_at?: string
           exercise_id: string
           id?: string
           log_date?: string
-          notes?: string
+          notes?: string | null
           student_id: string
           trainer_id: string
           updated_at?: string
@@ -104,12 +166,12 @@ export type Database = {
           actual_reps?: number | null
           actual_sets?: number | null
           actual_weight?: number | null
-          completed?: boolean
+          completed?: boolean | null
           created_at?: string
           exercise_id?: string
           id?: string
           log_date?: string
-          notes?: string
+          notes?: string | null
           student_id?: string
           trainer_id?: string
           updated_at?: string
@@ -118,114 +180,194 @@ export type Database = {
       }
       exercises: {
         Row: {
-          body_part: string
-          completed: boolean
+          body_part: string | null
+          completed: boolean | null
           created_at: string
           day: string
           id: string
-          is_to_failure: boolean
+          is_to_failure: boolean | null
           name: string
-          reps: number
-          sets: number
+          reps: number | null
+          sets: number | null
           student_id: string
           trainer_id: string
-          weight: number
+          weight: number | null
         }
         Insert: {
-          body_part?: string
-          completed?: boolean
+          body_part?: string | null
+          completed?: boolean | null
           created_at?: string
           day: string
           id?: string
-          is_to_failure?: boolean
+          is_to_failure?: boolean | null
           name: string
-          reps?: number
-          sets?: number
+          reps?: number | null
+          sets?: number | null
           student_id: string
           trainer_id: string
-          weight?: number
+          weight?: number | null
         }
         Update: {
-          body_part?: string
-          completed?: boolean
+          body_part?: string | null
+          completed?: boolean | null
           created_at?: string
           day?: string
           id?: string
-          is_to_failure?: boolean
+          is_to_failure?: boolean | null
           name?: string
-          reps?: number
-          sets?: number
+          reps?: number | null
+          sets?: number | null
           student_id?: string
           trainer_id?: string
-          weight?: number
+          weight?: number | null
         }
         Relationships: []
+      }
+      group_exercises: {
+        Row: {
+          body_part: string | null
+          created_at: string
+          day: string
+          group_id: string
+          id: string
+          is_to_failure: boolean | null
+          name: string
+          reps: number | null
+          sets: number | null
+          trainer_id: string
+          weight: number | null
+        }
+        Insert: {
+          body_part?: string | null
+          created_at?: string
+          day: string
+          group_id: string
+          id?: string
+          is_to_failure?: boolean | null
+          name: string
+          reps?: number | null
+          sets?: number | null
+          trainer_id: string
+          weight?: number | null
+        }
+        Update: {
+          body_part?: string | null
+          created_at?: string
+          day?: string
+          group_id?: string
+          id?: string
+          is_to_failure?: boolean | null
+          name?: string
+          reps?: number | null
+          sets?: number | null
+          trainer_id?: string
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_exercises_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "training_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
           created_at: string
           id: string
-          message: string
-          read: boolean
+          message: string | null
+          read: boolean | null
           related_id: string | null
           title: string
-          type: string
+          type: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          message?: string
-          read?: boolean
+          message?: string | null
+          read?: boolean | null
           related_id?: string | null
           title: string
-          type?: string
+          type?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
-          message?: string
-          read?: boolean
+          message?: string | null
+          read?: boolean | null
           related_id?: string | null
           title?: string
-          type?: string
+          type?: string | null
           user_id?: string
         }
         Relationships: []
       }
       plan_levels: {
         Row: {
-          content: string
+          content: string | null
           created_at: string
           id: string
           level: string
           plan_type: string
           student_id: string
           trainer_id: string
-          unlocked: boolean
+          unlocked: boolean | null
           updated_at: string
         }
         Insert: {
-          content?: string
+          content?: string | null
           created_at?: string
           id?: string
           level: string
           plan_type: string
           student_id: string
           trainer_id: string
-          unlocked?: boolean
+          unlocked?: boolean | null
           updated_at?: string
         }
         Update: {
-          content?: string
+          content?: string | null
           created_at?: string
           id?: string
           level?: string
           plan_type?: string
           student_id?: string
           trainer_id?: string
-          unlocked?: boolean
+          unlocked?: boolean | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      plan_prices: {
+        Row: {
+          created_at: string
+          id: string
+          level: string
+          plan_type: string
+          price: number
+          trainer_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level: string
+          plan_type: string
+          price?: number
+          trainer_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: string
+          plan_type?: string
+          price?: number
+          trainer_id?: string
           updated_at?: string
         }
         Relationships: []
@@ -234,7 +376,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
-          enabled: boolean
+          enabled: boolean | null
           icon: string | null
           id: string
           name: string
@@ -244,7 +386,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
-          enabled?: boolean
+          enabled?: boolean | null
           icon?: string | null
           id?: string
           name: string
@@ -254,7 +396,7 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
-          enabled?: boolean
+          enabled?: boolean | null
           icon?: string | null
           id?: string
           name?: string
@@ -307,66 +449,99 @@ export type Database = {
       }
       seguimiento_personal: {
         Row: {
-          bano_levantarse: string
+          bano_levantarse: string | null
           created_at: string
-          desayuno_habito: string
-          dificultad_levantarse: string
-          entrena: boolean
-          hora_despertar: string
-          hora_dormir: string
-          hora_ideal_despertar: string
-          horario_entrenamiento: string
-          horarios_ocupados: string
+          desayuno_habito: string | null
+          dificultad_levantarse: string | null
+          entrena: boolean | null
+          hora_despertar: string | null
+          hora_dormir: string | null
+          hora_ideal_despertar: string | null
+          horario_entrenamiento: string | null
+          horarios_ocupados: string | null
           id: string
-          nuevos_habitos: string
-          obligaciones_diarias: string
-          organizacion_comidas: string
-          personas_cargo: string
+          nuevos_habitos: string | null
+          obligaciones_diarias: string | null
+          organizacion_comidas: string | null
+          personas_cargo: string | null
           student_id: string
-          tiempo_para_si: string
-          tipo_entrenamiento: string
+          tiempo_para_si: string | null
+          tipo_entrenamiento: string | null
           updated_at: string
         }
         Insert: {
-          bano_levantarse?: string
+          bano_levantarse?: string | null
           created_at?: string
-          desayuno_habito?: string
-          dificultad_levantarse?: string
-          entrena?: boolean
-          hora_despertar?: string
-          hora_dormir?: string
-          hora_ideal_despertar?: string
-          horario_entrenamiento?: string
-          horarios_ocupados?: string
+          desayuno_habito?: string | null
+          dificultad_levantarse?: string | null
+          entrena?: boolean | null
+          hora_despertar?: string | null
+          hora_dormir?: string | null
+          hora_ideal_despertar?: string | null
+          horario_entrenamiento?: string | null
+          horarios_ocupados?: string | null
           id?: string
-          nuevos_habitos?: string
-          obligaciones_diarias?: string
-          organizacion_comidas?: string
-          personas_cargo?: string
+          nuevos_habitos?: string | null
+          obligaciones_diarias?: string | null
+          organizacion_comidas?: string | null
+          personas_cargo?: string | null
           student_id: string
-          tiempo_para_si?: string
-          tipo_entrenamiento?: string
+          tiempo_para_si?: string | null
+          tipo_entrenamiento?: string | null
           updated_at?: string
         }
         Update: {
-          bano_levantarse?: string
+          bano_levantarse?: string | null
           created_at?: string
-          desayuno_habito?: string
-          dificultad_levantarse?: string
-          entrena?: boolean
-          hora_despertar?: string
-          hora_dormir?: string
-          hora_ideal_despertar?: string
-          horario_entrenamiento?: string
-          horarios_ocupados?: string
+          desayuno_habito?: string | null
+          dificultad_levantarse?: string | null
+          entrena?: boolean | null
+          hora_despertar?: string | null
+          hora_dormir?: string | null
+          hora_ideal_despertar?: string | null
+          horario_entrenamiento?: string | null
+          horarios_ocupados?: string | null
           id?: string
-          nuevos_habitos?: string
-          obligaciones_diarias?: string
-          organizacion_comidas?: string
-          personas_cargo?: string
+          nuevos_habitos?: string | null
+          obligaciones_diarias?: string | null
+          organizacion_comidas?: string | null
+          personas_cargo?: string | null
           student_id?: string
-          tiempo_para_si?: string
-          tipo_entrenamiento?: string
+          tiempo_para_si?: string | null
+          tipo_entrenamiento?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      student_meals: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          meal_type: string | null
+          student_id: string
+          title: string
+          trainer_id: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          meal_type?: string | null
+          student_id: string
+          title: string
+          trainer_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          meal_type?: string | null
+          student_id?: string
+          title?: string
+          trainer_id?: string
           updated_at?: string
         }
         Relationships: []
@@ -375,7 +550,7 @@ export type Database = {
         Row: {
           change_type: string
           created_at: string
-          description: string
+          description: string | null
           entity_id: string | null
           id: string
           student_id: string
@@ -384,7 +559,7 @@ export type Database = {
         Insert: {
           change_type: string
           created_at?: string
-          description?: string
+          description?: string | null
           entity_id?: string | null
           id?: string
           student_id: string
@@ -393,7 +568,7 @@ export type Database = {
         Update: {
           change_type?: string
           created_at?: string
-          description?: string
+          description?: string | null
           entity_id?: string | null
           id?: string
           student_id?: string
@@ -405,6 +580,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          payment_status: string | null
           plan_type: string | null
           student_id: string
           trainer_id: string
@@ -412,6 +588,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          payment_status?: string | null
           plan_type?: string | null
           student_id: string
           trainer_id: string
@@ -419,8 +596,56 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          payment_status?: string | null
           plan_type?: string | null
           student_id?: string
+          trainer_id?: string
+        }
+        Relationships: []
+      }
+      training_group_members: {
+        Row: {
+          group_id: string
+          id: string
+          student_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          student_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "training_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_groups: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          trainer_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          trainer_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
           trainer_id?: string
         }
         Relationships: []

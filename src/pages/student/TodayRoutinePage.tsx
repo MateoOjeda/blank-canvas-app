@@ -44,14 +44,14 @@ export default function TodayRoutinePage() {
   const fetchExercises = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const sb = supabase as any;
+    const sb = supabase;
 
     // Fetch individual exercises
     const { data: individualData } = await supabase
       .from("exercises")
       .select("id, name, sets, reps, weight, day, completed, trainer_id, body_part, is_to_failure")
       .eq("student_id", user.id)
-      .eq("day", today) as any;
+      .eq("day", today);
     let allExercises = (individualData || []) as Exercise[];
 
     // Fetch group exercises: find groups this student belongs to
