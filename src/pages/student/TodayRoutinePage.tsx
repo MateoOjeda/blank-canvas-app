@@ -51,7 +51,7 @@ export default function TodayRoutinePage() {
       .from("exercises")
       .select("id, name, sets, reps, weight, day, completed, trainer_id, body_part, is_to_failure")
       .eq("student_id", user.id)
-      .eq("day", today) as any;
+      .eq("day", today);
     let allExercises = (individualData || []) as Exercise[];
 
     // Fetch group exercises: find groups this student belongs to
