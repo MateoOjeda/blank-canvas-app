@@ -98,7 +98,7 @@ export default function StudentDetailPage() {
     const newStatus = checked ? "pagado" : "pendiente";
     const { error } = await supabase
       .from("trainer_students")
-      .update({ payment_status: newStatus } as any)
+      .update({ payment_status: newStatus })
       .eq("id", trainerStudent.id);
     if (error) {
       toast.error("No se pudo actualizar el estado de pago. Verificá que la columna 'payment_status' exista.");
