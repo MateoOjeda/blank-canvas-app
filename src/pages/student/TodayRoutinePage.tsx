@@ -44,7 +44,7 @@ export default function TodayRoutinePage() {
   const fetchExercises = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const sb = supabase as any;
+    const sb = supabase;
 
     // Fetch individual exercises
     const { data: individualData } = await supabase
