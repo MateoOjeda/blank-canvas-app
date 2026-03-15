@@ -76,7 +76,7 @@ export default function StudentDetailPage() {
       supabase.from("profiles").select("display_name, avatar_initials, avatar_url, weight, age").eq("user_id", studentId).single(),
       supabase.from("exercises").select("id, name, sets, reps, weight, day, completed").eq("trainer_id", user.id).eq("student_id", studentId),
       supabase.from("plan_levels").select("plan_type, level, content, unlocked").eq("trainer_id", user.id).eq("student_id", studentId),
-      supabase.from("trainer_students").select("id, plan_type").eq("trainer_id", user.id).eq("student_id", studentId).single(),
+      supabase.from("trainer_students").select("id, plan_type, payment_status").eq("trainer_id", user.id).eq("student_id", studentId).single(),
     ]);
     setProfile(profRes.data as StudentProfile | null);
     setExercises(exRes.data || []);

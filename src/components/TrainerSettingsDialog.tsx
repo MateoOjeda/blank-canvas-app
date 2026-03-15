@@ -24,8 +24,8 @@ export default function TrainerSettingsDialog() {
       .single()
       .then(({ data }) => {
         if (data) {
-          setMercadopagoAlias((data as any).mercadopago_alias || "");
-          setWhatsappNumber((data as any).whatsapp_number || "");
+          setMercadopagoAlias(data.mercadopago_alias || "");
+          setWhatsappNumber(data.whatsapp_number || "");
         }
       });
   }, [user, open]);
@@ -35,49 +35,29 @@ export default function TrainerSettingsDialog() {
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .update({
-        mercadopago_alias: mercadopagoAlias.trim(),
-        whatsapp_number: whatsappNumber.trim(),
-      } as any)
+      .update({ mercadopago_alias: mercadopagoAlias.trim(), whatsapp_number: whatsappNumber.trim() })
       .eq("user_id", user.id);
     setSaving(false);
     if (error) toast.error("Error al guardar");
-    else {
-      toast.success("Configuración guardada");
-      setOpen(false);
-    }
+    else { toast.success("Configuración guardada"); setOpen(false); }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" title="Configuración">
-          <Settings className="h-4 w-4" />
-        </Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" title="Configuración"><Settings className="h-4 w-4" /></Button>
       </DialogTrigger>
       <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Configuración de Cobro</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle>Configuración de Cobro</DialogTitle></DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-2">
             <Label className="text-sm">Alias de Mercado Pago</Label>
-            <Input
-              placeholder="ej: mi.alias.mp"
-              value={mercadopagoAlias}
-              onChange={(e) => setMercadopagoAlias(e.target.value)}
-              maxLength={100}
-            />
+            <Input placeholder="ej: mi.alias.mp" value={mercadopagoAlias} onChange={(e) => setMercadopagoAlias(e.target.value)} maxLength={100} />
             <p className="text-[11px] text-muted-foreground">Tus alumnos podrán copiar este alias para realizarte pagos.</p>
           </div>
           <div className="space-y-2">
             <Label className="text-sm">Número de WhatsApp</Label>
-            <Input
-              placeholder="ej: 5491112345678"
-              value={whatsappNumber}
-              onChange={(e) => setWhatsappNumber(e.target.value)}
-              maxLength={20}
-            />
+            <Input placeholder="ej: 5491112345678" value={whatsappNumber} onChange={(e) => setWhatsappNumber(e.target.value)} maxLength={20} />
             <p className="text-[11px] text-muted-foreground">Con código de país, sin + ni espacios. Se usará para el botón de comprobante.</p>
           </div>
           <Button onClick={handleSave} disabled={saving} className="w-full gap-2">
