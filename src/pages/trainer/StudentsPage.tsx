@@ -6,7 +6,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
@@ -20,7 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Search, UserPlus, X, Loader2, Trash2, Dumbbell, Apple, Eye, Pencil } from "lucide-react";
+import { Users, Loader2, Trash2, Dumbbell, Apple, Eye, Pencil, Plus, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 
 interface LinkedStudent {
@@ -38,10 +37,11 @@ interface LinkedStudent {
   paymentStatus: string;
 }
 
-interface SearchResult {
+interface AvailableStudent {
   user_id: string;
   display_name: string;
   avatar_initials: string | null;
+  avatar_url: string | null;
 }
 
 const PLAN_TYPE_OPTIONS = ["Estándar", "Personalizado", "Premium", "Grupal"];
@@ -50,12 +50,11 @@ export default function StudentsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [linkedStudents, setLinkedStudents] = useState<LinkedStudent[]>([]);
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searching, setSearching] = useState(false);
+  const [availableStudents, setAvailableStudents] = useState<AvailableStudent[]>([]);
   const [linking, setLinking] = useState<string | null>(null);
+  const [unlinking, setUnlinking] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showSearch, setShowSearch] = useState(false);
+  const [loadingAvailable, setLoadingAvailable] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<LinkedStudent | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -108,23 +107,36 @@ export default function StudentsPage() {
     setLoading(false);
   }, [user]);
 
-  useEffect(() => {
-    fetchLinkedStudents();
-  }, [fetchLinkedStudents]);
+  const fetchAvailableStudents = useCallback(async () => {
+    if (!user) return;
+    setLoadingAvailable(true);
 
-  const handleSearch = async () => {
-    if (!user || searchQuery.trim().length < 2) return;
-    setSearching(true);
     const { data: links } = await supabase.from("trainer_students").select("student_id").eq("trainer_id", user.id);
     const linkedIds = (links || []).map((l) => l.student_id);
     const excludeIds = [...linkedIds, user.id];
+
     const { data: studentRoles } = await supabase.from("user_roles").select("user_id").eq("role", "student");
     const studentUserIds = (studentRoles || []).map((r) => r.user_id).filter((id) => !excludeIds.includes(id));
-    if (studentUserIds.length === 0) { setSearchResults([]); setSearching(false); return; }
-    const { data: profiles } = await supabase.from("profiles").select("user_id, display_name, avatar_initials").in("user_id", studentUserIds).ilike("display_name", `%${searchQuery.trim()}%`);
-    setSearchResults(profiles || []);
-    setSearching(false);
-  };
+
+    if (studentUserIds.length === 0) {
+      setAvailableStudents([]);
+      setLoadingAvailable(false);
+      return;
+    }
+
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, display_name, avatar_initials, avatar_url")
+      .in("user_id", studentUserIds);
+
+    setAvailableStudents(profiles || []);
+    setLoadingAvailable(false);
+  }, [user]);
+
+  useEffect(() => {
+    fetchLinkedStudents();
+    fetchAvailableStudents();
+  }, [fetchLinkedStudents, fetchAvailableStudents]);
 
   const linkStudent = async (studentId: string) => {
     if (!user) return;
@@ -133,10 +145,22 @@ export default function StudentsPage() {
     if (error) toast.error("Error al vincular alumno");
     else {
       toast.success("Alumno vinculado correctamente");
-      setSearchResults((prev) => prev.filter((s) => s.user_id !== studentId));
-      fetchLinkedStudents();
+      await Promise.all([fetchLinkedStudents(), fetchAvailableStudents()]);
     }
     setLinking(null);
+  };
+
+  const unlinkStudent = async (student: LinkedStudent) => {
+    if (!user) return;
+    setUnlinking(student.user_id);
+    const { error } = await supabase.from("trainer_students").delete().eq("trainer_id", user.id).eq("student_id", student.user_id);
+    if (error) toast.error("Error al remover alumno");
+    else {
+      toast.success("Alumno removido correctamente");
+      if (selectedStudentId === student.user_id) setSelectedStudentId(null);
+      await Promise.all([fetchLinkedStudents(), fetchAvailableStudents()]);
+    }
+    setUnlinking(null);
   };
 
   const updatePlanType = async (linkId: string, planType: string) => {
@@ -176,7 +200,7 @@ export default function StudentsPage() {
     else {
       toast.success("Alumno eliminado permanentemente");
       if (selectedStudentId === sid) setSelectedStudentId(null);
-      fetchLinkedStudents();
+      await Promise.all([fetchLinkedStudents(), fetchAvailableStudents()]);
     }
     setDeleting(false);
     setDeleteTarget(null);
@@ -187,105 +211,120 @@ export default function StudentsPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Panel del Entrenador</h1>
-          <p className="text-muted-foreground text-sm mt-1">Gestiona y supervisa a tus alumnos</p>
-        </div>
-        <Button onClick={() => setShowSearch(!showSearch)} variant={showSearch ? "secondary" : "default"} size="sm" className="gap-2">
-          {showSearch ? <X className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
-          {showSearch ? "Cerrar" : "Agregar alumno"}
-        </Button>
+      <div>
+        <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Panel del Entrenador</h1>
+        <p className="text-muted-foreground text-sm mt-1">Gestiona y supervisa a tus alumnos</p>
       </div>
-
-      {/* Search */}
-      {showSearch && (
-        <Card className="card-glass border-primary/20">
-          <CardContent className="p-4 space-y-4">
-            <h2 className="font-semibold text-sm text-primary">Buscar alumno registrado</h2>
-            <div className="flex gap-2">
-              <Input placeholder="Nombre del alumno..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSearch()} className="flex-1" />
-              <Button onClick={handleSearch} disabled={searching || searchQuery.trim().length < 2} size="sm">
-                {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              </Button>
-            </div>
-            {searchResults.length > 0 && (
-              <div className="space-y-2">
-                {searchResults.map((s) => (
-                  <div key={s.user_id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9 border border-primary/20">
-                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                          {s.avatar_initials || s.display_name.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm font-medium">{s.display_name}</span>
-                    </div>
-                    <Button size="sm" variant="outline" className="gap-1 border-primary/30 text-primary hover:bg-primary/10" disabled={linking === s.user_id} onClick={() => linkStudent(s.user_id)}>
-                      {linking === s.user_id ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserPlus className="h-3 w-3" />}
-                      Vincular
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {searchResults.length === 0 && !searching && searchQuery.length >= 2 && (
-              <p className="text-xs text-muted-foreground text-center py-2">No se encontraron alumnos con ese nombre</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4 min-h-[60vh]">
-        {/* LEFT COLUMN – Student List */}
-        <Card className="card-glass overflow-hidden">
-          <CardHeader className="p-4 pb-2">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-primary" />
-              <CardTitle className="text-sm">Alumnos ({linkedStudents.length})</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="p-2 overflow-y-auto max-h-[65vh]">
-            {loading ? (
-              <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-            ) : linkedStudents.length === 0 ? (
-              <div className="text-center py-8">
-                <Users className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-xs text-muted-foreground">Sin alumnos vinculados</p>
+        {/* LEFT COLUMN – Student Lists */}
+        <div className="space-y-4">
+          {/* Linked students card (orange accent) */}
+          <Card className="card-glass overflow-hidden border-accent/30">
+            <CardHeader className="p-4 pb-2 bg-accent/10">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-accent" />
+                <CardTitle className="text-sm text-accent">Alumnos vinculados ({linkedStudents.length})</CardTitle>
               </div>
-            ) : (
-              <div className="space-y-1">
-                {linkedStudents.map((student) => (
-                  <button
-                    key={student.user_id}
-                    onClick={() => setSelectedStudentId(student.user_id)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all duration-200 ${
-                      selectedStudentId === student.user_id
-                        ? "bg-primary/10 border border-primary/30"
-                        : "hover:bg-muted/50 border border-transparent"
-                    }`}
-                  >
-                    <Avatar className="h-10 w-10 border border-primary/20 flex-shrink-0">
-                      <AvatarImage src={student.avatar_url || undefined} />
-                      <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
-                        {student.avatar_initials || student.display_name.slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{student.display_name}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${student.paymentStatus === "pagado" ? "border-green-400/50 text-green-600" : "border-orange-400/50 text-orange-600"}`}>
-                          {student.paymentStatus === "pagado" ? "Pagado" : "Pendiente"}
-                        </Badge>
-                      </div>
+            </CardHeader>
+            <CardContent className="p-2 overflow-y-auto max-h-[35vh]">
+              {loading ? (
+                <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-accent" /></div>
+              ) : linkedStudents.length === 0 ? (
+                <div className="text-center py-6">
+                  <Users className="h-7 w-7 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-xs text-muted-foreground">Sin alumnos vinculados</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {linkedStudents.map((student) => (
+                    <div
+                      key={student.user_id}
+                      className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ${
+                        selectedStudentId === student.user_id
+                          ? "bg-accent/10 border border-accent/30"
+                          : "hover:bg-muted/50 border border-transparent"
+                      }`}
+                    >
+                      <button
+                        onClick={() => setSelectedStudentId(student.user_id)}
+                        className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                      >
+                        <Avatar className="h-9 w-9 border border-accent/20 flex-shrink-0">
+                          <AvatarImage src={student.avatar_url || undefined} />
+                          <AvatarFallback className="bg-accent/10 text-accent font-bold text-xs">
+                            {student.avatar_initials || student.display_name.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{student.display_name}</p>
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-green-400/50 text-green-600 mt-0.5">
+                            ● Activo
+                          </Badge>
+                        </div>
+                      </button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
+                        onClick={() => unlinkStudent(student)}
+                        disabled={unlinking === student.user_id}
+                        title="Remover alumno"
+                      >
+                        {unlinking === student.user_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserMinus className="h-3.5 w-3.5" />}
+                      </Button>
                     </div>
-                  </button>
-                ))}
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Available students card (blue accent) */}
+          <Card className="card-glass overflow-hidden border-blue-400/30">
+            <CardHeader className="p-4 pb-2 bg-blue-500/10">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-blue-500" />
+                <CardTitle className="text-sm text-blue-500">Alumnos disponibles ({availableStudents.length})</CardTitle>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="p-2 overflow-y-auto max-h-[30vh]">
+              {loadingAvailable ? (
+                <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-blue-500" /></div>
+              ) : availableStudents.length === 0 ? (
+                <div className="text-center py-6">
+                  <Users className="h-7 w-7 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-xs text-muted-foreground">No hay alumnos disponibles</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {availableStudents.map((student) => (
+                    <div key={student.user_id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 border border-transparent">
+                      <Avatar className="h-9 w-9 border border-blue-400/20 flex-shrink-0">
+                        <AvatarImage src={student.avatar_url || undefined} />
+                        <AvatarFallback className="bg-blue-500/10 text-blue-500 font-bold text-xs">
+                          {student.avatar_initials || student.display_name.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <p className="text-sm font-medium truncate flex-1 min-w-0">{student.display_name}</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1 border-blue-400/30 text-blue-500 hover:bg-blue-500/10 flex-shrink-0 h-8 px-3"
+                        disabled={linking === student.user_id}
+                        onClick={() => linkStudent(student.user_id)}
+                      >
+                        {linking === student.user_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                        Agregar
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* RIGHT COLUMN – Student Detail */}
         <Card className="card-glass overflow-hidden">
@@ -298,9 +337,9 @@ export default function StudentsPage() {
             <CardContent className="p-6 space-y-6 overflow-y-auto max-h-[75vh]">
               {/* Profile header */}
               <div className="flex items-center gap-4">
-                <Avatar className="h-20 w-20 border-2 border-primary/30">
+                <Avatar className="h-20 w-20 border-2 border-accent/30">
                   <AvatarImage src={selectedStudent.avatar_url || undefined} />
-                  <AvatarFallback className="bg-primary/10 text-primary font-bold text-2xl">
+                  <AvatarFallback className="bg-accent/10 text-accent font-bold text-2xl">
                     {selectedStudent.avatar_initials || selectedStudent.display_name.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
@@ -346,24 +385,15 @@ export default function StudentsPage() {
               {/* Rutina section */}
               <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
                 <div className="flex items-center gap-2">
-                  <Dumbbell className="h-5 w-5 text-primary" />
+                  <Dumbbell className="h-5 w-5 text-accent" />
                   <h3 className="font-semibold text-sm">Rutina de entrenamiento</h3>
                 </div>
                 <p className="text-xs text-muted-foreground">Días restantes para editar la rutina: <span className="font-bold text-foreground">7</span></p>
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 flex-1"
-                    onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}
-                  >
+                  <Button variant="outline" size="sm" className="gap-1.5 flex-1" onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}>
                     <Eye className="h-3.5 w-3.5" /> Ver rutina
                   </Button>
-                  <Button
-                    size="sm"
-                    className="gap-1.5 flex-1"
-                    onClick={() => navigate(`/trainer/routines/${selectedStudent.user_id}`)}
-                  >
+                  <Button size="sm" className="gap-1.5 flex-1" onClick={() => navigate(`/trainer/routines/${selectedStudent.user_id}`)}>
                     <Pencil className="h-3.5 w-3.5" /> Editar rutina
                   </Button>
                 </div>
@@ -372,24 +402,15 @@ export default function StudentsPage() {
               {/* Alimentación section */}
               <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
                 <div className="flex items-center gap-2">
-                  <Apple className="h-5 w-5 text-primary" />
+                  <Apple className="h-5 w-5 text-accent" />
                   <h3 className="font-semibold text-sm">Alimentación</h3>
                 </div>
                 <p className="text-xs text-muted-foreground">Días restantes para cambiar el plan de alimentación: <span className="font-bold text-foreground">5</span></p>
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 flex-1"
-                    onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}
-                  >
+                  <Button variant="outline" size="sm" className="gap-1.5 flex-1" onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}>
                     <Eye className="h-3.5 w-3.5" /> Ver comidas
                   </Button>
-                  <Button
-                    size="sm"
-                    className="gap-1.5 flex-1"
-                    onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}
-                  >
+                  <Button size="sm" className="gap-1.5 flex-1" onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}>
                     <Pencil className="h-3.5 w-3.5" /> Editar comidas
                   </Button>
                 </div>
@@ -398,7 +419,7 @@ export default function StudentsPage() {
               {/* Stats */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="p-3 rounded-xl bg-secondary/30 text-center">
-                  <p className="text-2xl font-bold text-primary">{selectedStudent.unlockedCount}/12</p>
+                  <p className="text-2xl font-bold text-accent">{selectedStudent.unlockedCount}/12</p>
                   <p className="text-[10px] text-muted-foreground">Niveles</p>
                 </div>
                 <div className="p-3 rounded-xl bg-secondary/30 text-center">
