@@ -4,9 +4,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Search, UserPlus, X, Loader2, ChevronRight, Trash2 } from "lucide-react";
+import { Users, Search, UserPlus, X, Loader2, Trash2, Dumbbell, Apple, Eye, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 interface LinkedStudent {
@@ -33,6 +35,7 @@ interface LinkedStudent {
   unlockedCount: number;
   planType: string;
   linkId: string;
+  paymentStatus: string;
 }
 
 interface SearchResult {
@@ -55,12 +58,13 @@ export default function StudentsPage() {
   const [showSearch, setShowSearch] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<LinkedStudent | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
   const fetchLinkedStudents = useCallback(async () => {
     if (!user) return;
     const { data: links } = await supabase
       .from("trainer_students")
-      .select("id, student_id, created_at, plan_type")
+      .select("id, student_id, created_at, plan_type, payment_status")
       .eq("trainer_id", user.id);
 
     if (!links || links.length === 0) {
@@ -96,6 +100,7 @@ export default function StudentsPage() {
         unlockedCount: levels.filter((l) => l.student_id === p.user_id && l.unlocked).length,
         planType: (link as any)?.plan_type || "Estándar",
         linkId: link?.id || "",
+        paymentStatus: (link as any)?.payment_status || "pendiente",
       };
     });
 
@@ -143,6 +148,19 @@ export default function StudentsPage() {
     }
   };
 
+  const handlePaymentToggle = async (student: LinkedStudent, checked: boolean) => {
+    const newStatus = checked ? "pagado" : "pendiente";
+    setLinkedStudents((prev) => prev.map((s) => s.user_id === student.user_id ? { ...s, paymentStatus: newStatus } : s));
+    const { error } = await supabase
+      .from("trainer_students")
+      .update({ payment_status: newStatus })
+      .eq("id", student.linkId);
+    if (error) {
+      toast.error("Error al actualizar pago");
+      setLinkedStudents((prev) => prev.map((s) => s.user_id === student.user_id ? { ...s, paymentStatus: checked ? "pendiente" : "pagado" } : s));
+    }
+  };
+
   const confirmDeleteStudent = async () => {
     if (!user || !deleteTarget) return;
     setDeleting(true);
@@ -157,17 +175,21 @@ export default function StudentsPage() {
     if (error) toast.error("Error al eliminar alumno");
     else {
       toast.success("Alumno eliminado permanentemente");
+      if (selectedStudentId === sid) setSelectedStudentId(null);
       fetchLinkedStudents();
     }
     setDeleting(false);
     setDeleteTarget(null);
   };
 
+  const selectedStudent = linkedStudents.find((s) => s.user_id === selectedStudentId) || null;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Mis Alumnos</h1>
+          <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Panel del Entrenador</h1>
           <p className="text-muted-foreground text-sm mt-1">Gestiona y supervisa a tus alumnos</p>
         </div>
         <Button onClick={() => setShowSearch(!showSearch)} variant={showSearch ? "secondary" : "default"} size="sm" className="gap-2">
@@ -175,18 +197,6 @@ export default function StudentsPage() {
           {showSearch ? "Cerrar" : "Agregar alumno"}
         </Button>
       </div>
-
-      <Card className="card-glass">
-        <CardContent className="p-4 flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Users className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold">{linkedStudents.length}</p>
-            <p className="text-xs text-muted-foreground">Alumnos vinculados</p>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Search */}
       {showSearch && (
@@ -226,77 +236,183 @@ export default function StudentsPage() {
         </Card>
       )}
 
-      {/* Student List */}
-      <div className="space-y-3">
-        {loading ? (
-          <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-        ) : linkedStudents.length === 0 ? (
-          <Card className="card-glass">
-            <CardContent className="p-8 text-center">
-              <Users className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">Aún no tienes alumnos vinculados.</p>
+      {/* Two-column layout */}
+      <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4 min-h-[60vh]">
+        {/* LEFT COLUMN – Student List */}
+        <Card className="card-glass overflow-hidden">
+          <CardHeader className="p-4 pb-2">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-primary" />
+              <CardTitle className="text-sm">Alumnos ({linkedStudents.length})</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-2 overflow-y-auto max-h-[65vh]">
+            {loading ? (
+              <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+            ) : linkedStudents.length === 0 ? (
+              <div className="text-center py-8">
+                <Users className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-xs text-muted-foreground">Sin alumnos vinculados</p>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {linkedStudents.map((student) => (
+                  <button
+                    key={student.user_id}
+                    onClick={() => setSelectedStudentId(student.user_id)}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all duration-200 ${
+                      selectedStudentId === student.user_id
+                        ? "bg-primary/10 border border-primary/30"
+                        : "hover:bg-muted/50 border border-transparent"
+                    }`}
+                  >
+                    <Avatar className="h-10 w-10 border border-primary/20 flex-shrink-0">
+                      <AvatarImage src={student.avatar_url || undefined} />
+                      <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
+                        {student.avatar_initials || student.display_name.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{student.display_name}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${student.paymentStatus === "pagado" ? "border-green-400/50 text-green-600" : "border-orange-400/50 text-orange-600"}`}>
+                          {student.paymentStatus === "pagado" ? "Pagado" : "Pendiente"}
+                        </Badge>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* RIGHT COLUMN – Student Detail */}
+        <Card className="card-glass overflow-hidden">
+          {!selectedStudent ? (
+            <CardContent className="flex flex-col items-center justify-center h-full min-h-[400px] text-center p-8">
+              <Users className="h-12 w-12 text-muted-foreground/40 mb-3" />
+              <p className="text-muted-foreground text-sm">Seleccioná un alumno de la lista para ver su información</p>
             </CardContent>
-          </Card>
-        ) : (
-          linkedStudents.map((student) => (
-            <Card
-              key={student.user_id}
-              className="card-glass hover:neon-border transition-all duration-300 cursor-pointer"
-              onClick={() => navigate(`/trainer/students/${student.user_id}`)}
-            >
-              <CardContent className="p-4 flex items-center gap-4">
-                <Avatar className="h-12 w-12 border-2 border-primary/30">
-                  <AvatarImage src={student.avatar_url || undefined} />
-                  <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                    {student.avatar_initials || student.display_name.slice(0, 2).toUpperCase()}
+          ) : (
+            <CardContent className="p-6 space-y-6 overflow-y-auto max-h-[75vh]">
+              {/* Profile header */}
+              <div className="flex items-center gap-4">
+                <Avatar className="h-20 w-20 border-2 border-primary/30">
+                  <AvatarImage src={selectedStudent.avatar_url || undefined} />
+                  <AvatarFallback className="bg-primary/10 text-primary font-bold text-2xl">
+                    {selectedStudent.avatar_initials || selectedStudent.display_name.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold truncate">{student.display_name}</h3>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <Badge variant="outline" className="text-[10px] border-accent/40 text-accent">
-                      {student.planType}
+                <div className="flex-1">
+                  <h2 className="text-xl font-display font-bold neon-text">{selectedStudent.display_name}</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">Edad: {selectedStudent.age || "—"}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Badge variant="outline" className={`text-xs ${selectedStudent.paymentStatus === "pagado" ? "border-green-400/50 text-green-600" : "border-orange-400/50 text-orange-600"}`}>
+                      {selectedStudent.paymentStatus === "pagado" ? "✓ Pagado" : "⏳ No pagado"}
                     </Badge>
-                    <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
-                      {student.highestLevel}
-                    </Badge>
-                    <span className="text-[10px] text-muted-foreground">{student.unlockedCount}/12</span>
+                    <Switch
+                      checked={selectedStudent.paymentStatus === "pagado"}
+                      onCheckedChange={(c) => handlePaymentToggle(selectedStudent, c)}
+                    />
                   </div>
                 </div>
-                <div className="hidden sm:flex items-center gap-2">
-                  <Select
-                    value={student.planType}
-                    onValueChange={(v) => { updatePlanType(student.linkId, v); }}
-                  >
-                    <SelectTrigger
-                      className="h-7 text-[10px] w-28 bg-secondary/50"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PLAN_TYPE_OPTIONS.map((opt) => (
-                        <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive self-start"
+                  onClick={() => setDeleteTarget(selectedStudent)}
+                  title="Eliminar alumno"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Plan type selector */}
+              <div className="flex items-center gap-3">
+                <Label className="text-sm text-muted-foreground whitespace-nowrap">Tipo de plan:</Label>
+                <Select value={selectedStudent.planType} onValueChange={(v) => updatePlanType(selectedStudent.linkId, v)}>
+                  <SelectTrigger className="h-8 text-xs w-40 bg-secondary/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PLAN_TYPE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Rutina section */}
+              <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
+                <div className="flex items-center gap-2">
+                  <Dumbbell className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold text-sm">Rutina de entrenamiento</h3>
                 </div>
-                <div className="flex items-center gap-1">
+                <p className="text-xs text-muted-foreground">Días restantes para editar la rutina: <span className="font-bold text-foreground">7</span></p>
+                <div className="flex gap-2">
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(student); }}
-                    title="Eliminar alumno"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 flex-1"
+                    onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Eye className="h-3.5 w-3.5" /> Ver rutina
                   </Button>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <Button
+                    size="sm"
+                    className="gap-1.5 flex-1"
+                    onClick={() => navigate(`/trainer/routines/${selectedStudent.user_id}`)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Editar rutina
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
+              </div>
+
+              {/* Alimentación section */}
+              <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
+                <div className="flex items-center gap-2">
+                  <Apple className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold text-sm">Alimentación</h3>
+                </div>
+                <p className="text-xs text-muted-foreground">Días restantes para cambiar el plan de alimentación: <span className="font-bold text-foreground">5</span></p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 flex-1"
+                    onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}
+                  >
+                    <Eye className="h-3.5 w-3.5" /> Ver comidas
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="gap-1.5 flex-1"
+                    onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Editar comidas
+                  </Button>
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 rounded-xl bg-secondary/30 text-center">
+                  <p className="text-2xl font-bold text-primary">{selectedStudent.unlockedCount}/12</p>
+                  <p className="text-[10px] text-muted-foreground">Niveles</p>
+                </div>
+                <div className="p-3 rounded-xl bg-secondary/30 text-center">
+                  <p className="text-2xl font-bold">{selectedStudent.age || "—"}</p>
+                  <p className="text-[10px] text-muted-foreground">Edad</p>
+                </div>
+                <div className="p-3 rounded-xl bg-secondary/30 text-center">
+                  <p className="text-2xl font-bold">{selectedStudent.weight ? `${selectedStudent.weight}kg` : "—"}</p>
+                  <p className="text-[10px] text-muted-foreground">Peso</p>
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
       </div>
 
       {/* Delete confirmation */}
