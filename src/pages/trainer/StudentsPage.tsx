@@ -176,13 +176,12 @@ export default function StudentsPage() {
     setUnlinking(null);
   };
 
-  const updatePlanType = async (linkId: string, planType: string) => {
-    const { error } = await supabase.from("trainer_students").update({ plan_type: planType } as any).eq("id", linkId);
-    if (error) toast.error("Error al actualizar tipo de plan");
-    else {
-      setLinkedStudents((prev) => prev.map((s) => s.linkId === linkId ? { ...s, planType } : s));
-      toast.success("Tipo de plan actualizado");
-    }
+  const updatePlanLevel = async (linkId: string, field: "plan_entrenamiento" | "plan_alimentacion", value: string) => {
+    const stateKey = field === "plan_entrenamiento" ? "planEntrenamiento" : "planAlimentacion";
+    setLinkedStudents((prev) => prev.map((s) => s.linkId === linkId ? { ...s, [stateKey]: value } : s));
+    const { error } = await supabase.from("trainer_students").update({ [field]: value } as any).eq("id", linkId);
+    if (error) toast.error("Error al actualizar plan");
+    else toast.success("Plan actualizado");
   };
 
   const handlePaymentToggle = async (student: LinkedStudent, checked: boolean) => {
