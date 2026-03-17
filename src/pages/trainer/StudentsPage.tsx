@@ -33,6 +33,8 @@ interface LinkedStudent {
   highestLevel: string;
   unlockedCount: number;
   planType: string;
+  planEntrenamiento: string;
+  planAlimentacion: string;
   linkId: string;
   paymentStatus: string;
 }
