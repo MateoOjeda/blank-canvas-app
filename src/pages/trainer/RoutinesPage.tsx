@@ -312,14 +312,40 @@ export default function RoutinesPage() {
                 />
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
-              <Switch
-                checked={form.isToFailure}
-                onCheckedChange={(checked) => setForm({ ...form, isToFailure: checked, reps: checked ? "" : form.reps })}
-              />
-              <div>
-                <Label className="text-sm font-medium cursor-pointer">Al Fallo</Label>
-                <p className="text-xs text-muted-foreground">El alumno hará repeticiones hasta el fallo muscular</p>
+            <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Tipo de serie</Label>
+              
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={form.isToFailure}
+                  onCheckedChange={(checked) => setForm({ ...form, isToFailure: checked, reps: checked ? "" : form.reps })}
+                />
+                <div>
+                  <Label className="text-sm font-medium cursor-pointer">Al Fallo</Label>
+                  <p className="text-xs text-muted-foreground">El alumno hará repeticiones hasta el fallo muscular</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={form.isDropset}
+                  onCheckedChange={(checked) => setForm({ ...form, isDropset: checked })}
+                />
+                <div>
+                  <Label className="text-sm font-medium cursor-pointer">Drop Set</Label>
+                  <p className="text-xs text-muted-foreground">Reducir peso después de la serie y continuar</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={form.isPiramide}
+                  onCheckedChange={(checked) => setForm({ ...form, isPiramide: checked })}
+                />
+                <div>
+                  <Label className="text-sm font-medium cursor-pointer">Pirámide</Label>
+                  <p className="text-xs text-muted-foreground">Aumentar peso y bajar repeticiones progresivamente</p>
+                </div>
               </div>
             </div>
             <Button onClick={handleAdd} className="w-full">
