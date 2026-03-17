@@ -581,6 +581,8 @@ export type Database = {
           created_at: string
           id: string
           payment_status: string | null
+          plan_alimentacion: string | null
+          plan_entrenamiento: string | null
           plan_type: string | null
           student_id: string
           trainer_id: string
@@ -589,6 +591,8 @@ export type Database = {
           created_at?: string
           id?: string
           payment_status?: string | null
+          plan_alimentacion?: string | null
+          plan_entrenamiento?: string | null
           plan_type?: string | null
           student_id: string
           trainer_id: string
@@ -597,6 +601,8 @@ export type Database = {
           created_at?: string
           id?: string
           payment_status?: string | null
+          plan_alimentacion?: string | null
+          plan_entrenamiento?: string | null
           plan_type?: string | null
           student_id?: string
           trainer_id?: string
