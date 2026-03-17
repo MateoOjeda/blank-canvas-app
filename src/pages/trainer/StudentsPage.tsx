@@ -74,7 +74,7 @@ export default function StudentsPage() {
     if (!user) return;
     const { data: links } = await supabase
       .from("trainer_students")
-      .select("id, student_id, created_at, plan_type, payment_status")
+      .select("id, student_id, created_at, plan_type, payment_status, plan_entrenamiento, plan_alimentacion")
       .eq("trainer_id", user.id);
 
     if (!links || links.length === 0) {
