@@ -109,6 +109,8 @@ export default function StudentsPage() {
         highestLevel: getHighest(p.user_id),
         unlockedCount: levels.filter((l) => l.student_id === p.user_id && l.unlocked).length,
         planType: (link as any)?.plan_type || "Estándar",
+        planEntrenamiento: (link as any)?.plan_entrenamiento || "inicial",
+        planAlimentacion: (link as any)?.plan_alimentacion || "inicial",
         linkId: link?.id || "",
         paymentStatus: (link as any)?.payment_status || "pendiente",
       };
