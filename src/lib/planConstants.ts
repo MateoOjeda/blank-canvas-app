@@ -43,7 +43,7 @@ export const PLAN_TYPES = [
 export const LEVELS = ["principiante", "intermedio", "avanzado"] as const;
 
 export const LEVEL_LABELS: Record<string, string> = {
-  principiante: "Principiante",
+  principiante: "Inicial",
   intermedio: "Intermedio",
   avanzado: "Avanzado",
 };
