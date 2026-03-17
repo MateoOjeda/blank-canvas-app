@@ -37,6 +37,8 @@ interface Exercise {
   completed: boolean;
   body_part: string;
   is_to_failure: boolean;
+  is_dropset: boolean;
+  is_piramide: boolean;
 }
 
 export default function RoutinesPage() {
@@ -46,7 +48,7 @@ export default function RoutinesPage() {
   const [selectedStudent, setSelectedStudent] = useState("");
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
-  const [form, setForm] = useState({ name: "", sets: "", reps: "", day: "", bodyPart: "", bodyPart2: "", isToFailure: false });
+  const [form, setForm] = useState({ name: "", sets: "", reps: "", day: "", bodyPart: "", bodyPart2: "", isToFailure: false, isDropset: false, isPiramide: false });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -106,6 +108,8 @@ export default function RoutinesPage() {
       day: form.day,
       body_part: combinedBodyPart || form.bodyPart,
       is_to_failure: form.isToFailure,
+      is_dropset: form.isDropset,
+      is_piramide: form.isPiramide,
     } as any).select("id").single();
     if (error) {
       toast.error("Error al agregar ejercicio");
@@ -117,8 +121,9 @@ export default function RoutinesPage() {
         description: `Nuevo ejercicio: ${form.name} (${form.sets}×${form.isToFailure ? "Al Fallo" : form.reps} - ${form.day} - ${combinedBodyPart})`,
         entity_id: data?.id,
       });
+      const serieTypes = [form.isToFailure && "Al Fallo", form.isDropset && "Drop Set", form.isPiramide && "Pirámide"].filter(Boolean).join(", ");
       toast.success("Ejercicio agregado");
-      setForm({ name: "", sets: "", reps: "", day: "", bodyPart: "", bodyPart2: "", isToFailure: false });
+      setForm({ name: "", sets: "", reps: "", day: "", bodyPart: "", bodyPart2: "", isToFailure: false, isDropset: false, isPiramide: false });
       fetchExercises();
     }
   };
@@ -307,14 +312,40 @@ export default function RoutinesPage() {
                 />
               </div>
             </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
-              <Switch
-                checked={form.isToFailure}
-                onCheckedChange={(checked) => setForm({ ...form, isToFailure: checked, reps: checked ? "" : form.reps })}
-              />
-              <div>
-                <Label className="text-sm font-medium cursor-pointer">Al Fallo</Label>
-                <p className="text-xs text-muted-foreground">El alumno hará repeticiones hasta el fallo muscular</p>
+            <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Tipo de serie</Label>
+              
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={form.isToFailure}
+                  onCheckedChange={(checked) => setForm({ ...form, isToFailure: checked, reps: checked ? "" : form.reps })}
+                />
+                <div>
+                  <Label className="text-sm font-medium cursor-pointer">Al Fallo</Label>
+                  <p className="text-xs text-muted-foreground">El alumno hará repeticiones hasta el fallo muscular</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={form.isDropset}
+                  onCheckedChange={(checked) => setForm({ ...form, isDropset: checked })}
+                />
+                <div>
+                  <Label className="text-sm font-medium cursor-pointer">Drop Set</Label>
+                  <p className="text-xs text-muted-foreground">Reducir peso después de la serie y continuar</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={form.isPiramide}
+                  onCheckedChange={(checked) => setForm({ ...form, isPiramide: checked })}
+                />
+                <div>
+                  <Label className="text-sm font-medium cursor-pointer">Pirámide</Label>
+                  <p className="text-xs text-muted-foreground">Aumentar peso y bajar repeticiones progresivamente</p>
+                </div>
               </div>
             </div>
             <Button onClick={handleAdd} className="w-full">
@@ -369,7 +400,9 @@ export default function RoutinesPage() {
                             <p className="font-medium text-sm">{ex.name}</p>
                             <p className="text-xs text-muted-foreground">
                               {ex.body_part && <span className="text-primary">{ex.body_part} · </span>}
-                              {ex.sets}×{ex.is_to_failure ? <span className="text-amber-400 font-semibold">Al Fallo</span> : ex.reps}
+                              {ex.sets}×{ex.is_to_failure ? <span className="font-semibold" style={{ color: "hsl(var(--warning))" }}>Al Fallo</span> : ex.reps}
+                              {ex.is_dropset && <span className="ml-1 font-semibold" style={{ color: "hsl(var(--accent))" }}> · Drop Set</span>}
+                              {ex.is_piramide && <span className="ml-1 font-semibold" style={{ color: "hsl(var(--success))" }}> · Pirámide</span>}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
