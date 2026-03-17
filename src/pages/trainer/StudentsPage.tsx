@@ -33,6 +33,8 @@ interface LinkedStudent {
   highestLevel: string;
   unlockedCount: number;
   planType: string;
+  planEntrenamiento: string;
+  planAlimentacion: string;
   linkId: string;
   paymentStatus: string;
 }
@@ -44,7 +46,16 @@ interface AvailableStudent {
   avatar_url: string | null;
 }
 
-const PLAN_TYPE_OPTIONS = ["Estándar", "Personalizado", "Premium", "Grupal"];
+const PLAN_LEVEL_OPTIONS = [
+  { value: "inicial", label: "Inicial", color: "text-green-600 border-green-400/50 bg-green-500/10" },
+  { value: "intermedio", label: "Intermedio", color: "text-orange-600 border-orange-400/50 bg-orange-500/10" },
+  { value: "avanzado", label: "Avanzado", color: "text-red-600 border-red-400/50 bg-red-500/10" },
+];
+
+const getLevelColor = (level: string) => {
+  const opt = PLAN_LEVEL_OPTIONS.find((o) => o.value === level);
+  return opt?.color || "";
+};
 
 export default function StudentsPage() {
   const { user } = useAuth();
@@ -63,7 +74,7 @@ export default function StudentsPage() {
     if (!user) return;
     const { data: links } = await supabase
       .from("trainer_students")
-      .select("id, student_id, created_at, plan_type, payment_status")
+      .select("id, student_id, created_at, plan_type, payment_status, plan_entrenamiento, plan_alimentacion")
       .eq("trainer_id", user.id);
 
     if (!links || links.length === 0) {
@@ -98,6 +109,8 @@ export default function StudentsPage() {
         highestLevel: getHighest(p.user_id),
         unlockedCount: levels.filter((l) => l.student_id === p.user_id && l.unlocked).length,
         planType: (link as any)?.plan_type || "Estándar",
+        planEntrenamiento: (link as any)?.plan_entrenamiento || "inicial",
+        planAlimentacion: (link as any)?.plan_alimentacion || "inicial",
         linkId: link?.id || "",
         paymentStatus: (link as any)?.payment_status || "pendiente",
       };
@@ -163,13 +176,12 @@ export default function StudentsPage() {
     setUnlinking(null);
   };
 
-  const updatePlanType = async (linkId: string, planType: string) => {
-    const { error } = await supabase.from("trainer_students").update({ plan_type: planType } as any).eq("id", linkId);
-    if (error) toast.error("Error al actualizar tipo de plan");
-    else {
-      setLinkedStudents((prev) => prev.map((s) => s.linkId === linkId ? { ...s, planType } : s));
-      toast.success("Tipo de plan actualizado");
-    }
+  const updatePlanLevel = async (linkId: string, field: "plan_entrenamiento" | "plan_alimentacion", value: string) => {
+    const stateKey = field === "plan_entrenamiento" ? "planEntrenamiento" : "planAlimentacion";
+    setLinkedStudents((prev) => prev.map((s) => s.linkId === linkId ? { ...s, [stateKey]: value } : s));
+    const { error } = await supabase.from("trainer_students").update({ [field]: value } as any).eq("id", linkId);
+    if (error) toast.error("Error al actualizar plan");
+    else toast.success("Plan actualizado");
   };
 
   const handlePaymentToggle = async (student: LinkedStudent, checked: boolean) => {
@@ -367,19 +379,45 @@ export default function StudentsPage() {
                 </Button>
               </div>
 
-              {/* Plan type selector */}
-              <div className="flex items-center gap-3">
-                <Label className="text-sm text-muted-foreground whitespace-nowrap">Tipo de plan:</Label>
-                <Select value={selectedStudent.planType} onValueChange={(v) => updatePlanType(selectedStudent.linkId, v)}>
-                  <SelectTrigger className="h-8 text-xs w-40 bg-secondary/50">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PLAN_TYPE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Plan selectors */}
+              <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Dumbbell className="h-4 w-4 text-accent" />
+                    <Label className="text-sm font-medium">Plan de entrenamiento</Label>
+                  </div>
+                  <Select value={selectedStudent.planEntrenamiento} onValueChange={(v) => updatePlanLevel(selectedStudent.linkId, "plan_entrenamiento", v)}>
+                    <SelectTrigger className={`h-9 text-sm bg-secondary/50 font-medium ${getLevelColor(selectedStudent.planEntrenamiento)}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PLAN_LEVEL_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} className={`text-sm font-medium ${opt.color}`}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Apple className="h-4 w-4 text-accent" />
+                    <Label className="text-sm font-medium">Plan de alimentación</Label>
+                  </div>
+                  <Select value={selectedStudent.planAlimentacion} onValueChange={(v) => updatePlanLevel(selectedStudent.linkId, "plan_alimentacion", v)}>
+                    <SelectTrigger className={`h-9 text-sm bg-secondary/50 font-medium ${getLevelColor(selectedStudent.planAlimentacion)}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PLAN_LEVEL_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} className={`text-sm font-medium ${opt.color}`}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Rutina section */}
