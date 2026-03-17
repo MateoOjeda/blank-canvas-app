@@ -48,7 +48,7 @@ export default function RoutinesPage() {
   const [selectedStudent, setSelectedStudent] = useState("");
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
-  const [form, setForm] = useState({ name: "", sets: "", reps: "", day: "", bodyPart: "", bodyPart2: "", isToFailure: false });
+  const [form, setForm] = useState({ name: "", sets: "", reps: "", day: "", bodyPart: "", bodyPart2: "", isToFailure: false, isDropset: false, isPiramide: false });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
