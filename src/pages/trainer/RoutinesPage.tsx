@@ -108,6 +108,8 @@ export default function RoutinesPage() {
       day: form.day,
       body_part: combinedBodyPart || form.bodyPart,
       is_to_failure: form.isToFailure,
+      is_dropset: form.isDropset,
+      is_piramide: form.isPiramide,
     } as any).select("id").single();
     if (error) {
       toast.error("Error al agregar ejercicio");
