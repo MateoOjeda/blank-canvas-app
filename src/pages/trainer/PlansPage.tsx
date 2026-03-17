@@ -51,7 +51,24 @@ export default function PlansPage() {
       supabase.from("plan_levels").select("id, plan_type, level, content, unlocked").eq("trainer_id", user.id).eq("student_id", selectedStudent),
       supabase.from("plan_prices").select("id, plan_type, level, price").eq("trainer_id", user.id),
     ]);
-    setPlanLevels(levelsRes.data || []);
+
+    let existing = levelsRes.data || [];
+
+    // Auto-create missing plan_levels rows
+    const missing: { trainer_id: string; student_id: string; plan_type: string; level: string; content: string; unlocked: boolean }[] = [];
+    for (const pt of PLAN_TYPES) {
+      for (const level of LEVELS) {
+        if (!existing.find((e) => e.plan_type === pt.key && e.level === level)) {
+          missing.push({ trainer_id: user.id, student_id: selectedStudent, plan_type: pt.key, level, content: "", unlocked: false });
+        }
+      }
+    }
+    if (missing.length > 0) {
+      const { data: inserted } = await supabase.from("plan_levels").insert(missing as any).select("id, plan_type, level, content, unlocked");
+      if (inserted) existing = [...existing, ...inserted];
+    }
+
+    setPlanLevels(existing);
     setPlanPrices((pricesRes.data as PlanPrice[]) || []);
     setLoadingLevels(false);
   }, [user, selectedStudent]);
