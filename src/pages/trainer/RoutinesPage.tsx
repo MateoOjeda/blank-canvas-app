@@ -37,6 +37,8 @@ interface Exercise {
   completed: boolean;
   body_part: string;
   is_to_failure: boolean;
+  is_dropset: boolean;
+  is_piramide: boolean;
 }
 
 export default function RoutinesPage() {
