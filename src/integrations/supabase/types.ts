@@ -185,6 +185,8 @@ export type Database = {
           created_at: string
           day: string
           id: string
+          is_dropset: boolean | null
+          is_piramide: boolean | null
           is_to_failure: boolean | null
           name: string
           reps: number | null
@@ -199,6 +201,8 @@ export type Database = {
           created_at?: string
           day: string
           id?: string
+          is_dropset?: boolean | null
+          is_piramide?: boolean | null
           is_to_failure?: boolean | null
           name: string
           reps?: number | null
@@ -213,6 +217,8 @@ export type Database = {
           created_at?: string
           day?: string
           id?: string
+          is_dropset?: boolean | null
+          is_piramide?: boolean | null
           is_to_failure?: boolean | null
           name?: string
           reps?: number | null
