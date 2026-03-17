@@ -46,7 +46,16 @@ interface AvailableStudent {
   avatar_url: string | null;
 }
 
-const PLAN_TYPE_OPTIONS = ["Estándar", "Personalizado", "Premium", "Grupal"];
+const PLAN_LEVEL_OPTIONS = [
+  { value: "inicial", label: "Inicial", color: "text-green-600 border-green-400/50 bg-green-500/10" },
+  { value: "intermedio", label: "Intermedio", color: "text-orange-600 border-orange-400/50 bg-orange-500/10" },
+  { value: "avanzado", label: "Avanzado", color: "text-red-600 border-red-400/50 bg-red-500/10" },
+];
+
+const getLevelColor = (level: string) => {
+  const opt = PLAN_LEVEL_OPTIONS.find((o) => o.value === level);
+  return opt?.color || "";
+};
 
 export default function StudentsPage() {
   const { user } = useAuth();
