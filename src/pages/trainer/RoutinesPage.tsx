@@ -400,7 +400,9 @@ export default function RoutinesPage() {
                             <p className="font-medium text-sm">{ex.name}</p>
                             <p className="text-xs text-muted-foreground">
                               {ex.body_part && <span className="text-primary">{ex.body_part} · </span>}
-                              {ex.sets}×{ex.is_to_failure ? <span className="text-amber-400 font-semibold">Al Fallo</span> : ex.reps}
+                              {ex.sets}×{ex.is_to_failure ? <span className="font-semibold" style={{ color: "hsl(var(--warning))" }}>Al Fallo</span> : ex.reps}
+                              {ex.is_dropset && <span className="ml-1 font-semibold" style={{ color: "hsl(var(--accent))" }}> · Drop Set</span>}
+                              {ex.is_piramide && <span className="ml-1 font-semibold" style={{ color: "hsl(var(--success))" }}> · Pirámide</span>}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
