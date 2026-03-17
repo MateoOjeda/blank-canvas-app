@@ -379,19 +379,45 @@ export default function StudentsPage() {
                 </Button>
               </div>
 
-              {/* Plan type selector */}
-              <div className="flex items-center gap-3">
-                <Label className="text-sm text-muted-foreground whitespace-nowrap">Tipo de plan:</Label>
-                <Select value={selectedStudent.planType} onValueChange={(v) => updatePlanType(selectedStudent.linkId, v)}>
-                  <SelectTrigger className="h-8 text-xs w-40 bg-secondary/50">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PLAN_TYPE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Plan selectors */}
+              <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Dumbbell className="h-4 w-4 text-accent" />
+                    <Label className="text-sm font-medium">Plan de entrenamiento</Label>
+                  </div>
+                  <Select value={selectedStudent.planEntrenamiento} onValueChange={(v) => updatePlanLevel(selectedStudent.linkId, "plan_entrenamiento", v)}>
+                    <SelectTrigger className={`h-9 text-sm bg-secondary/50 font-medium ${getLevelColor(selectedStudent.planEntrenamiento)}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PLAN_LEVEL_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} className={`text-sm font-medium ${opt.color}`}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Apple className="h-4 w-4 text-accent" />
+                    <Label className="text-sm font-medium">Plan de alimentación</Label>
+                  </div>
+                  <Select value={selectedStudent.planAlimentacion} onValueChange={(v) => updatePlanLevel(selectedStudent.linkId, "plan_alimentacion", v)}>
+                    <SelectTrigger className={`h-9 text-sm bg-secondary/50 font-medium ${getLevelColor(selectedStudent.planAlimentacion)}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PLAN_LEVEL_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} className={`text-sm font-medium ${opt.color}`}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Rutina section */}
