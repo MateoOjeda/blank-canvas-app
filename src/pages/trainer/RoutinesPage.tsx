@@ -121,8 +121,9 @@ export default function RoutinesPage() {
         description: `Nuevo ejercicio: ${form.name} (${form.sets}×${form.isToFailure ? "Al Fallo" : form.reps} - ${form.day} - ${combinedBodyPart})`,
         entity_id: data?.id,
       });
+      const serieTypes = [form.isToFailure && "Al Fallo", form.isDropset && "Drop Set", form.isPiramide && "Pirámide"].filter(Boolean).join(", ");
       toast.success("Ejercicio agregado");
-      setForm({ name: "", sets: "", reps: "", day: "", bodyPart: "", bodyPart2: "", isToFailure: false });
+      setForm({ name: "", sets: "", reps: "", day: "", bodyPart: "", bodyPart2: "", isToFailure: false, isDropset: false, isPiramide: false });
       fetchExercises();
     }
   };
