@@ -87,6 +87,13 @@ export default function StudentDetailPage() {
     setExercises(exRes.data || []);
     setPlanLevels(plRes.data || []);
     
+    // Derive selected levels from plan_levels data
+    const pls = plRes.data || [];
+    const activeEntrenamiento = pls.find((p: any) => p.plan_type === "entrenamiento" && p.unlocked);
+    const activeAlimentacion = pls.find((p: any) => p.plan_type === "nutricion" && p.unlocked);
+    setSelectedEntrenamiento(activeEntrenamiento ? activeEntrenamiento.level : "none");
+    setSelectedAlimentacion(activeAlimentacion ? activeAlimentacion.level : "none");
+
     if (tsRes.data) {
       const ts = tsRes.data;
       setTrainerStudent(ts as TrainerStudent);
