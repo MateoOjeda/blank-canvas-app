@@ -443,6 +443,25 @@ export default function StudentDetailPage() {
           {studentId && <PersonalDiagnosticTab studentId={studentId} />}
         </TabsContent>
       </Tabs>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={!!confirmDialog?.open} onOpenChange={(open) => { if (!open) setConfirmDialog(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Querés cambiar el plan del alumno?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDialog?.level === "none"
+                ? `Se desactivará el plan de ${confirmDialog?.planType === "entrenamiento" ? "entrenamiento" : "alimentación"}.`
+                : `Se asignará el nivel ${LEVEL_LABELS[confirmDialog?.level || ""] || confirmDialog?.level} en ${confirmDialog?.planType === "entrenamiento" ? "entrenamiento" : "alimentación"}.`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePlanChangeConfirm}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
