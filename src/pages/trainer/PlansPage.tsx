@@ -188,7 +188,17 @@ export default function PlansPage() {
                       <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center"><Icon className="h-5 w-5 text-primary" /></div>
                       <div>
                         <CardTitle className="text-sm">{pt.label}</CardTitle>
-                        <Badge variant="outline" className="text-[10px] mt-0.5">{unlockedCount}/3 desbloqueados</Badge>
+                        <div className="flex gap-1.5 mt-1 flex-wrap">
+                          {unlockedCount > 0 ? (
+                            levels.filter((l) => l.unlocked).map((l) => (
+                              <Badge key={l.level} variant="outline" className="text-[10px] bg-green-500/15 text-green-500 border-green-500/30">
+                                {LEVEL_LABELS[l.level]} — Activo
+                              </Badge>
+                            ))
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] border-destructive/30 text-destructive">No tiene plan asignado</Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
                     {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}

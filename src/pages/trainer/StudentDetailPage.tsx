@@ -191,7 +191,7 @@ export default function StudentDetailPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card className="card-glass neon-border"><CardContent className="p-4 text-center"><p className="text-3xl font-bold text-primary">{completionRate}%</p><p className="text-xs text-muted-foreground mt-1">Completitud</p></CardContent></Card>
         <Card className="card-glass"><CardContent className="p-4 text-center"><p className="text-3xl font-bold">{completedCount}/{totalExercises}</p><p className="text-xs text-muted-foreground mt-1">Ejercicios</p></CardContent></Card>
-        <Card className="card-glass"><CardContent className="p-4 text-center"><p className="text-3xl font-bold">{unlockedLevels}/12</p><p className="text-xs text-muted-foreground mt-1">Niveles</p></CardContent></Card>
+        <Card className="card-glass"><CardContent className="p-4 text-center"><p className="text-3xl font-bold">{unlockedLevels}</p><p className="text-xs text-muted-foreground mt-1">Planes activos</p></CardContent></Card>
         <Card className="card-glass"><CardContent className="p-4 text-center"><p className="text-3xl font-bold">{profile.age || "—"}</p><p className="text-xs text-muted-foreground mt-1">Edad</p></CardContent></Card>
       </div>
 
