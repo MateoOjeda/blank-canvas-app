@@ -91,8 +91,7 @@ export default function MyPlansPage() {
       <div className="space-y-3">
         {PLAN_TYPES.map((pt) => {
           const levels = planLevels.filter((p) => p.plan_type === pt.key);
-          const unlockedCount = levels.filter((l) => l.unlocked).length;
-          return <PlanCard key={pt.key} label={pt.label} description={pt.description} icon={pt.icon} unlockedCount={unlockedCount} totalLevels={3} onClick={() => setSelectedPlan(pt.key)} />;
+          return <PlanCard key={pt.key} label={pt.label} description={pt.description} icon={pt.icon} planLevels={levels} onClick={() => setSelectedPlan(pt.key)} />;
         })}
       </div>
     </div>

@@ -191,7 +191,7 @@ export default function StudentDetailPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card className="card-glass neon-border"><CardContent className="p-4 text-center"><p className="text-3xl font-bold text-primary">{completionRate}%</p><p className="text-xs text-muted-foreground mt-1">Completitud</p></CardContent></Card>
         <Card className="card-glass"><CardContent className="p-4 text-center"><p className="text-3xl font-bold">{completedCount}/{totalExercises}</p><p className="text-xs text-muted-foreground mt-1">Ejercicios</p></CardContent></Card>
-        <Card className="card-glass"><CardContent className="p-4 text-center"><p className="text-3xl font-bold">{unlockedLevels}/12</p><p className="text-xs text-muted-foreground mt-1">Niveles</p></CardContent></Card>
+        <Card className="card-glass"><CardContent className="p-4 text-center"><p className="text-3xl font-bold">{unlockedLevels}</p><p className="text-xs text-muted-foreground mt-1">Planes activos</p></CardContent></Card>
         <Card className="card-glass"><CardContent className="p-4 text-center"><p className="text-3xl font-bold">{profile.age || "—"}</p><p className="text-xs text-muted-foreground mt-1">Edad</p></CardContent></Card>
       </div>
 
@@ -224,7 +224,20 @@ export default function StudentDetailPage() {
                   <div key={type} className="p-4 rounded-lg bg-secondary/30 space-y-3">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center"><Icon className="h-4 w-4 text-primary" /></div>
-                      <div className="flex-1"><p className="text-sm font-semibold">{PLAN_LABELS[type]}</p><p className="text-[10px] text-muted-foreground">Nivel más alto: {getHighestLevel(type)}</p></div>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold">{PLAN_LABELS[type]}</p>
+                        {typeLevels.some((l) => l.unlocked) ? (
+                          <div className="flex gap-1 mt-0.5 flex-wrap">
+                            {typeLevels.filter((l) => l.unlocked).map((l) => (
+                              <Badge key={l.level} variant="outline" className="text-[10px] bg-green-500/15 text-green-500 border-green-500/30">
+                                {LEVEL_LABELS[l.level]} — Activo
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-destructive">No tiene plan asignado</p>
+                        )}
+                      </div>
                     </div>
                     <div className="flex gap-2 flex-wrap">
                       {typeLevels.map((l) => (
