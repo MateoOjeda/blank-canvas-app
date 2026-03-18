@@ -10,6 +10,8 @@ import { ArrowLeft, Dumbbell, CheckCircle, Lock, Unlock, Apple, TrendingUp, User
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import PersonalDiagnosticTab from "@/components/trainer/PersonalDiagnosticTab";
 import WeightProgressChart from "@/components/trainer/WeightProgressChart";
 import MealsTab from "@/components/trainer/MealsTab";
@@ -68,6 +70,9 @@ export default function StudentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("weight");
   const [paymentPaid, setPaymentPaid] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; planType: string; level: string } | null>(null);
+  const [selectedEntrenamiento, setSelectedEntrenamiento] = useState<string>("none");
+  const [selectedAlimentacion, setSelectedAlimentacion] = useState<string>("none");
 
   const fetchData = useCallback(async () => {
     if (!user || !studentId) return;
@@ -82,6 +87,13 @@ export default function StudentDetailPage() {
     setExercises(exRes.data || []);
     setPlanLevels(plRes.data || []);
     
+    // Derive selected levels from plan_levels data
+    const pls = plRes.data || [];
+    const activeEntrenamiento = pls.find((p: any) => p.plan_type === "entrenamiento" && p.unlocked);
+    const activeAlimentacion = pls.find((p: any) => p.plan_type === "nutricion" && p.unlocked);
+    setSelectedEntrenamiento(activeEntrenamiento ? activeEntrenamiento.level : "none");
+    setSelectedAlimentacion(activeAlimentacion ? activeAlimentacion.level : "none");
+
     if (tsRes.data) {
       const ts = tsRes.data;
       setTrainerStudent(ts as TrainerStudent);
@@ -105,6 +117,81 @@ export default function StudentDetailPage() {
       setPaymentPaid(!checked);
     } else {
       toast.success(checked ? "Marcado como pagado" : "Marcado como pendiente");
+    }
+  };
+
+  const handlePlanChangeRequest = (planType: string, level: string) => {
+    setConfirmDialog({ open: true, planType, level });
+  };
+
+  const handlePlanChangeConfirm = async () => {
+    if (!confirmDialog || !user || !studentId) return;
+    const { planType, level } = confirmDialog;
+    setConfirmDialog(null);
+
+    try {
+      if (level === "none") {
+        // Deactivate all levels for this plan type
+        await supabase
+          .from("plan_levels")
+          .update({ unlocked: false })
+          .eq("trainer_id", user.id)
+          .eq("student_id", studentId)
+          .eq("plan_type", planType);
+      } else {
+        // Deactivate all, then activate selected
+        await supabase
+          .from("plan_levels")
+          .update({ unlocked: false })
+          .eq("trainer_id", user.id)
+          .eq("student_id", studentId)
+          .eq("plan_type", planType);
+
+        // Check if level row exists
+        const { data: existing } = await supabase
+          .from("plan_levels")
+          .select("id")
+          .eq("trainer_id", user.id)
+          .eq("student_id", studentId)
+          .eq("plan_type", planType)
+          .eq("level", level)
+          .single();
+
+        if (existing) {
+          await supabase
+            .from("plan_levels")
+            .update({ unlocked: true })
+            .eq("id", existing.id);
+        } else {
+          await supabase
+            .from("plan_levels")
+            .insert({
+              trainer_id: user.id,
+              student_id: studentId,
+              plan_type: planType,
+              level,
+              unlocked: true,
+              content: "",
+            });
+        }
+      }
+
+      // Update trainer_students plan fields
+      const updateField = planType === "entrenamiento" ? "plan_entrenamiento" : "plan_alimentacion";
+      if (trainerStudent) {
+        await supabase
+          .from("trainer_students")
+          .update({ [updateField]: level === "none" ? null : level })
+          .eq("id", trainerStudent.id);
+      }
+
+      if (planType === "entrenamiento") setSelectedEntrenamiento(level);
+      else setSelectedAlimentacion(level);
+
+      toast.success(level === "none" ? "Plan desactivado" : `Plan actualizado a ${LEVEL_LABELS[level] || level}`);
+      fetchData();
+    } catch {
+      toast.error("Error al actualizar el plan");
     }
   };
 
@@ -174,6 +261,73 @@ export default function StudentDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Plan Selection */}
+      <Card className="card-glass">
+        <CardHeader className="pb-3"><CardTitle className="text-lg">Asignación de Planes</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          {/* Plan de Entrenamiento */}
+          <div className="flex items-center gap-4 p-3 rounded-lg bg-secondary/30">
+            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Dumbbell className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <Label className="text-sm font-semibold">Plan de Entrenamiento</Label>
+              {selectedEntrenamiento !== "none" ? (
+                <Badge variant="outline" className="ml-2 text-[10px] bg-green-500/15 text-green-500 border-green-500/30">
+                  {LEVEL_LABELS[selectedEntrenamiento]} — Activo
+                </Badge>
+              ) : (
+                <span className="ml-2 text-[10px] text-destructive">No tiene plan asignado</span>
+              )}
+            </div>
+            <Select
+              value={selectedEntrenamiento}
+              onValueChange={(val) => handlePlanChangeRequest("entrenamiento", val)}
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Seleccionar nivel" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sin plan</SelectItem>
+                <SelectItem value="principiante">Inicial</SelectItem>
+                <SelectItem value="intermedio">Intermedio</SelectItem>
+                <SelectItem value="avanzado">Avanzado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Plan de Alimentación */}
+          <div className="flex items-center gap-4 p-3 rounded-lg bg-secondary/30">
+            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Apple className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <Label className="text-sm font-semibold">Plan de Alimentación</Label>
+              {selectedAlimentacion !== "none" ? (
+                <Badge variant="outline" className="ml-2 text-[10px] bg-green-500/15 text-green-500 border-green-500/30">
+                  {LEVEL_LABELS[selectedAlimentacion]} — Activo
+                </Badge>
+              ) : (
+                <span className="ml-2 text-[10px] text-destructive">No tiene plan asignado</span>
+              )}
+            </div>
+            <Select
+              value={selectedAlimentacion}
+              onValueChange={(val) => handlePlanChangeRequest("nutricion", val)}
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Seleccionar nivel" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sin plan</SelectItem>
+                <SelectItem value="principiante">Inicial</SelectItem>
+                <SelectItem value="intermedio">Intermedio</SelectItem>
+                <SelectItem value="avanzado">Avanzado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
       {/* Quick Actions */}
       <div className="flex gap-2 flex-wrap">
         <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate(`/trainer/routines/${studentId}`)}>
@@ -289,6 +443,25 @@ export default function StudentDetailPage() {
           {studentId && <PersonalDiagnosticTab studentId={studentId} />}
         </TabsContent>
       </Tabs>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={!!confirmDialog?.open} onOpenChange={(open) => { if (!open) setConfirmDialog(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Querés cambiar el plan del alumno?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDialog?.level === "none"
+                ? `Se desactivará el plan de ${confirmDialog?.planType === "entrenamiento" ? "entrenamiento" : "alimentación"}.`
+                : `Se asignará el nivel ${LEVEL_LABELS[confirmDialog?.level || ""] || confirmDialog?.level} en ${confirmDialog?.planType === "entrenamiento" ? "entrenamiento" : "alimentación"}.`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePlanChangeConfirm}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
