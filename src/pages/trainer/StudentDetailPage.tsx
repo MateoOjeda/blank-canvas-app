@@ -120,6 +120,81 @@ export default function StudentDetailPage() {
     }
   };
 
+  const handlePlanChangeRequest = (planType: string, level: string) => {
+    setConfirmDialog({ open: true, planType, level });
+  };
+
+  const handlePlanChangeConfirm = async () => {
+    if (!confirmDialog || !user || !studentId) return;
+    const { planType, level } = confirmDialog;
+    setConfirmDialog(null);
+
+    try {
+      if (level === "none") {
+        // Deactivate all levels for this plan type
+        await supabase
+          .from("plan_levels")
+          .update({ unlocked: false })
+          .eq("trainer_id", user.id)
+          .eq("student_id", studentId)
+          .eq("plan_type", planType);
+      } else {
+        // Deactivate all, then activate selected
+        await supabase
+          .from("plan_levels")
+          .update({ unlocked: false })
+          .eq("trainer_id", user.id)
+          .eq("student_id", studentId)
+          .eq("plan_type", planType);
+
+        // Check if level row exists
+        const { data: existing } = await supabase
+          .from("plan_levels")
+          .select("id")
+          .eq("trainer_id", user.id)
+          .eq("student_id", studentId)
+          .eq("plan_type", planType)
+          .eq("level", level)
+          .single();
+
+        if (existing) {
+          await supabase
+            .from("plan_levels")
+            .update({ unlocked: true })
+            .eq("id", existing.id);
+        } else {
+          await supabase
+            .from("plan_levels")
+            .insert({
+              trainer_id: user.id,
+              student_id: studentId,
+              plan_type: planType,
+              level,
+              unlocked: true,
+              content: "",
+            });
+        }
+      }
+
+      // Update trainer_students plan fields
+      const updateField = planType === "entrenamiento" ? "plan_entrenamiento" : "plan_alimentacion";
+      if (trainerStudent) {
+        await supabase
+          .from("trainer_students")
+          .update({ [updateField]: level === "none" ? null : level })
+          .eq("id", trainerStudent.id);
+      }
+
+      if (planType === "entrenamiento") setSelectedEntrenamiento(level);
+      else setSelectedAlimentacion(level);
+
+      toast.success(level === "none" ? "Plan desactivado" : `Plan actualizado a ${LEVEL_LABELS[level] || level}`);
+      fetchData();
+    } catch {
+      toast.error("Error al actualizar el plan");
+    }
+  };
+
   if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
   if (!profile) {
