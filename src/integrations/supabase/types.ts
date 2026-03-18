@@ -189,6 +189,7 @@ export type Database = {
           is_piramide: boolean | null
           is_to_failure: boolean | null
           name: string
+          pyramid_reps: string | null
           reps: number | null
           sets: number | null
           student_id: string
@@ -205,6 +206,7 @@ export type Database = {
           is_piramide?: boolean | null
           is_to_failure?: boolean | null
           name: string
+          pyramid_reps?: string | null
           reps?: number | null
           sets?: number | null
           student_id: string
@@ -221,6 +223,7 @@ export type Database = {
           is_piramide?: boolean | null
           is_to_failure?: boolean | null
           name?: string
+          pyramid_reps?: string | null
           reps?: number | null
           sets?: number | null
           student_id?: string
