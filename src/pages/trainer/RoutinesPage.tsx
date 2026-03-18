@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const DAY_SHORT = ["L", "M", "X", "J", "V", "S", "D"];
 
 interface Exercise {
   id: string;
@@ -39,6 +40,7 @@ interface Exercise {
   is_to_failure: boolean;
   is_dropset: boolean;
   is_piramide: boolean;
+  pyramid_reps: string | null;
 }
 
 export default function RoutinesPage() {
@@ -48,7 +50,11 @@ export default function RoutinesPage() {
   const [selectedStudent, setSelectedStudent] = useState("");
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
-  const [form, setForm] = useState({ name: "", sets: "", reps: "", day: "", bodyPart: "", bodyPart2: "", isToFailure: false, isDropset: false, isPiramide: false });
+  const [selectedDay, setSelectedDay] = useState("Lunes");
+  const [form, setForm] = useState({
+    name: "", sets: "", reps: "", bodyPart: "", bodyPart2: "",
+    isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "",
+  });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -78,39 +84,52 @@ export default function RoutinesPage() {
 
   useEffect(() => { fetchExercises(); }, [fetchExercises]);
 
-  // Merge exercises from both body parts
   const bodyPart1 = form.bodyPart as BodyPart;
   const bodyPart2 = form.bodyPart2 as BodyPart;
   const availableExercises = [
     ...(bodyPart1 ? EXERCISES_BY_BODY_PART[bodyPart1] || [] : []),
     ...(bodyPart2 && bodyPart2 !== bodyPart1 ? EXERCISES_BY_BODY_PART[bodyPart2] || [] : []),
   ];
-
   const combinedBodyPart = [form.bodyPart, form.bodyPart2].filter(Boolean).join(" y ");
+
+  const validatePyramidReps = (value: string): boolean => {
+    if (!value.trim()) return false;
+    return /^\d+(-\d+)*$/.test(value.trim());
+  };
 
   const handleAdd = async () => {
     if (!user || !selectedStudent) return;
-    if (!form.name || !form.sets || !form.day || !form.bodyPart) {
+    if (!form.name || !form.sets || !form.bodyPart) {
       toast.error("Completa todos los campos obligatorios");
       return;
     }
-    if (!form.isToFailure && !form.reps) {
+    if (form.isPiramide) {
+      if (!validatePyramidReps(form.pyramidReps)) {
+        toast.error("Formato de pirámide inválido. Usa números separados por guiones (ej: 12-10-8-10-12)");
+        return;
+      }
+    } else if (!form.isToFailure && !form.reps) {
       toast.error("Completa las repeticiones o activa 'Al Fallo'");
       return;
     }
+
+    const repsDisplay = form.isPiramide ? form.pyramidReps : (form.isToFailure ? "Al Fallo" : form.reps);
+
     const { data, error } = await supabase.from("exercises").insert({
       trainer_id: user.id,
       student_id: selectedStudent,
       name: form.name,
       sets: parseInt(form.sets),
-      reps: form.isToFailure ? 0 : parseInt(form.reps),
+      reps: form.isToFailure || form.isPiramide ? 0 : parseInt(form.reps),
       weight: 0,
-      day: form.day,
+      day: selectedDay,
       body_part: combinedBodyPart || form.bodyPart,
       is_to_failure: form.isToFailure,
       is_dropset: form.isDropset,
       is_piramide: form.isPiramide,
+      pyramid_reps: form.isPiramide ? form.pyramidReps.trim() : null,
     } as any).select("id").single();
+
     if (error) {
       toast.error("Error al agregar ejercicio");
     } else {
@@ -118,12 +137,11 @@ export default function RoutinesPage() {
         trainer_id: user.id,
         student_id: selectedStudent,
         change_type: "exercise_added",
-        description: `Nuevo ejercicio: ${form.name} (${form.sets}×${form.isToFailure ? "Al Fallo" : form.reps} - ${form.day} - ${combinedBodyPart})`,
+        description: `Nuevo ejercicio: ${form.name} (${form.sets}×${repsDisplay} - ${selectedDay} - ${combinedBodyPart})`,
         entity_id: data?.id,
       });
-      const serieTypes = [form.isToFailure && "Al Fallo", form.isDropset && "Drop Set", form.isPiramide && "Pirámide"].filter(Boolean).join(", ");
       toast.success("Ejercicio agregado");
-      setForm({ name: "", sets: "", reps: "", day: "", bodyPart: "", bodyPart2: "", isToFailure: false, isDropset: false, isPiramide: false });
+      setForm({ name: "", sets: "", reps: "", bodyPart: "", bodyPart2: "", isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "" });
       fetchExercises();
     }
   };
@@ -136,8 +154,7 @@ export default function RoutinesPage() {
     } else {
       if (exercise) {
         await supabase.from("trainer_changes").insert({
-          trainer_id: user!.id,
-          student_id: selectedStudent,
+          trainer_id: user!.id, student_id: selectedStudent,
           change_type: "exercise_removed",
           description: `Ejercicio eliminado: ${exercise.name} (${exercise.day})`,
           entity_id: exerciseId,
@@ -155,12 +172,10 @@ export default function RoutinesPage() {
     if (error) {
       toast.error("Error al eliminar ejercicios");
     } else {
-      // Log changes
       const changes = ids.map((id) => {
         const ex = exercises.find((e) => e.id === id);
         return {
-          trainer_id: user!.id,
-          student_id: selectedStudent,
+          trainer_id: user!.id, student_id: selectedStudent,
           change_type: "exercise_removed",
           description: `Ejercicio eliminado: ${ex?.name || "?"} (${ex?.day || "?"})`,
           entity_id: id,
@@ -183,6 +198,7 @@ export default function RoutinesPage() {
   };
 
   const student = students.find((s) => s.user_id === selectedStudent);
+  const filteredExercises = exercises.filter((e) => e.day === selectedDay);
 
   if (loadingStudents) {
     return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
@@ -226,27 +242,42 @@ export default function RoutinesPage() {
         </Select>
       </div>
 
+      {/* Day selector blocks */}
+      <div className="flex gap-2 flex-wrap">
+        {DAYS.map((day, i) => {
+          const count = exercises.filter((e) => e.day === day).length;
+          const isActive = selectedDay === day;
+          return (
+            <button
+              key={day}
+              onClick={() => { setSelectedDay(day); setSelectedIds(new Set()); }}
+              className={`relative flex flex-col items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-xl text-xs font-bold transition-all border
+                ${isActive
+                  ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/25"
+                  : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/40 hover:bg-secondary"
+                }`}
+            >
+              <span className="text-[11px] sm:text-xs">{DAY_SHORT[i]}</span>
+              {count > 0 && (
+                <span className={`text-[9px] mt-0.5 ${isActive ? "text-primary-foreground/80" : "text-primary"}`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Form */}
         <Card className="card-glass neon-border">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Plus className="h-5 w-5 text-primary" />
-              Nuevo Ejercicio
+              Nuevo Ejercicio — {selectedDay}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Día</Label>
-              <Select value={form.day} onValueChange={(v) => setForm({ ...form, day: v })}>
-                <SelectTrigger className="bg-secondary/50 border-border">
-                  <SelectValue placeholder="Seleccionar día" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DAYS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground uppercase tracking-wide">Grupo Muscular 1</Label>
@@ -305,16 +336,16 @@ export default function RoutinesPage() {
                 <Input
                   type="number"
                   placeholder={form.isToFailure ? "Al Fallo" : "10"}
-                  value={form.isToFailure ? "" : form.reps}
+                  value={form.isToFailure || form.isPiramide ? "" : form.reps}
                   onChange={(e) => setForm({ ...form, reps: e.target.value })}
                   className="bg-secondary/50 border-border"
-                  disabled={form.isToFailure}
+                  disabled={form.isToFailure || form.isPiramide}
                 />
               </div>
             </div>
             <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
               <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Tipo de serie</Label>
-              
+
               <div className="flex items-center gap-3">
                 <Switch
                   checked={form.isToFailure}
@@ -340,28 +371,41 @@ export default function RoutinesPage() {
               <div className="flex items-center gap-3">
                 <Switch
                   checked={form.isPiramide}
-                  onCheckedChange={(checked) => setForm({ ...form, isPiramide: checked })}
+                  onCheckedChange={(checked) => setForm({ ...form, isPiramide: checked, pyramidReps: checked ? form.pyramidReps : "" })}
                 />
                 <div>
                   <Label className="text-sm font-medium cursor-pointer">Pirámide</Label>
                   <p className="text-xs text-muted-foreground">Aumentar peso y bajar repeticiones progresivamente</p>
                 </div>
               </div>
+
+              {form.isPiramide && (
+                <div className="ml-11 mt-1">
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">Repeticiones por serie (pirámide)</Label>
+                  <Input
+                    placeholder="Ej: 12-10-8-10-12"
+                    value={form.pyramidReps}
+                    onChange={(e) => setForm({ ...form, pyramidReps: e.target.value })}
+                    className="bg-secondary/50 border-border mt-1"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">Números separados por guiones. Ej: 10-8-6-8-10</p>
+                </div>
+              )}
             </div>
             <Button onClick={handleAdd} className="w-full">
               <Plus className="h-4 w-4 mr-2" />
-              Agregar Ejercicio
+              Agregar a {selectedDay}
             </Button>
           </CardContent>
         </Card>
 
-        {/* Exercise List */}
+        {/* Exercise List filtered by day */}
         <Card className="card-glass">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Dumbbell className="h-5 w-5 text-primary" />
-                Ejercicios de {student?.display_name || "—"}
+                {selectedDay} — {student?.display_name || "—"}
               </CardTitle>
               {selectedIds.size > 0 && (
                 <Button
@@ -379,43 +423,38 @@ export default function RoutinesPage() {
           <CardContent>
             {loadingExercises ? (
               <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-            ) : exercises.length === 0 ? (
-              <p className="text-muted-foreground text-sm text-center py-8">Sin ejercicios asignados</p>
+            ) : filteredExercises.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-8">No hay ejercicios para este día</p>
             ) : (
               <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-                {DAYS.map((day) => {
-                  const dayExercises = exercises.filter((e) => e.day === day);
-                  if (dayExercises.length === 0) return null;
-                  return (
-                    <div key={day}>
-                      <Badge variant="outline" className="mb-2 border-primary/30 text-primary text-[10px]">{day}</Badge>
-                      {dayExercises.map((ex) => (
-                        <div key={ex.id} className="flex items-center gap-2 p-3 rounded-lg bg-secondary/30 mb-1">
-                          <Checkbox
-                            checked={selectedIds.has(ex.id)}
-                            onCheckedChange={() => toggleSelect(ex.id)}
-                            className="h-4 w-4"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm">{ex.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {ex.body_part && <span className="text-primary">{ex.body_part} · </span>}
-                              {ex.sets}×{ex.is_to_failure ? <span className="font-semibold" style={{ color: "hsl(var(--warning))" }}>Al Fallo</span> : ex.reps}
-                              {ex.is_dropset && <span className="ml-1 font-semibold" style={{ color: "hsl(var(--accent))" }}> · Drop Set</span>}
-                              {ex.is_piramide && <span className="ml-1 font-semibold" style={{ color: "hsl(var(--success))" }}> · Pirámide</span>}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {ex.completed && <Badge className="bg-primary/20 text-primary text-[10px]">✓</Badge>}
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemove(ex.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
+                {filteredExercises.map((ex) => (
+                  <div key={ex.id} className="flex items-center gap-2 p-3 rounded-lg bg-secondary/30">
+                    <Checkbox
+                      checked={selectedIds.has(ex.id)}
+                      onCheckedChange={() => toggleSelect(ex.id)}
+                      className="h-4 w-4"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm">{ex.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {ex.body_part && <span className="text-primary">{ex.body_part} · </span>}
+                        {ex.sets}×{ex.is_piramide && ex.pyramid_reps
+                          ? <span className="font-semibold text-accent">{ex.pyramid_reps}</span>
+                          : ex.is_to_failure
+                            ? <span className="font-semibold text-destructive">Al Fallo</span>
+                            : ex.reps}
+                        {ex.is_dropset && <span className="ml-1 font-semibold text-accent"> · Drop Set</span>}
+                        {ex.is_piramide && <span className="ml-1 font-semibold text-primary"> · Pirámide</span>}
+                      </p>
                     </div>
-                  );
-                })}
+                    <div className="flex items-center gap-2">
+                      {ex.completed && <Badge className="bg-primary/20 text-primary text-[10px]">✓</Badge>}
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemove(ex.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>
