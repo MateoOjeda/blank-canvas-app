@@ -261,6 +261,73 @@ export default function StudentDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Plan Selection */}
+      <Card className="card-glass">
+        <CardHeader className="pb-3"><CardTitle className="text-lg">Asignación de Planes</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          {/* Plan de Entrenamiento */}
+          <div className="flex items-center gap-4 p-3 rounded-lg bg-secondary/30">
+            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Dumbbell className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <Label className="text-sm font-semibold">Plan de Entrenamiento</Label>
+              {selectedEntrenamiento !== "none" ? (
+                <Badge variant="outline" className="ml-2 text-[10px] bg-green-500/15 text-green-500 border-green-500/30">
+                  {LEVEL_LABELS[selectedEntrenamiento]} — Activo
+                </Badge>
+              ) : (
+                <span className="ml-2 text-[10px] text-destructive">No tiene plan asignado</span>
+              )}
+            </div>
+            <Select
+              value={selectedEntrenamiento}
+              onValueChange={(val) => handlePlanChangeRequest("entrenamiento", val)}
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Seleccionar nivel" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sin plan</SelectItem>
+                <SelectItem value="principiante">Inicial</SelectItem>
+                <SelectItem value="intermedio">Intermedio</SelectItem>
+                <SelectItem value="avanzado">Avanzado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Plan de Alimentación */}
+          <div className="flex items-center gap-4 p-3 rounded-lg bg-secondary/30">
+            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Apple className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <Label className="text-sm font-semibold">Plan de Alimentación</Label>
+              {selectedAlimentacion !== "none" ? (
+                <Badge variant="outline" className="ml-2 text-[10px] bg-green-500/15 text-green-500 border-green-500/30">
+                  {LEVEL_LABELS[selectedAlimentacion]} — Activo
+                </Badge>
+              ) : (
+                <span className="ml-2 text-[10px] text-destructive">No tiene plan asignado</span>
+              )}
+            </div>
+            <Select
+              value={selectedAlimentacion}
+              onValueChange={(val) => handlePlanChangeRequest("nutricion", val)}
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Seleccionar nivel" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sin plan</SelectItem>
+                <SelectItem value="principiante">Inicial</SelectItem>
+                <SelectItem value="intermedio">Intermedio</SelectItem>
+                <SelectItem value="avanzado">Avanzado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
       {/* Quick Actions */}
       <div className="flex gap-2 flex-wrap">
         <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate(`/trainer/routines/${studentId}`)}>
