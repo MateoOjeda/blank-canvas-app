@@ -70,6 +70,9 @@ export default function StudentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("weight");
   const [paymentPaid, setPaymentPaid] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; planType: string; level: string } | null>(null);
+  const [selectedEntrenamiento, setSelectedEntrenamiento] = useState<string>("none");
+  const [selectedAlimentacion, setSelectedAlimentacion] = useState<string>("none");
 
   const fetchData = useCallback(async () => {
     if (!user || !studentId) return;
