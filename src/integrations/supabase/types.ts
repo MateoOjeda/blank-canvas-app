@@ -14,16 +14,624 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      body_transformations: {
+        Row: {
+          after_date: string | null
+          after_photo_url: string | null
+          after_weight: number | null
+          before_date: string | null
+          before_photo_url: string | null
+          before_weight: number | null
+          created_at: string
+          id: string
+          student_id: string
+        }
+        Insert: {
+          after_date?: string | null
+          after_photo_url?: string | null
+          after_weight?: number | null
+          before_date?: string | null
+          before_photo_url?: string | null
+          before_weight?: number | null
+          created_at?: string
+          id?: string
+          student_id: string
+        }
+        Update: {
+          after_date?: string | null
+          after_photo_url?: string | null
+          after_weight?: number | null
+          before_date?: string | null
+          before_photo_url?: string | null
+          before_weight?: number | null
+          created_at?: string
+          id?: string
+          student_id?: string
+        }
+        Relationships: []
+      }
+      change_readings: {
+        Row: {
+          id: string
+          last_read_at: string
+          student_id: string
+        }
+        Insert: {
+          id?: string
+          last_read_at?: string
+          student_id: string
+        }
+        Update: {
+          id?: string
+          last_read_at?: string
+          student_id?: string
+        }
+        Relationships: []
+      }
+      exercise_logs: {
+        Row: {
+          actual_reps: number | null
+          actual_sets: number | null
+          actual_weight: number | null
+          completed: boolean | null
+          created_at: string
+          exercise_id: string
+          id: string
+          log_date: string
+          notes: string | null
+          student_id: string
+          trainer_id: string
+        }
+        Insert: {
+          actual_reps?: number | null
+          actual_sets?: number | null
+          actual_weight?: number | null
+          completed?: boolean | null
+          created_at?: string
+          exercise_id: string
+          id?: string
+          log_date?: string
+          notes?: string | null
+          student_id: string
+          trainer_id: string
+        }
+        Update: {
+          actual_reps?: number | null
+          actual_sets?: number | null
+          actual_weight?: number | null
+          completed?: boolean | null
+          created_at?: string
+          exercise_id?: string
+          id?: string
+          log_date?: string
+          notes?: string | null
+          student_id?: string
+          trainer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_logs_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercises: {
+        Row: {
+          body_part: string | null
+          completed: boolean
+          created_at: string
+          day: string
+          id: string
+          is_dropset: boolean | null
+          is_piramide: boolean | null
+          is_to_failure: boolean | null
+          name: string
+          pyramid_reps: string | null
+          reps: number
+          sets: number
+          student_id: string
+          trainer_id: string
+          weight: number
+        }
+        Insert: {
+          body_part?: string | null
+          completed?: boolean
+          created_at?: string
+          day?: string
+          id?: string
+          is_dropset?: boolean | null
+          is_piramide?: boolean | null
+          is_to_failure?: boolean | null
+          name: string
+          pyramid_reps?: string | null
+          reps?: number
+          sets?: number
+          student_id: string
+          trainer_id: string
+          weight?: number
+        }
+        Update: {
+          body_part?: string | null
+          completed?: boolean
+          created_at?: string
+          day?: string
+          id?: string
+          is_dropset?: boolean | null
+          is_piramide?: boolean | null
+          is_to_failure?: boolean | null
+          name?: string
+          pyramid_reps?: string | null
+          reps?: number
+          sets?: number
+          student_id?: string
+          trainer_id?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+      group_exercises: {
+        Row: {
+          body_part: string | null
+          created_at: string
+          day: string
+          group_id: string
+          id: string
+          is_dropset: boolean | null
+          is_piramide: boolean | null
+          is_to_failure: boolean | null
+          name: string
+          pyramid_reps: string | null
+          reps: number
+          sets: number
+          trainer_id: string
+          weight: number
+        }
+        Insert: {
+          body_part?: string | null
+          created_at?: string
+          day?: string
+          group_id: string
+          id?: string
+          is_dropset?: boolean | null
+          is_piramide?: boolean | null
+          is_to_failure?: boolean | null
+          name: string
+          pyramid_reps?: string | null
+          reps?: number
+          sets?: number
+          trainer_id: string
+          weight?: number
+        }
+        Update: {
+          body_part?: string | null
+          created_at?: string
+          day?: string
+          group_id?: string
+          id?: string
+          is_dropset?: boolean | null
+          is_piramide?: boolean | null
+          is_to_failure?: boolean | null
+          name?: string
+          pyramid_reps?: string | null
+          reps?: number
+          sets?: number
+          trainer_id?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_exercises_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "training_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string | null
+          read: boolean | null
+          related_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          read?: boolean | null
+          related_id?: string | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          read?: boolean | null
+          related_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      plan_levels: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          level: string
+          plan_type: string
+          student_id: string
+          trainer_id: string
+          unlocked: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          level?: string
+          plan_type: string
+          student_id: string
+          trainer_id: string
+          unlocked?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          level?: string
+          plan_type?: string
+          student_id?: string
+          trainer_id?: string
+          unlocked?: boolean | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      plan_prices: {
+        Row: {
+          created_at: string
+          id: string
+          level: string
+          plan_type: string
+          price: number
+          trainer_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level: string
+          plan_type: string
+          price?: number
+          trainer_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: string
+          plan_type?: string
+          price?: number
+          trainer_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          age: number | null
+          avatar_initials: string | null
+          avatar_url: string | null
+          created_at: string
+          display_name: string
+          id: string
+          mercadopago_alias: string | null
+          updated_at: string
+          user_id: string
+          weight: number | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          age?: number | null
+          avatar_initials?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          mercadopago_alias?: string | null
+          updated_at?: string
+          user_id: string
+          weight?: number | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          age?: number | null
+          avatar_initials?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          mercadopago_alias?: string | null
+          updated_at?: string
+          user_id?: string
+          weight?: number | null
+          whatsapp_number?: string | null
+        }
+        Relationships: []
+      }
+      seguimiento_personal: {
+        Row: {
+          actividad_laboral: string | null
+          agua_diaria: string | null
+          bano_levantarse: string | null
+          comidas_por_dia: string | null
+          created_at: string
+          desayuno_habito: string | null
+          dias_entrena: string | null
+          dificultad_levantarse: string | null
+          entrena: boolean | null
+          hora_despertar: string | null
+          hora_dormir: string | null
+          hora_entrena: string | null
+          hora_ideal_despertar: string | null
+          id: string
+          nivel_estres: string | null
+          student_id: string
+          tiempo_para_si: string | null
+          tipo_entrenamiento: string | null
+          updated_at: string
+        }
+        Insert: {
+          actividad_laboral?: string | null
+          agua_diaria?: string | null
+          bano_levantarse?: string | null
+          comidas_por_dia?: string | null
+          created_at?: string
+          desayuno_habito?: string | null
+          dias_entrena?: string | null
+          dificultad_levantarse?: string | null
+          entrena?: boolean | null
+          hora_despertar?: string | null
+          hora_dormir?: string | null
+          hora_entrena?: string | null
+          hora_ideal_despertar?: string | null
+          id?: string
+          nivel_estres?: string | null
+          student_id: string
+          tiempo_para_si?: string | null
+          tipo_entrenamiento?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actividad_laboral?: string | null
+          agua_diaria?: string | null
+          bano_levantarse?: string | null
+          comidas_por_dia?: string | null
+          created_at?: string
+          desayuno_habito?: string | null
+          dias_entrena?: string | null
+          dificultad_levantarse?: string | null
+          entrena?: boolean | null
+          hora_despertar?: string | null
+          hora_dormir?: string | null
+          hora_entrena?: string | null
+          hora_ideal_despertar?: string | null
+          id?: string
+          nivel_estres?: string | null
+          student_id?: string
+          tiempo_para_si?: string | null
+          tipo_entrenamiento?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      student_meals: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          meal_type: string | null
+          student_id: string
+          title: string
+          trainer_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          meal_type?: string | null
+          student_id: string
+          title: string
+          trainer_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          meal_type?: string | null
+          student_id?: string
+          title?: string
+          trainer_id?: string
+        }
+        Relationships: []
+      }
+      trainer_changes: {
+        Row: {
+          change_type: string
+          created_at: string
+          description: string | null
+          entity_id: string | null
+          id: string
+          student_id: string
+          trainer_id: string
+        }
+        Insert: {
+          change_type: string
+          created_at?: string
+          description?: string | null
+          entity_id?: string | null
+          id?: string
+          student_id: string
+          trainer_id: string
+        }
+        Update: {
+          change_type?: string
+          created_at?: string
+          description?: string | null
+          entity_id?: string | null
+          id?: string
+          student_id?: string
+          trainer_id?: string
+        }
+        Relationships: []
+      }
+      trainer_students: {
+        Row: {
+          created_at: string
+          id: string
+          payment_status: string | null
+          plan_alimentacion: string | null
+          plan_entrenamiento: string | null
+          plan_type: string | null
+          student_id: string
+          trainer_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payment_status?: string | null
+          plan_alimentacion?: string | null
+          plan_entrenamiento?: string | null
+          plan_type?: string | null
+          student_id: string
+          trainer_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payment_status?: string | null
+          plan_alimentacion?: string | null
+          plan_entrenamiento?: string | null
+          plan_type?: string | null
+          student_id?: string
+          trainer_id?: string
+        }
+        Relationships: []
+      }
+      training_group_members: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "training_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_groups: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          trainer_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          trainer_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          trainer_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      weight_history: {
+        Row: {
+          id: string
+          recorded_at: string
+          student_id: string
+          weight: number
+        }
+        Insert: {
+          id?: string
+          recorded_at?: string
+          student_id: string
+          weight: number
+        }
+        Update: {
+          id?: string
+          recorded_at?: string
+          student_id?: string
+          weight?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "trainer" | "student"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +758,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["trainer", "student"],
+    },
   },
 } as const
