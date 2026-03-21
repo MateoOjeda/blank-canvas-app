@@ -155,7 +155,7 @@ export default function StudentDetailPage() {
           .eq("student_id", studentId)
           .eq("plan_type", planType)
           .eq("level", level)
-          .single();
+          .maybeSingle();
 
         if (existing) {
           await supabase
