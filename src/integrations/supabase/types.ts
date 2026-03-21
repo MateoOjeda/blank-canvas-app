@@ -172,6 +172,42 @@ export type Database = {
         }
         Relationships: []
       }
+      global_plans: {
+        Row: {
+          active: boolean
+          content: string | null
+          created_at: string
+          id: string
+          level: string
+          plan_type: string
+          price: number
+          trainer_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          content?: string | null
+          created_at?: string
+          id?: string
+          level: string
+          plan_type: string
+          price?: number
+          trainer_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          content?: string | null
+          created_at?: string
+          id?: string
+          level?: string
+          plan_type?: string
+          price?: number
+          trainer_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       group_exercises: {
         Row: {
           body_part: string | null
