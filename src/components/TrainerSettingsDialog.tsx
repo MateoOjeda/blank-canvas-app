@@ -21,7 +21,7 @@ export default function TrainerSettingsDialog() {
       .from("profiles")
       .select("mercadopago_alias, whatsapp_number")
       .eq("user_id", user.id)
-      .single()
+      .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setMercadopagoAlias(data.mercadopago_alias || "");

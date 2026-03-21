@@ -39,7 +39,7 @@ export default function MyPlansPage() {
     if (links && links.length > 0) {
       const trainerId = links[0].trainer_id;
       const [profileRes, pricesRes] = await Promise.all([
-        supabase.from("profiles").select("display_name, mercadopago_alias, whatsapp_number").eq("user_id", trainerId).single(),
+        supabase.from("profiles").select("display_name, mercadopago_alias, whatsapp_number").eq("user_id", trainerId).maybeSingle(),
         supabase.from("plan_prices").select("plan_type, level, price").eq("trainer_id", trainerId),
       ]);
       if (profileRes.data) setTrainerInfo(profileRes.data as TrainerInfo);
