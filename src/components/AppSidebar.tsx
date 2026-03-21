@@ -42,7 +42,8 @@ export function AppSidebar() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("avatar_url").eq("user_id", user.id).single().then(({ data }) => {
+    supabase.from("profiles").select("avatar_url").eq("user_id", user.id).maybeSingle().then(({ data, error }) => {
+      if (error) console.error("Error fetching avatar:", error.message);
       if (data?.avatar_url) setAvatarUrl(data.avatar_url);
     });
   }, [user]);
