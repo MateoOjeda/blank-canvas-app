@@ -39,7 +39,7 @@ export default function ProgressPage() {
         .from("profiles")
         .select("display_name, avatar_initials, weight")
         .eq("user_id", user.id)
-        .single(),
+        .maybeSingle(),
       supabase
         .from("plan_levels")
         .select("id")

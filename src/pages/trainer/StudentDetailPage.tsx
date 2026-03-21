@@ -78,10 +78,10 @@ export default function StudentDetailPage() {
     if (!user || !studentId) return;
     setLoading(true);
     const [profRes, exRes, plRes, tsRes] = await Promise.all([
-      supabase.from("profiles").select("display_name, avatar_initials, avatar_url, weight, age").eq("user_id", studentId).single(),
+      supabase.from("profiles").select("display_name, avatar_initials, avatar_url, weight, age").eq("user_id", studentId).maybeSingle(),
       supabase.from("exercises").select("id, name, sets, reps, weight, day, completed").eq("trainer_id", user.id).eq("student_id", studentId),
       supabase.from("plan_levels").select("plan_type, level, content, unlocked").eq("trainer_id", user.id).eq("student_id", studentId),
-      supabase.from("trainer_students").select("id, plan_type, payment_status").eq("trainer_id", user.id).eq("student_id", studentId).single(),
+      supabase.from("trainer_students").select("id, plan_type, payment_status").eq("trainer_id", user.id).eq("student_id", studentId).maybeSingle(),
     ]);
     setProfile(profRes.data as StudentProfile | null);
     setExercises(exRes.data || []);
@@ -155,7 +155,7 @@ export default function StudentDetailPage() {
           .eq("student_id", studentId)
           .eq("plan_type", planType)
           .eq("level", level)
-          .single();
+          .maybeSingle();
 
         if (existing) {
           await supabase

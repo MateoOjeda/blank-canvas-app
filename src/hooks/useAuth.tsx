@@ -24,29 +24,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState("");
 
+  const fetchUserData = async (userId: string) => {
+    try {
+      const { data: roleData, error: roleError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (roleError) {
+        console.error("Error fetching role:", roleError.message);
+      }
+      setRole(roleData?.role ?? null);
+
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("Error fetching profile:", profileError.message);
+      }
+      setDisplayName(profileData?.display_name ?? "");
+    } catch (err) {
+      console.error("Error fetching user data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        // Defer fetching role/profile to avoid deadlock
-        setTimeout(async () => {
-          const { data: roleData } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", session.user.id)
-            .single();
-          setRole(roleData?.role ?? null);
-
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("display_name")
-            .eq("user_id", session.user.id)
-            .single();
-          setDisplayName(profileData?.display_name ?? "");
-          setLoading(false);
-        }, 0);
+        setTimeout(() => fetchUserData(session.user.id), 0);
       } else {
         setRole(null);
         setDisplayName("");
@@ -62,19 +76,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, name: string, role: AppRole) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { display_name: name, role },
-      },
-    });
-    return { error: error as Error | null };
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { display_name: name, role },
+        },
+      });
+      return { error: error as Error | null };
+    } catch (err) {
+      return { error: err as Error };
+    }
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error as Error | null };
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      return { error: error as Error | null };
+    } catch (err) {
+      return { error: err as Error };
+    }
   };
 
   const signOut = async () => {
@@ -82,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setRole(null);
+    setDisplayName("");
   };
 
   return (
