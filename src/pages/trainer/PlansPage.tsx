@@ -8,9 +8,15 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Save, ClipboardList, ChevronDown, ChevronUp, DollarSign } from "lucide-react";
+import { Loader2, Save, ChevronDown, ChevronUp, DollarSign, Apple, Dumbbell, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
-import { PLAN_TYPES, LEVELS, LEVEL_LABELS, DEFAULT_PRICES, formatPrice } from "@/lib/planConstants";
+import { LEVELS, LEVEL_LABELS, DEFAULT_PRICES, formatPrice } from "@/lib/planConstants";
+
+// Simplified plan types: nutricion, entrenamiento, cambios_fisicos (no levels for cambios_fisicos)
+const PLAN_TYPES_CONFIG = [
+  { key: "nutricion", label: "Plan de Alimentación", shortLabel: "Alimentación", icon: Apple },
+  { key: "entrenamiento", label: "Plan de Rutina", shortLabel: "Rutina", icon: Dumbbell },
+] as const;
 
 interface GlobalPlan {
   id: string;
@@ -28,48 +34,45 @@ export default function PlansPage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
 
+  // Cambio Físico special state
+  const [cambioFisico, setCambioFisico] = useState<GlobalPlan | null>(null);
+
   const fetchGlobalPlans = useCallback(async () => {
     if (!user) return;
     setLoading(true);
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("global_plans")
       .select("id, plan_type, level, price, content, active")
       .eq("trainer_id", user.id);
 
     let existing = data || [];
 
-    // Auto-create missing global plan rows
-    const missing: { trainer_id: string; plan_type: string; level: string; price: number; content: string; active: boolean }[] = [];
-    for (const pt of PLAN_TYPES) {
+    // Auto-create missing rows for nutricion + entrenamiento
+    const missing: any[] = [];
+    for (const pt of PLAN_TYPES_CONFIG) {
       for (const level of LEVELS) {
         if (!existing.find((e) => e.plan_type === pt.key && e.level === level)) {
-          missing.push({
-            trainer_id: user.id,
-            plan_type: pt.key,
-            level,
-            price: DEFAULT_PRICES[level],
-            content: "",
-            active: true,
-          });
+          missing.push({ trainer_id: user.id, plan_type: pt.key, level, price: DEFAULT_PRICES[level], content: "", active: true });
         }
       }
     }
+    // Auto-create cambios_fisicos with single "unico" level
+    if (!existing.find((e) => e.plan_type === "cambios_fisicos")) {
+      missing.push({ trainer_id: user.id, plan_type: "cambios_fisicos", level: "unico", price: 0, content: "", active: true });
+    }
+
     if (missing.length > 0) {
-      const { data: inserted } = await supabase
-        .from("global_plans")
-        .insert(missing as any)
-        .select("id, plan_type, level, price, content, active");
+      const { data: inserted } = await supabase.from("global_plans").insert(missing).select("id, plan_type, level, price, content, active");
       if (inserted) existing = [...existing, ...inserted];
     }
 
-    setGlobalPlans(existing);
+    setGlobalPlans(existing.filter((e) => e.plan_type !== "cambios_fisicos"));
+    setCambioFisico(existing.find((e) => e.plan_type === "cambios_fisicos") || null);
     setLoading(false);
   }, [user]);
 
-  useEffect(() => {
-    fetchGlobalPlans();
-  }, [fetchGlobalPlans]);
+  useEffect(() => { fetchGlobalPlans(); }, [fetchGlobalPlans]);
 
   const updateField = (id: string, field: keyof GlobalPlan, value: any) => {
     setGlobalPlans((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
@@ -77,52 +80,32 @@ export default function PlansPage() {
 
   const savePlan = async (id: string) => {
     setSaving(id);
-    const plan = globalPlans.find((p) => p.id === id);
-    if (!plan) return;
-
-    const { error } = await supabase
-      .from("global_plans")
-      .update({ price: plan.price, content: plan.content, active: plan.active })
-      .eq("id", id);
-
-    if (error) {
-      toast.error("Error al guardar plan");
-    } else {
-      toast.success("Plan guardado — se actualiza para todos los alumnos automáticamente");
-    }
+    const plan = globalPlans.find((p) => p.id === id) || (cambioFisico?.id === id ? cambioFisico : null);
+    if (!plan) { setSaving(null); return; }
+    const { error } = await supabase.from("global_plans").update({ price: plan.price, content: plan.content, active: plan.active }).eq("id", id);
+    if (error) toast.error("Error al guardar plan");
+    else toast.success("Plan guardado — se actualiza para todos los alumnos automáticamente");
     setSaving(null);
   };
 
   const toggleActive = async (id: string, current: boolean) => {
     updateField(id, "active", !current);
     const { error } = await supabase.from("global_plans").update({ active: !current }).eq("id", id);
-    if (error) {
-      toast.error("Error al actualizar");
-      updateField(id, "active", current);
-    } else {
-      toast.success(!current ? "Plan activado" : "Plan desactivado");
-    }
+    if (error) { toast.error("Error al actualizar"); updateField(id, "active", current); }
+    else toast.success(!current ? "Plan activado" : "Plan desactivado");
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
-  }
+  if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Gestión de Planes</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Editá contenido y precios. Los cambios se reflejan automáticamente en todos los alumnos.
-        </p>
+        <p className="text-muted-foreground text-sm mt-1">Editá contenido y precios. Los cambios se reflejan automáticamente en todos los alumnos.</p>
       </div>
 
       <div className="space-y-4">
-        {PLAN_TYPES.map((pt) => {
+        {PLAN_TYPES_CONFIG.map((pt) => {
           const Icon = pt.icon;
           const isExpanded = expandedPlan === pt.key;
           const levels = globalPlans.filter((p) => p.plan_type === pt.key);
@@ -130,95 +113,41 @@ export default function PlansPage() {
 
           return (
             <Card key={pt.key} className="card-glass overflow-hidden">
-              <CardHeader
-                className="cursor-pointer hover:bg-secondary/20 transition-colors"
-                onClick={() => setExpandedPlan(isExpanded ? null : pt.key)}
-              >
+              <CardHeader className="cursor-pointer hover:bg-secondary/20 transition-colors" onClick={() => setExpandedPlan(isExpanded ? null : pt.key)}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <Icon className="h-5 w-5 text-primary" />
-                    </div>
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center"><Icon className="h-5 w-5 text-primary" /></div>
                     <div>
                       <CardTitle className="text-sm">{pt.label}</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {activeCount} nivel{activeCount !== 1 ? "es" : ""} activo{activeCount !== 1 ? "s" : ""}
-                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{activeCount} nivel{activeCount !== 1 ? "es" : ""} activo{activeCount !== 1 ? "s" : ""}</p>
                     </div>
                   </div>
-                  {isExpanded ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
+                  {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                 </div>
               </CardHeader>
-
               {isExpanded && (
                 <CardContent className="space-y-4 pt-0">
                   {LEVELS.map((level) => {
                     const pl = levels.find((p) => p.level === level);
                     if (!pl) return null;
-
                     return (
-                      <div
-                        key={pl.id}
-                        className={`rounded-lg border p-4 space-y-3 transition-all ${
-                          pl.active ? "border-primary/30 bg-primary/5" : "border-border bg-secondary/10 opacity-60"
-                        }`}
-                      >
+                      <div key={pl.id} className={`rounded-lg border p-4 space-y-3 transition-all ${pl.active ? "border-primary/30 bg-primary/5" : "border-border bg-secondary/10 opacity-60"}`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <span className="text-sm font-semibold">{LEVEL_LABELS[level]}</span>
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] ${
-                                pl.active
-                                  ? "border-green-400/50 text-green-600 bg-green-500/10"
-                                  : "border-border text-muted-foreground"
-                              }`}
-                            >
-                              {pl.active ? "Activo" : "Inactivo"}
-                            </Badge>
+                            <Badge variant="outline" className={`text-[10px] ${pl.active ? "border-green-400/50 text-green-600 bg-green-500/10" : "border-border text-muted-foreground"}`}>{pl.active ? "Activo" : "Inactivo"}</Badge>
                           </div>
                           <Switch checked={pl.active} onCheckedChange={() => toggleActive(pl.id, pl.active)} />
                         </div>
-
-                        {/* Price */}
                         <div className="flex items-center gap-2">
                           <DollarSign className="h-4 w-4 text-accent" />
                           <Label className="text-xs text-muted-foreground">Precio:</Label>
-                          <Input
-                            type="number"
-                            value={pl.price}
-                            onChange={(e) => updateField(pl.id, "price", parseFloat(e.target.value) || 0)}
-                            className="h-8 w-32 text-sm bg-secondary/30 border-border"
-                            placeholder="Precio"
-                          />
+                          <Input type="number" value={pl.price} onChange={(e) => updateField(pl.id, "price", parseFloat(e.target.value) || 0)} className="h-8 w-32 text-sm bg-secondary/30 border-border" />
                           <span className="text-xs text-muted-foreground">{formatPrice(pl.price)}</span>
                         </div>
-
-                        {/* Content */}
-                        <Textarea
-                          placeholder={`Contenido de ${pt.shortLabel} - ${LEVEL_LABELS[level]}...`}
-                          value={pl.content}
-                          onChange={(e) => updateField(pl.id, "content", e.target.value)}
-                          className="bg-secondary/30 border-border min-h-[100px] text-sm"
-                        />
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-2"
-                          onClick={() => savePlan(pl.id)}
-                          disabled={saving === pl.id}
-                        >
-                          {saving === pl.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Save className="h-3 w-3" />
-                          )}
-                          Guardar
+                        <Textarea placeholder={`Contenido de ${pt.shortLabel} - ${LEVEL_LABELS[level]}...`} value={pl.content} onChange={(e) => updateField(pl.id, "content", e.target.value)} className="bg-secondary/30 border-border min-h-[100px] text-sm" />
+                        <Button size="sm" variant="outline" className="gap-2" onClick={() => savePlan(pl.id)} disabled={saving === pl.id}>
+                          {saving === pl.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />} Guardar
                         </Button>
                       </div>
                     );
@@ -228,6 +157,50 @@ export default function PlansPage() {
             </Card>
           );
         })}
+
+        {/* Cambio Físico - simplified: just text + price, no levels */}
+        {cambioFisico && (
+          <Card className="card-glass overflow-hidden">
+            <CardHeader className="cursor-pointer hover:bg-secondary/20 transition-colors" onClick={() => setExpandedPlan(expandedPlan === "cambios_fisicos" ? null : "cambios_fisicos")}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center"><TrendingUp className="h-5 w-5 text-primary" /></div>
+                  <div>
+                    <CardTitle className="text-sm">Cambio Físico</CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">Plan integral: alimentación + rutina</p>
+                  </div>
+                </div>
+                {expandedPlan === "cambios_fisicos" ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </div>
+            </CardHeader>
+            {expandedPlan === "cambios_fisicos" && (
+              <CardContent className="space-y-4 pt-0">
+                <div className={`rounded-lg border p-4 space-y-3 ${cambioFisico.active ? "border-primary/30 bg-primary/5" : "border-border bg-secondary/10 opacity-60"}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold">Estado</span>
+                    <Switch checked={cambioFisico.active} onCheckedChange={async (v) => {
+                      setCambioFisico({ ...cambioFisico, active: v });
+                      await supabase.from("global_plans").update({ active: v }).eq("id", cambioFisico.id);
+                    }} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-accent" />
+                    <Label className="text-xs text-muted-foreground">Precio:</Label>
+                    <Input type="number" value={cambioFisico.price} onChange={(e) => setCambioFisico({ ...cambioFisico, price: parseFloat(e.target.value) || 0 })} className="h-8 w-32 text-sm bg-secondary/30 border-border" />
+                    <span className="text-xs text-muted-foreground">{formatPrice(cambioFisico.price)}</span>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">Qué incluye el cambio físico</Label>
+                    <Textarea placeholder="Describe qué incluye el plan de cambio físico..." value={cambioFisico.content} onChange={(e) => setCambioFisico({ ...cambioFisico, content: e.target.value })} className="bg-secondary/30 border-border min-h-[120px] text-sm mt-1" />
+                  </div>
+                  <Button size="sm" variant="outline" className="gap-2" onClick={() => savePlan(cambioFisico.id)} disabled={saving === cambioFisico.id}>
+                    {saving === cambioFisico.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />} Guardar
+                  </Button>
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        )}
       </div>
     </div>
   );

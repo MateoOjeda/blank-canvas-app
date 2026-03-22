@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Dumbbell, CheckCircle, Lock, Unlock, Apple, TrendingUp, User, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, Dumbbell, CheckCircle, Apple, TrendingUp, Loader2, Sparkles, Pencil } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import PersonalDiagnosticTab from "@/components/trainer/PersonalDiagnosticTab";
 import WeightProgressChart from "@/components/trainer/WeightProgressChart";
+import ExerciseHistoryTab from "@/components/trainer/ExerciseHistoryTab";
 import MealsTab from "@/components/trainer/MealsTab";
 import { toast } from "sonner";
 
@@ -35,29 +36,17 @@ interface Exercise {
   completed: boolean;
 }
 
-interface PlanLevel {
-  plan_type: string;
-  level: string;
-  content: string;
-  unlocked: boolean;
-}
-
 interface TrainerStudent {
   id: string;
   plan_type: string | null;
   payment_status?: string;
 }
 
-const PLAN_LABELS: Record<string, string> = {
-  nutricion: "Nutrición", entrenamiento: "Entrenamiento",
-  cambios_fisicos: "Cambios Físicos", cambios_personales: "Cambios Personales",
-};
-const PLAN_ICONS: Record<string, React.ElementType> = {
-  nutricion: Apple, entrenamiento: Dumbbell, cambios_fisicos: TrendingUp, cambios_personales: User,
-};
 const LEVEL_LABELS: Record<string, string> = {
-  principiante: "Principiante", intermedio: "Intermedio", avanzado: "Avanzado",
+  principiante: "Inicial", intermedio: "Intermedio", avanzado: "Avanzado",
 };
+const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const DAY_SHORT = ["L", "M", "X", "J", "V", "S", "D"];
 
 export default function StudentDetailPage() {
   const { studentId } = useParams<{ studentId: string }>();
@@ -65,7 +54,6 @@ export default function StudentDetailPage() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [planLevels, setPlanLevels] = useState<PlanLevel[]>([]);
   const [trainerStudent, setTrainerStudent] = useState<TrainerStudent | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("weight");
@@ -73,6 +61,7 @@ export default function StudentDetailPage() {
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; planType: string; level: string } | null>(null);
   const [selectedEntrenamiento, setSelectedEntrenamiento] = useState<string>("none");
   const [selectedAlimentacion, setSelectedAlimentacion] = useState<string>("none");
+  const [editingPlans, setEditingPlans] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!user || !studentId) return;
@@ -80,14 +69,12 @@ export default function StudentDetailPage() {
     const [profRes, exRes, plRes, tsRes] = await Promise.all([
       supabase.from("profiles").select("display_name, avatar_initials, avatar_url, weight, age").eq("user_id", studentId).maybeSingle(),
       supabase.from("exercises").select("id, name, sets, reps, weight, day, completed").eq("trainer_id", user.id).eq("student_id", studentId),
-      supabase.from("plan_levels").select("plan_type, level, content, unlocked").eq("trainer_id", user.id).eq("student_id", studentId),
+      supabase.from("plan_levels").select("plan_type, level, unlocked").eq("trainer_id", user.id).eq("student_id", studentId),
       supabase.from("trainer_students").select("id, plan_type, payment_status").eq("trainer_id", user.id).eq("student_id", studentId).maybeSingle(),
     ]);
     setProfile(profRes.data as StudentProfile | null);
     setExercises(exRes.data || []);
-    setPlanLevels(plRes.data || []);
-    
-    // Derive selected levels from plan_levels data
+
     const pls = plRes.data || [];
     const activeEntrenamiento = pls.find((p: any) => p.plan_type === "entrenamiento" && p.unlocked);
     const activeAlimentacion = pls.find((p: any) => p.plan_type === "nutricion" && p.unlocked);
@@ -108,12 +95,9 @@ export default function StudentDetailPage() {
     if (!trainerStudent) return;
     setPaymentPaid(checked);
     const newStatus = checked ? "pagado" : "pendiente";
-    const { error } = await supabase
-      .from("trainer_students")
-      .update({ payment_status: newStatus })
-      .eq("id", trainerStudent.id);
+    const { error } = await supabase.from("trainer_students").update({ payment_status: newStatus }).eq("id", trainerStudent.id);
     if (error) {
-      toast.error("No se pudo actualizar el estado de pago. Verificá que la columna 'payment_status' exista.");
+      toast.error("No se pudo actualizar el estado de pago.");
       setPaymentPaid(!checked);
     } else {
       toast.success(checked ? "Marcado como pagado" : "Marcado como pendiente");
@@ -131,63 +115,22 @@ export default function StudentDetailPage() {
 
     try {
       if (level === "none") {
-        // Deactivate all levels for this plan type
-        await supabase
-          .from("plan_levels")
-          .update({ unlocked: false })
-          .eq("trainer_id", user.id)
-          .eq("student_id", studentId)
-          .eq("plan_type", planType);
+        await supabase.from("plan_levels").update({ unlocked: false }).eq("trainer_id", user.id).eq("student_id", studentId).eq("plan_type", planType);
       } else {
-        // Deactivate all, then activate selected
-        await supabase
-          .from("plan_levels")
-          .update({ unlocked: false })
-          .eq("trainer_id", user.id)
-          .eq("student_id", studentId)
-          .eq("plan_type", planType);
-
-        // Check if level row exists
-        const { data: existing } = await supabase
-          .from("plan_levels")
-          .select("id")
-          .eq("trainer_id", user.id)
-          .eq("student_id", studentId)
-          .eq("plan_type", planType)
-          .eq("level", level)
-          .maybeSingle();
-
+        await supabase.from("plan_levels").update({ unlocked: false }).eq("trainer_id", user.id).eq("student_id", studentId).eq("plan_type", planType);
+        const { data: existing } = await supabase.from("plan_levels").select("id").eq("trainer_id", user.id).eq("student_id", studentId).eq("plan_type", planType).eq("level", level).maybeSingle();
         if (existing) {
-          await supabase
-            .from("plan_levels")
-            .update({ unlocked: true })
-            .eq("id", existing.id);
+          await supabase.from("plan_levels").update({ unlocked: true }).eq("id", existing.id);
         } else {
-          await supabase
-            .from("plan_levels")
-            .insert({
-              trainer_id: user.id,
-              student_id: studentId,
-              plan_type: planType,
-              level,
-              unlocked: true,
-              content: "",
-            });
+          await supabase.from("plan_levels").insert({ trainer_id: user.id, student_id: studentId, plan_type: planType, level, unlocked: true, content: "" });
         }
       }
-
-      // Update trainer_students plan fields
       const updateField = planType === "entrenamiento" ? "plan_entrenamiento" : "plan_alimentacion";
       if (trainerStudent) {
-        await supabase
-          .from("trainer_students")
-          .update({ [updateField]: level === "none" ? null : level })
-          .eq("id", trainerStudent.id);
+        await supabase.from("trainer_students").update({ [updateField]: level === "none" ? null : level }).eq("id", trainerStudent.id);
       }
-
       if (planType === "entrenamiento") setSelectedEntrenamiento(level);
       else setSelectedAlimentacion(level);
-
       toast.success(level === "none" ? "Plan desactivado" : `Plan actualizado a ${LEVEL_LABELS[level] || level}`);
       fetchData();
     } catch {
@@ -206,23 +149,16 @@ export default function StudentDetailPage() {
     );
   }
 
-  const completedCount = exercises.filter((e) => e.completed).length;
-  const totalExercises = exercises.length;
-  const completionRate = totalExercises > 0 ? Math.round((completedCount / totalExercises) * 100) : 0;
-  const unlockedLevels = planLevels.filter((p) => p.unlocked).length;
-  const planTypes = ["nutricion", "entrenamiento", "cambios_fisicos", "cambios_personales"];
-
-  const getHighestLevel = (type: string): string => {
-    const levels = planLevels.filter((p) => p.plan_type === type && p.unlocked);
-    if (levels.find((l) => l.level === "avanzado")) return "Avanzado";
-    if (levels.find((l) => l.level === "intermedio")) return "Intermedio";
-    if (levels.find((l) => l.level === "principiante")) return "Principiante";
-    return "Bloqueado";
-  };
+  // Group exercises by day for routine display
+  const exercisesByDay: Record<string, Exercise[]> = {};
+  exercises.forEach((ex) => {
+    if (!exercisesByDay[ex.day]) exercisesByDay[ex.day] = [];
+    exercisesByDay[ex.day].push(ex);
+  });
 
   return (
     <div className="space-y-6">
-      {/* Header - horizontal layout */}
+      {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/trainer/students")}><ArrowLeft className="h-5 w-5" /></Button>
         <Avatar className="h-14 w-14 border-2 border-primary/30">
@@ -233,15 +169,13 @@ export default function StudentDetailPage() {
         </Avatar>
         <div className="flex-1">
           <h1 className="text-2xl font-display font-bold tracking-wide neon-text">{profile.display_name}</h1>
-          <div className="flex items-center gap-3 flex-wrap text-sm text-muted-foreground">
-            <span>Edad: {profile.age || "—"}</span>
-            <span>·</span>
-            <span>Plan: {trainerStudent?.plan_type || "Sin plan"}</span>
-          </div>
+          <Badge variant="outline" className={`mt-1 text-xs ${paymentPaid ? "border-green-400/50 text-green-500 bg-green-500/10" : "border-destructive/50 text-destructive bg-destructive/10"}`}>
+            {paymentPaid ? "✓ Pagado" : "✗ No pagado"}
+          </Badge>
         </div>
       </div>
 
-      {/* Payment Status */}
+      {/* Payment toggle */}
       <Card className="card-glass">
         <CardContent className="p-4 flex items-center justify-between">
           <div>
@@ -249,92 +183,80 @@ export default function StudentDetailPage() {
             <p className="text-xs text-muted-foreground">{paymentPaid ? "Pagado ✓" : "Pendiente"}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Label htmlFor="payment-switch" className="text-xs text-muted-foreground">
-              {paymentPaid ? "Pagado" : "Pendiente"}
-            </Label>
-            <Switch
-              id="payment-switch"
-              checked={paymentPaid}
-              onCheckedChange={handlePaymentToggle}
-            />
+            <Label htmlFor="payment-switch" className="text-xs text-muted-foreground">{paymentPaid ? "Pagado" : "Pendiente"}</Label>
+            <Switch id="payment-switch" checked={paymentPaid} onCheckedChange={handlePaymentToggle} />
           </div>
         </CardContent>
       </Card>
 
-      {/* Plan Selection */}
+      {/* Plan Assignment with edit lock */}
       <Card className="card-glass">
-        <CardHeader className="pb-3"><CardTitle className="text-lg">Asignación de Planes</CardTitle></CardHeader>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Asignación de Planes</CardTitle>
+            <Button variant="ghost" size="icon" className={`h-8 w-8 ${editingPlans ? "text-primary" : "text-muted-foreground"}`} onClick={() => setEditingPlans(!editingPlans)} title={editingPlans ? "Bloquear edición" : "Habilitar edición"}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
         <CardContent className="space-y-4">
-          {/* Plan de Entrenamiento */}
+          {/* Entrenamiento */}
           <div className="flex items-center gap-4 p-3 rounded-lg bg-secondary/30">
             <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Dumbbell className="h-4 w-4 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <Label className="text-sm font-semibold">Plan de Entrenamiento</Label>
-              {selectedEntrenamiento !== "none" ? (
-                <Badge variant="outline" className="ml-2 text-[10px] bg-green-500/15 text-green-500 border-green-500/30">
-                  {LEVEL_LABELS[selectedEntrenamiento]} — Activo
-                </Badge>
-              ) : (
-                <span className="ml-2 text-[10px] text-destructive">No tiene plan asignado</span>
-              )}
+              <Label className="text-sm font-semibold">Entrenamiento</Label>
+              <p className="text-xs mt-0.5">
+                {selectedEntrenamiento !== "none"
+                  ? <Badge variant="outline" className="text-[10px] bg-green-500/15 text-green-500 border-green-500/30">{LEVEL_LABELS[selectedEntrenamiento]} — Activo</Badge>
+                  : <span className="text-[10px] text-destructive">Sin plan asignado</span>}
+              </p>
             </div>
-            <Select
-              value={selectedEntrenamiento}
-              onValueChange={(val) => handlePlanChangeRequest("entrenamiento", val)}
-            >
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Seleccionar nivel" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sin plan</SelectItem>
-                <SelectItem value="principiante">Inicial</SelectItem>
-                <SelectItem value="intermedio">Intermedio</SelectItem>
-                <SelectItem value="avanzado">Avanzado</SelectItem>
-              </SelectContent>
-            </Select>
+            {editingPlans && (
+              <Select value={selectedEntrenamiento} onValueChange={(val) => handlePlanChangeRequest("entrenamiento", val)}>
+                <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin plan</SelectItem>
+                  <SelectItem value="principiante">Inicial</SelectItem>
+                  <SelectItem value="intermedio">Intermedio</SelectItem>
+                  <SelectItem value="avanzado">Avanzado</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
-
-          {/* Plan de Alimentación */}
+          {/* Alimentación */}
           <div className="flex items-center gap-4 p-3 rounded-lg bg-secondary/30">
             <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Apple className="h-4 w-4 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <Label className="text-sm font-semibold">Plan de Alimentación</Label>
-              {selectedAlimentacion !== "none" ? (
-                <Badge variant="outline" className="ml-2 text-[10px] bg-green-500/15 text-green-500 border-green-500/30">
-                  {LEVEL_LABELS[selectedAlimentacion]} — Activo
-                </Badge>
-              ) : (
-                <span className="ml-2 text-[10px] text-destructive">No tiene plan asignado</span>
-              )}
+              <Label className="text-sm font-semibold">Alimentación</Label>
+              <p className="text-xs mt-0.5">
+                {selectedAlimentacion !== "none"
+                  ? <Badge variant="outline" className="text-[10px] bg-green-500/15 text-green-500 border-green-500/30">{LEVEL_LABELS[selectedAlimentacion]} — Activo</Badge>
+                  : <span className="text-[10px] text-destructive">Sin plan asignado</span>}
+              </p>
             </div>
-            <Select
-              value={selectedAlimentacion}
-              onValueChange={(val) => handlePlanChangeRequest("nutricion", val)}
-            >
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Seleccionar nivel" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sin plan</SelectItem>
-                <SelectItem value="principiante">Inicial</SelectItem>
-                <SelectItem value="intermedio">Intermedio</SelectItem>
-                <SelectItem value="avanzado">Avanzado</SelectItem>
-              </SelectContent>
-            </Select>
+            {editingPlans && (
+              <Select value={selectedAlimentacion} onValueChange={(val) => handlePlanChangeRequest("nutricion", val)}>
+                <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin plan</SelectItem>
+                  <SelectItem value="principiante">Inicial</SelectItem>
+                  <SelectItem value="intermedio">Intermedio</SelectItem>
+                  <SelectItem value="avanzado">Avanzado</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </CardContent>
       </Card>
+
       {/* Quick Actions */}
       <div className="flex gap-2 flex-wrap">
         <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate(`/trainer/routines/${studentId}`)}>
           <Dumbbell className="h-4 w-4" /> Editar Rutina
-        </Button>
-        <Button variant="outline" size="sm" className="gap-2" onClick={() => setActiveTab("weight")}>
-          <TrendingUp className="h-4 w-4" /> Ver Progreso
         </Button>
         <Button variant="outline" size="sm" className="gap-2" onClick={() => setActiveTab("diagnostic")}>
           <Sparkles className="h-4 w-4" /> Ver Encuesta
@@ -342,98 +264,90 @@ export default function StudentDetailPage() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="card-glass neon-border"><CardContent className="p-4 text-center"><p className="text-3xl font-bold text-primary">{completionRate}%</p><p className="text-xs text-muted-foreground mt-1">Completitud</p></CardContent></Card>
-        <Card className="card-glass"><CardContent className="p-4 text-center"><p className="text-3xl font-bold">{completedCount}/{totalExercises}</p><p className="text-xs text-muted-foreground mt-1">Ejercicios</p></CardContent></Card>
-        <Card className="card-glass"><CardContent className="p-4 text-center"><p className="text-3xl font-bold">{unlockedLevels}</p><p className="text-xs text-muted-foreground mt-1">Planes activos</p></CardContent></Card>
-        <Card className="card-glass"><CardContent className="p-4 text-center"><p className="text-3xl font-bold">{profile.age || "—"}</p><p className="text-xs text-muted-foreground mt-1">Edad</p></CardContent></Card>
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="card-glass neon-border">
+          <CardContent className="p-4 text-center">
+            <p className="text-3xl font-bold text-primary">
+              {exercises.length > 0 ? Math.round((exercises.filter((e) => e.completed).length / exercises.length) * 100) : 0}%
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Completitud</p>
+          </CardContent>
+        </Card>
+        <Card className="card-glass">
+          <CardContent className="p-4 text-center">
+            <p className="text-3xl font-bold">{exercises.filter((e) => e.completed).length}/{exercises.length}</p>
+            <p className="text-xs text-muted-foreground mt-1">Ejercicios</p>
+          </CardContent>
+        </Card>
+        <Card className="card-glass">
+          <CardContent className="p-4 text-center">
+            <p className="text-3xl font-bold">{profile.weight ? `${profile.weight}` : "—"}</p>
+            <p className="text-xs text-muted-foreground mt-1">Peso actual (kg)</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="w-full grid grid-cols-5 bg-secondary/50">
+        <TabsList className="w-full grid grid-cols-4 bg-secondary/50">
           <TabsTrigger value="weight" className="text-xs">📈 Peso</TabsTrigger>
           <TabsTrigger value="meals" className="text-xs">🍽️ Comidas</TabsTrigger>
-          <TabsTrigger value="plans" className="text-xs">Planes</TabsTrigger>
-          <TabsTrigger value="routine" className="text-xs">Rutina</TabsTrigger>
-          <TabsTrigger value="diagnostic" className="text-xs"><Sparkles className="h-3 w-3 mr-1" />Diag.</TabsTrigger>
+          <TabsTrigger value="routine" className="text-xs">🏋️ Rutina</TabsTrigger>
+          <TabsTrigger value="diagnostic" className="text-xs"><Sparkles className="h-3 w-3 mr-1" />Encuesta</TabsTrigger>
         </TabsList>
 
         <TabsContent value="weight">
-          {studentId && <WeightProgressChart studentId={studentId} />}
+          {studentId && (
+            <div className="space-y-4">
+              <WeightProgressChart studentId={studentId} />
+              {studentId && <ExerciseHistoryTab studentId={studentId} />}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="meals">
           {studentId && <MealsTab studentId={studentId} />}
         </TabsContent>
 
-        <TabsContent value="plans">
-          <Card className="card-glass">
-            <CardHeader><CardTitle className="text-lg">Planes y Niveles</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              {planTypes.map((type) => {
-                const Icon = PLAN_ICONS[type];
-                const typeLevels = planLevels.filter((p) => p.plan_type === type);
-                return (
-                  <div key={type} className="p-4 rounded-lg bg-secondary/30 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center"><Icon className="h-4 w-4 text-primary" /></div>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold">{PLAN_LABELS[type]}</p>
-                        {typeLevels.some((l) => l.unlocked) ? (
-                          <div className="flex gap-1 mt-0.5 flex-wrap">
-                            {typeLevels.filter((l) => l.unlocked).map((l) => (
-                              <Badge key={l.level} variant="outline" className="text-[10px] bg-green-500/15 text-green-500 border-green-500/30">
-                                {LEVEL_LABELS[l.level]} — Activo
-                              </Badge>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-[10px] text-destructive">No tiene plan asignado</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {typeLevels.map((l) => (
-                        <Badge key={`${l.plan_type}-${l.level}`} variant="outline" className={`text-[10px] gap-1 ${l.unlocked ? "border-primary/40 text-primary" : "border-border text-muted-foreground"}`}>
-                          {l.unlocked ? <Unlock className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
-                          {LEVEL_LABELS[l.level]}
-                        </Badge>
-                      ))}
-                    </div>
-                    {typeLevels.filter((l) => l.unlocked && l.content).map((l) => (
-                      <div key={`${l.plan_type}-${l.level}-content`} className="text-xs text-muted-foreground bg-background/50 p-3 rounded-md">
-                        <span className="font-medium text-foreground">{LEVEL_LABELS[l.level]}:</span> {l.content.length > 150 ? l.content.slice(0, 150) + "..." : l.content}
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="routine">
           <Card className="card-glass">
-            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Dumbbell className="h-5 w-5 text-primary" />Rutina Actual</CardTitle></CardHeader>
-            <CardContent>
+            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Dumbbell className="h-5 w-5 text-primary" />Rutina Asignada</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              {/* Day row */}
+              <div className="flex gap-2">
+                {DAYS.map((day, i) => {
+                  const count = exercisesByDay[day]?.length || 0;
+                  return (
+                    <div key={day} className={`flex flex-col items-center justify-center w-10 h-12 rounded-lg text-xs font-bold border ${count > 0 ? "bg-primary/10 border-primary/30 text-primary" : "bg-secondary/30 border-border text-muted-foreground"}`}>
+                      <span className="text-[11px]">{DAY_SHORT[i]}</span>
+                      {count > 0 && <span className="text-[9px] mt-0.5">{count}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+
               {exercises.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">Sin ejercicios asignados</p>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {exercises.map((ex) => (
-                    <div key={ex.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
-                      <CheckCircle className={`h-4 w-4 flex-shrink-0 ${ex.completed ? "text-primary" : "text-muted-foreground/30"}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{ex.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{ex.day} · {ex.sets}×{ex.reps} · {ex.weight}kg</p>
-                      </div>
-                      <Badge variant="outline" className={`text-[10px] flex-shrink-0 ${ex.completed ? "border-primary/40 text-primary" : "border-border"}`}>
-                        {ex.completed ? "✓" : "—"}
-                      </Badge>
+                DAYS.filter((day) => exercisesByDay[day]?.length).map((day) => (
+                  <div key={day}>
+                    <p className="text-xs font-semibold text-primary mb-2">{day}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {exercisesByDay[day].map((ex) => (
+                        <div key={ex.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
+                          <CheckCircle className={`h-4 w-4 flex-shrink-0 ${ex.completed ? "text-primary" : "text-muted-foreground/30"}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{ex.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{ex.sets}×{ex.reps} · {ex.weight}kg</p>
+                          </div>
+                          <Badge variant="outline" className={`text-[10px] flex-shrink-0 ${ex.completed ? "border-primary/40 text-primary" : "border-border"}`}>
+                            {ex.completed ? "✓" : "—"}
+                          </Badge>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))
               )}
             </CardContent>
           </Card>

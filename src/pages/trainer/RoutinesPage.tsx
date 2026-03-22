@@ -11,18 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Dumbbell, Loader2 } from "lucide-react";
+import { Plus, Trash2, Dumbbell, Loader2, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import { BODY_PARTS, EXERCISES_BY_BODY_PART, type BodyPart } from "@/lib/exercisesByBodyPart";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
 const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
@@ -43,6 +37,12 @@ interface Exercise {
   pyramid_reps: string | null;
 }
 
+interface DayConfig {
+  day: string;
+  body_part_1: string;
+  body_part_2: string;
+}
+
 export default function RoutinesPage() {
   const { user } = useAuth();
   const { studentId: urlStudentId } = useParams<{ studentId?: string }>();
@@ -51,8 +51,10 @@ export default function RoutinesPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
   const [selectedDay, setSelectedDay] = useState("Lunes");
+  const [dayConfigs, setDayConfigs] = useState<Record<string, DayConfig>>({});
+  const [routineNextChange, setRoutineNextChange] = useState<string | null>(null);
   const [form, setForm] = useState({
-    name: "", sets: "", reps: "", bodyPart: "", bodyPart2: "",
+    name: "", sets: "", reps: "",
     isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "",
   });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -72,25 +74,50 @@ export default function RoutinesPage() {
   const fetchExercises = useCallback(async () => {
     if (!user || !selectedStudent) return;
     setLoadingExercises(true);
-    const { data } = await supabase
-      .from("exercises")
-      .select("*")
-      .eq("trainer_id", user.id)
-      .eq("student_id", selectedStudent);
-    setExercises((data as Exercise[]) || []);
+
+    const [exRes, dayRes, tsRes] = await Promise.all([
+      supabase.from("exercises").select("*").eq("trainer_id", user.id).eq("student_id", selectedStudent),
+      supabase.from("routine_day_config").select("day, body_part_1, body_part_2").eq("trainer_id", user.id).eq("student_id", selectedStudent),
+      supabase.from("trainer_students").select("routine_next_change_date").eq("trainer_id", user.id).eq("student_id", selectedStudent).maybeSingle(),
+    ]);
+
+    setExercises((exRes.data as Exercise[]) || []);
+
+    const configs: Record<string, DayConfig> = {};
+    (dayRes.data || []).forEach((d: any) => {
+      configs[d.day] = { day: d.day, body_part_1: d.body_part_1 || "", body_part_2: d.body_part_2 || "" };
+    });
+    setDayConfigs(configs);
+    setRoutineNextChange(tsRes.data?.routine_next_change_date || null);
     setSelectedIds(new Set());
     setLoadingExercises(false);
   }, [user, selectedStudent]);
 
   useEffect(() => { fetchExercises(); }, [fetchExercises]);
 
-  const bodyPart1 = form.bodyPart as BodyPart;
-  const bodyPart2 = form.bodyPart2 as BodyPart;
+  // Current day body parts from config
+  const currentDayConfig = dayConfigs[selectedDay] || { day: selectedDay, body_part_1: "", body_part_2: "" };
+  const bodyPart1 = currentDayConfig.body_part_1 as BodyPart;
+  const bodyPart2 = currentDayConfig.body_part_2 as BodyPart;
   const availableExercises = [
     ...(bodyPart1 ? EXERCISES_BY_BODY_PART[bodyPart1] || [] : []),
     ...(bodyPart2 && bodyPart2 !== bodyPart1 ? EXERCISES_BY_BODY_PART[bodyPart2] || [] : []),
   ];
-  const combinedBodyPart = [form.bodyPart, form.bodyPart2].filter(Boolean).join(" y ");
+  const combinedBodyPart = [currentDayConfig.body_part_1, currentDayConfig.body_part_2].filter(Boolean).join(" y ");
+
+  const saveDayConfig = async (field: "body_part_1" | "body_part_2", value: string) => {
+    if (!user || !selectedStudent) return;
+    const updated = { ...currentDayConfig, [field]: value === "none" ? "" : value };
+    setDayConfigs((prev) => ({ ...prev, [selectedDay]: updated }));
+
+    await supabase.from("routine_day_config").upsert({
+      trainer_id: user.id,
+      student_id: selectedStudent,
+      day: selectedDay,
+      body_part_1: updated.body_part_1,
+      body_part_2: updated.body_part_2,
+    } as any, { onConflict: "trainer_id,student_id,day" });
+  };
 
   const validatePyramidReps = (value: string): boolean => {
     if (!value.trim()) return false;
@@ -99,8 +126,8 @@ export default function RoutinesPage() {
 
   const handleAdd = async () => {
     if (!user || !selectedStudent) return;
-    if (!form.name || !form.sets || !form.bodyPart) {
-      toast.error("Completa todos los campos obligatorios");
+    if (!form.name || !form.sets || !currentDayConfig.body_part_1) {
+      toast.error("Selecciona el grupo muscular del día y completa los campos");
       return;
     }
     if (form.isPiramide) {
@@ -123,7 +150,7 @@ export default function RoutinesPage() {
       reps: form.isToFailure || form.isPiramide ? 0 : parseInt(form.reps),
       weight: 0,
       day: selectedDay,
-      body_part: combinedBodyPart || form.bodyPart,
+      body_part: combinedBodyPart || currentDayConfig.body_part_1,
       is_to_failure: form.isToFailure,
       is_dropset: form.isDropset,
       is_piramide: form.isPiramide,
@@ -141,7 +168,7 @@ export default function RoutinesPage() {
         entity_id: data?.id,
       });
       toast.success("Ejercicio agregado");
-      setForm({ name: "", sets: "", reps: "", bodyPart: "", bodyPart2: "", isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "" });
+      setForm({ name: "", sets: "", reps: "", isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "" });
       fetchExercises();
     }
   };
@@ -197,6 +224,23 @@ export default function RoutinesPage() {
     });
   };
 
+  // Routine change countdown
+  const daysUntilChange = (() => {
+    if (!routineNextChange) return null;
+    const diff = Math.ceil((new Date(routineNextChange).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    return diff > 0 ? diff : 0;
+  })();
+
+  const setNextChangeDate = async (days: number) => {
+    if (!user || !selectedStudent) return;
+    const date = new Date();
+    date.setDate(date.getDate() + days);
+    const dateStr = date.toISOString().split("T")[0];
+    setRoutineNextChange(dateStr);
+    await supabase.from("trainer_students").update({ routine_next_change_date: dateStr } as any).eq("trainer_id", user.id).eq("student_id", selectedStudent);
+    toast.success(`Cambio de rutina programado en ${days} días`);
+  };
+
   const student = students.find((s) => s.user_id === selectedStudent);
   const filteredExercises = exercises.filter((e) => e.day === selectedDay);
 
@@ -228,30 +272,50 @@ export default function RoutinesPage() {
         <p className="text-muted-foreground text-sm mt-1">Prescribe series y repeticiones — el alumno registra el peso</p>
       </div>
 
-      <div className="max-w-xs">
-        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Alumno</Label>
-        <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-          <SelectTrigger className="bg-secondary/50 border-border">
-            <SelectValue placeholder="Seleccionar alumno" />
-          </SelectTrigger>
-          <SelectContent>
-            {students.map((s) => (
-              <SelectItem key={s.user_id} value={s.user_id}>{s.display_name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex items-end gap-4 flex-wrap">
+        <div className="max-w-xs flex-1">
+          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Alumno</Label>
+          <Select value={selectedStudent} onValueChange={setSelectedStudent}>
+            <SelectTrigger className="bg-secondary/50 border-border">
+              <SelectValue placeholder="Seleccionar alumno" />
+            </SelectTrigger>
+            <SelectContent>
+              {students.map((s) => (
+                <SelectItem key={s.user_id} value={s.user_id}>{s.display_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Routine change countdown */}
+        <Card className="card-glass p-3 flex items-center gap-3">
+          <CalendarClock className="h-5 w-5 text-primary flex-shrink-0" />
+          {daysUntilChange !== null ? (
+            <div>
+              <p className="text-sm font-semibold">Días restantes para actualizar rutina: <span className="text-primary">{daysUntilChange}</span></p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-muted-foreground">Programar cambio en:</p>
+              {[7, 14, 21, 30].map((d) => (
+                <Button key={d} size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => setNextChangeDate(d)}>{d}d</Button>
+              ))}
+            </div>
+          )}
+        </Card>
       </div>
 
       {/* Day selector blocks */}
       <div className="flex gap-2 flex-wrap">
         {DAYS.map((day, i) => {
           const count = exercises.filter((e) => e.day === day).length;
+          const dc = dayConfigs[day];
           const isActive = selectedDay === day;
           return (
             <button
               key={day}
               onClick={() => { setSelectedDay(day); setSelectedIds(new Set()); }}
-              className={`relative flex flex-col items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-xl text-xs font-bold transition-all border
+              className={`relative flex flex-col items-center justify-center w-12 h-14 sm:w-14 sm:h-16 rounded-xl text-xs font-bold transition-all border
                 ${isActive
                   ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/25"
                   : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/40 hover:bg-secondary"
@@ -263,10 +327,50 @@ export default function RoutinesPage() {
                   {count}
                 </span>
               )}
+              {dc?.body_part_1 && (
+                <span className={`text-[7px] mt-0.5 truncate max-w-[40px] ${isActive ? "text-primary-foreground/60" : "text-muted-foreground/60"}`}>
+                  {dc.body_part_1.slice(0, 4)}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
+
+      {/* Day body part config */}
+      <Card className="card-glass border-primary/20">
+        <CardContent className="p-4">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3 font-semibold">Grupo muscular del {selectedDay}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs text-muted-foreground">Principal</Label>
+              <Select value={currentDayConfig.body_part_1 || "none"} onValueChange={(v) => saveDayConfig("body_part_1", v)}>
+                <SelectTrigger className="bg-secondary/50 border-border">
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Ninguno —</SelectItem>
+                  {BODY_PARTS.map((bp) => <SelectItem key={bp} value={bp}>{bp}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Secundario <span className="text-muted-foreground/60">(opcional)</span></Label>
+              <Select value={currentDayConfig.body_part_2 || "none"} onValueChange={(v) => saveDayConfig("body_part_2", v)}>
+                <SelectTrigger className="bg-secondary/50 border-border">
+                  <SelectValue placeholder="Secundario" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Ninguno —</SelectItem>
+                  {BODY_PARTS.filter((bp) => bp !== currentDayConfig.body_part_1).map((bp) => (
+                    <SelectItem key={bp} value={bp}>{bp}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Form */}
@@ -275,36 +379,10 @@ export default function RoutinesPage() {
             <CardTitle className="text-lg flex items-center gap-2">
               <Plus className="h-5 w-5 text-primary" />
               Nuevo Ejercicio — {selectedDay}
+              {combinedBodyPart && <Badge className="ml-2 bg-primary/20 text-primary border-0 text-xs">{combinedBodyPart}</Badge>}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground uppercase tracking-wide">Grupo Muscular 1</Label>
-                <Select value={form.bodyPart} onValueChange={(v) => setForm({ ...form, bodyPart: v, name: "" })}>
-                  <SelectTrigger className="bg-secondary/50 border-border">
-                    <SelectValue placeholder="Principal" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BODY_PARTS.map((bp) => <SelectItem key={bp} value={bp}>{bp}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground uppercase tracking-wide">Grupo Muscular 2 <span className="text-muted-foreground/60">(opcional)</span></Label>
-                <Select value={form.bodyPart2} onValueChange={(v) => setForm({ ...form, bodyPart2: v, name: "" })}>
-                  <SelectTrigger className="bg-secondary/50 border-border">
-                    <SelectValue placeholder="Secundario" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— Ninguno —</SelectItem>
-                    {BODY_PARTS.filter((bp) => bp !== form.bodyPart).map((bp) => (
-                      <SelectItem key={bp} value={bp}>{bp}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
             <div>
               <Label className="text-xs text-muted-foreground uppercase tracking-wide">Ejercicio</Label>
               {availableExercises.length > 0 ? (
@@ -318,11 +396,11 @@ export default function RoutinesPage() {
                 </Select>
               ) : (
                 <Input
-                  placeholder="Primero selecciona el grupo muscular"
+                  placeholder={currentDayConfig.body_part_1 ? "Escribir ejercicio manualmente" : "Primero configura el grupo muscular del día"}
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className="bg-secondary/50 border-border"
-                  disabled={!form.bodyPart}
+                  disabled={!currentDayConfig.body_part_1}
                 />
               )}
             </div>
@@ -347,10 +425,7 @@ export default function RoutinesPage() {
               <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Tipo de serie</Label>
 
               <div className="flex items-center gap-3">
-                <Switch
-                  checked={form.isToFailure}
-                  onCheckedChange={(checked) => setForm({ ...form, isToFailure: checked, reps: checked ? "" : form.reps })}
-                />
+                <Switch checked={form.isToFailure} onCheckedChange={(checked) => setForm({ ...form, isToFailure: checked, reps: checked ? "" : form.reps })} />
                 <div>
                   <Label className="text-sm font-medium cursor-pointer">Al Fallo</Label>
                   <p className="text-xs text-muted-foreground">El alumno hará repeticiones hasta el fallo muscular</p>
@@ -358,10 +433,7 @@ export default function RoutinesPage() {
               </div>
 
               <div className="flex items-center gap-3">
-                <Switch
-                  checked={form.isDropset}
-                  onCheckedChange={(checked) => setForm({ ...form, isDropset: checked })}
-                />
+                <Switch checked={form.isDropset} onCheckedChange={(checked) => setForm({ ...form, isDropset: checked })} />
                 <div>
                   <Label className="text-sm font-medium cursor-pointer">Drop Set</Label>
                   <p className="text-xs text-muted-foreground">Reducir peso después de la serie y continuar</p>
@@ -369,10 +441,7 @@ export default function RoutinesPage() {
               </div>
 
               <div className="flex items-center gap-3">
-                <Switch
-                  checked={form.isPiramide}
-                  onCheckedChange={(checked) => setForm({ ...form, isPiramide: checked, pyramidReps: checked ? form.pyramidReps : "" })}
-                />
+                <Switch checked={form.isPiramide} onCheckedChange={(checked) => setForm({ ...form, isPiramide: checked, pyramidReps: checked ? form.pyramidReps : "" })} />
                 <div>
                   <Label className="text-sm font-medium cursor-pointer">Pirámide</Label>
                   <p className="text-xs text-muted-foreground">Aumentar peso y bajar repeticiones progresivamente</p>
@@ -392,7 +461,7 @@ export default function RoutinesPage() {
                 </div>
               )}
             </div>
-            <Button onClick={handleAdd} className="w-full">
+            <Button onClick={handleAdd} className="w-full" disabled={!currentDayConfig.body_part_1}>
               <Plus className="h-4 w-4 mr-2" />
               Agregar a {selectedDay}
             </Button>
@@ -406,16 +475,11 @@ export default function RoutinesPage() {
               <CardTitle className="text-lg flex items-center gap-2">
                 <Dumbbell className="h-5 w-5 text-primary" />
                 {selectedDay} — {student?.display_name || "—"}
+                {combinedBodyPart && <Badge className="ml-2 bg-primary/15 text-primary border-0 text-[10px]">{combinedBodyPart}</Badge>}
               </CardTitle>
               {selectedIds.size > 0 && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  disabled={deleting}
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Eliminar ({selectedIds.size})
+                <Button variant="destructive" size="sm" onClick={() => setShowDeleteConfirm(true)} disabled={deleting}>
+                  <Trash2 className="h-4 w-4 mr-1" /> Eliminar ({selectedIds.size})
                 </Button>
               )}
             </div>
@@ -429,15 +493,10 @@ export default function RoutinesPage() {
               <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                 {filteredExercises.map((ex) => (
                   <div key={ex.id} className="flex items-center gap-2 p-3 rounded-lg bg-secondary/30">
-                    <Checkbox
-                      checked={selectedIds.has(ex.id)}
-                      onCheckedChange={() => toggleSelect(ex.id)}
-                      className="h-4 w-4"
-                    />
+                    <Checkbox checked={selectedIds.has(ex.id)} onCheckedChange={() => toggleSelect(ex.id)} className="h-4 w-4" />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm">{ex.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {ex.body_part && <span className="text-primary">{ex.body_part} · </span>}
                         {ex.sets}×{ex.is_piramide && ex.pyramid_reps
                           ? <span className="font-semibold text-accent">{ex.pyramid_reps}</span>
                           : ex.is_to_failure
@@ -465,9 +524,7 @@ export default function RoutinesPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar {selectedIds.size} ejercicio(s)?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer. Se eliminarán los ejercicios seleccionados de la rutina del alumno.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
