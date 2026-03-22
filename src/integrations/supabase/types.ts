@@ -405,6 +405,39 @@ export type Database = {
         }
         Relationships: []
       }
+      routine_day_config: {
+        Row: {
+          body_part_1: string | null
+          body_part_2: string | null
+          created_at: string
+          day: string
+          id: string
+          student_id: string
+          trainer_id: string
+          updated_at: string
+        }
+        Insert: {
+          body_part_1?: string | null
+          body_part_2?: string | null
+          created_at?: string
+          day: string
+          id?: string
+          student_id: string
+          trainer_id: string
+          updated_at?: string
+        }
+        Update: {
+          body_part_1?: string | null
+          body_part_2?: string | null
+          created_at?: string
+          day?: string
+          id?: string
+          student_id?: string
+          trainer_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       seguimiento_personal: {
         Row: {
           actividad_laboral: string | null
@@ -539,6 +572,7 @@ export type Database = {
           plan_alimentacion: string | null
           plan_entrenamiento: string | null
           plan_type: string | null
+          routine_next_change_date: string | null
           student_id: string
           trainer_id: string
         }
@@ -549,6 +583,7 @@ export type Database = {
           plan_alimentacion?: string | null
           plan_entrenamiento?: string | null
           plan_type?: string | null
+          routine_next_change_date?: string | null
           student_id: string
           trainer_id: string
         }
@@ -559,6 +594,7 @@ export type Database = {
           plan_alimentacion?: string | null
           plan_entrenamiento?: string | null
           plan_type?: string | null
+          routine_next_change_date?: string | null
           student_id?: string
           trainer_id?: string
         }
