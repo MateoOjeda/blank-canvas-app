@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { fetchStudentProfile, type StudentProfile } from "@/services/alumnos";
+import { updatePlanAssignment } from "@/services/planes";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Dumbbell, CheckCircle, Apple, TrendingUp, Loader2, Sparkles, Pencil } from "lucide-react";
+import { ArrowLeft, Dumbbell, CheckCircle, Apple, Loader2, Sparkles, Pencil } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -18,28 +20,8 @@ import ExerciseHistoryTab from "@/components/trainer/ExerciseHistoryTab";
 import MealsTab from "@/components/trainer/MealsTab";
 import { toast } from "sonner";
 
-interface StudentProfile {
-  display_name: string;
-  avatar_initials: string | null;
-  avatar_url: string | null;
-  weight: number | null;
-  age: number | null;
-}
-
 interface Exercise {
-  id: string;
-  name: string;
-  sets: number;
-  reps: number;
-  weight: number;
-  day: string;
-  completed: boolean;
-}
-
-interface TrainerStudent {
-  id: string;
-  plan_type: string | null;
-  payment_status?: string;
+  id: string; name: string; sets: number; reps: number; weight: number; day: string; completed: boolean;
 }
 
 const LEVEL_LABELS: Record<string, string> = {
@@ -54,7 +36,6 @@ export default function StudentDetailPage() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [trainerStudent, setTrainerStudent] = useState<TrainerStudent | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("weight");
   const [paymentPaid, setPaymentPaid] = useState(false);
@@ -62,29 +43,29 @@ export default function StudentDetailPage() {
   const [selectedEntrenamiento, setSelectedEntrenamiento] = useState<string>("none");
   const [selectedAlimentacion, setSelectedAlimentacion] = useState<string>("none");
   const [editingPlans, setEditingPlans] = useState(false);
+  const [linkId, setLinkId] = useState<string>("");
 
   const fetchData = useCallback(async () => {
     if (!user || !studentId) return;
     setLoading(true);
-    const [profRes, exRes, plRes, tsRes] = await Promise.all([
-      supabase.from("profiles").select("display_name, avatar_initials, avatar_url, weight, age").eq("user_id", studentId).maybeSingle(),
+    const [prof, exRes, plRes, tsRes] = await Promise.all([
+      fetchStudentProfile(studentId),
       supabase.from("exercises").select("id, name, sets, reps, weight, day, completed").eq("trainer_id", user.id).eq("student_id", studentId),
       supabase.from("plan_levels").select("plan_type, level, unlocked").eq("trainer_id", user.id).eq("student_id", studentId),
-      supabase.from("trainer_students").select("id, plan_type, payment_status").eq("trainer_id", user.id).eq("student_id", studentId).maybeSingle(),
+      supabase.from("trainer_students").select("id, payment_status, plan_entrenamiento, plan_alimentacion").eq("trainer_id", user.id).eq("student_id", studentId).maybeSingle(),
     ]);
-    setProfile(profRes.data as StudentProfile | null);
+    setProfile(prof);
     setExercises(exRes.data || []);
 
     const pls = plRes.data || [];
-    const activeEntrenamiento = pls.find((p: any) => p.plan_type === "entrenamiento" && p.unlocked);
-    const activeAlimentacion = pls.find((p: any) => p.plan_type === "nutricion" && p.unlocked);
-    setSelectedEntrenamiento(activeEntrenamiento ? activeEntrenamiento.level : "none");
-    setSelectedAlimentacion(activeAlimentacion ? activeAlimentacion.level : "none");
+    const activeE = pls.find((p: any) => p.plan_type === "entrenamiento" && p.unlocked);
+    const activeA = pls.find((p: any) => p.plan_type === "nutricion" && p.unlocked);
+    setSelectedEntrenamiento(activeE ? activeE.level : "none");
+    setSelectedAlimentacion(activeA ? activeA.level : "none");
 
     if (tsRes.data) {
-      const ts = tsRes.data;
-      setTrainerStudent(ts as TrainerStudent);
-      setPaymentPaid((ts as any).payment_status === "pagado");
+      setLinkId(tsRes.data.id);
+      setPaymentPaid(tsRes.data.payment_status === "pagado");
     }
     setLoading(false);
   }, [user, studentId]);
@@ -92,16 +73,11 @@ export default function StudentDetailPage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handlePaymentToggle = async (checked: boolean) => {
-    if (!trainerStudent) return;
+    if (!linkId) return;
     setPaymentPaid(checked);
-    const newStatus = checked ? "pagado" : "pendiente";
-    const { error } = await supabase.from("trainer_students").update({ payment_status: newStatus }).eq("id", trainerStudent.id);
-    if (error) {
-      toast.error("No se pudo actualizar el estado de pago.");
-      setPaymentPaid(!checked);
-    } else {
-      toast.success(checked ? "Marcado como pagado" : "Marcado como pendiente");
-    }
+    const { error } = await supabase.from("trainer_students").update({ payment_status: checked ? "pagado" : "pendiente" }).eq("id", linkId);
+    if (error) { toast.error("No se pudo actualizar el estado de pago."); setPaymentPaid(!checked); }
+    else toast.success(checked ? "Marcado como pagado" : "Marcado como pendiente");
   };
 
   const handlePlanChangeRequest = (planType: string, level: string) => {
@@ -112,30 +88,13 @@ export default function StudentDetailPage() {
     if (!confirmDialog || !user || !studentId) return;
     const { planType, level } = confirmDialog;
     setConfirmDialog(null);
-
     try {
-      if (level === "none") {
-        await supabase.from("plan_levels").update({ unlocked: false }).eq("trainer_id", user.id).eq("student_id", studentId).eq("plan_type", planType);
-      } else {
-        await supabase.from("plan_levels").update({ unlocked: false }).eq("trainer_id", user.id).eq("student_id", studentId).eq("plan_type", planType);
-        const { data: existing } = await supabase.from("plan_levels").select("id").eq("trainer_id", user.id).eq("student_id", studentId).eq("plan_type", planType).eq("level", level).maybeSingle();
-        if (existing) {
-          await supabase.from("plan_levels").update({ unlocked: true }).eq("id", existing.id);
-        } else {
-          await supabase.from("plan_levels").insert({ trainer_id: user.id, student_id: studentId, plan_type: planType, level, unlocked: true, content: "" });
-        }
-      }
-      const updateField = planType === "entrenamiento" ? "plan_entrenamiento" : "plan_alimentacion";
-      if (trainerStudent) {
-        await supabase.from("trainer_students").update({ [updateField]: level === "none" ? null : level }).eq("id", trainerStudent.id);
-      }
+      await updatePlanAssignment(user.id, studentId, planType, level);
       if (planType === "entrenamiento") setSelectedEntrenamiento(level);
       else setSelectedAlimentacion(level);
       toast.success(level === "none" ? "Plan desactivado" : `Plan actualizado a ${LEVEL_LABELS[level] || level}`);
       fetchData();
-    } catch {
-      toast.error("Error al actualizar el plan");
-    }
+    } catch { toast.error("Error al actualizar el plan"); }
   };
 
   if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
@@ -149,7 +108,6 @@ export default function StudentDetailPage() {
     );
   }
 
-  // Group exercises by day for routine display
   const exercisesByDay: Record<string, Exercise[]> = {};
   exercises.forEach((ex) => {
     if (!exercisesByDay[ex.day]) exercisesByDay[ex.day] = [];
@@ -194,62 +152,41 @@ export default function StudentDetailPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Asignación de Planes</CardTitle>
-            <Button variant="ghost" size="icon" className={`h-8 w-8 ${editingPlans ? "text-primary" : "text-muted-foreground"}`} onClick={() => setEditingPlans(!editingPlans)} title={editingPlans ? "Bloquear edición" : "Habilitar edición"}>
+            <Button variant="ghost" size="icon" className={`h-8 w-8 ${editingPlans ? "text-primary" : "text-muted-foreground"}`} onClick={() => setEditingPlans(!editingPlans)}>
               <Pencil className="h-4 w-4" />
             </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Entrenamiento */}
-          <div className="flex items-center gap-4 p-3 rounded-lg bg-secondary/30">
-            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Dumbbell className="h-4 w-4 text-primary" />
+          {[
+            { type: "entrenamiento", icon: Dumbbell, label: "Entrenamiento", selected: selectedEntrenamiento },
+            { type: "nutricion", icon: Apple, label: "Alimentación", selected: selectedAlimentacion },
+          ].map(({ type, icon: Icon, label, selected }) => (
+            <div key={type} className="flex items-center gap-4 p-3 rounded-lg bg-secondary/30">
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Icon className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <Label className="text-sm font-semibold">{label}</Label>
+                <p className="text-xs mt-0.5">
+                  {selected !== "none"
+                    ? <Badge variant="outline" className="text-[10px] bg-green-500/15 text-green-500 border-green-500/30">{LEVEL_LABELS[selected]} — Activo</Badge>
+                    : <span className="text-[10px] text-destructive">Sin plan asignado</span>}
+                </p>
+              </div>
+              {editingPlans && (
+                <Select value={selected} onValueChange={(val) => handlePlanChangeRequest(type, val)}>
+                  <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin plan</SelectItem>
+                    <SelectItem value="principiante">Inicial</SelectItem>
+                    <SelectItem value="intermedio">Intermedio</SelectItem>
+                    <SelectItem value="avanzado">Avanzado</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
-            <div className="flex-1 min-w-0">
-              <Label className="text-sm font-semibold">Entrenamiento</Label>
-              <p className="text-xs mt-0.5">
-                {selectedEntrenamiento !== "none"
-                  ? <Badge variant="outline" className="text-[10px] bg-green-500/15 text-green-500 border-green-500/30">{LEVEL_LABELS[selectedEntrenamiento]} — Activo</Badge>
-                  : <span className="text-[10px] text-destructive">Sin plan asignado</span>}
-              </p>
-            </div>
-            {editingPlans && (
-              <Select value={selectedEntrenamiento} onValueChange={(val) => handlePlanChangeRequest("entrenamiento", val)}>
-                <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sin plan</SelectItem>
-                  <SelectItem value="principiante">Inicial</SelectItem>
-                  <SelectItem value="intermedio">Intermedio</SelectItem>
-                  <SelectItem value="avanzado">Avanzado</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-          {/* Alimentación */}
-          <div className="flex items-center gap-4 p-3 rounded-lg bg-secondary/30">
-            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Apple className="h-4 w-4 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <Label className="text-sm font-semibold">Alimentación</Label>
-              <p className="text-xs mt-0.5">
-                {selectedAlimentacion !== "none"
-                  ? <Badge variant="outline" className="text-[10px] bg-green-500/15 text-green-500 border-green-500/30">{LEVEL_LABELS[selectedAlimentacion]} — Activo</Badge>
-                  : <span className="text-[10px] text-destructive">Sin plan asignado</span>}
-              </p>
-            </div>
-            {editingPlans && (
-              <Select value={selectedAlimentacion} onValueChange={(val) => handlePlanChangeRequest("nutricion", val)}>
-                <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sin plan</SelectItem>
-                  <SelectItem value="principiante">Inicial</SelectItem>
-                  <SelectItem value="intermedio">Intermedio</SelectItem>
-                  <SelectItem value="avanzado">Avanzado</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+          ))}
         </CardContent>
       </Card>
 
@@ -300,7 +237,7 @@ export default function StudentDetailPage() {
           {studentId && (
             <div className="space-y-4">
               <WeightProgressChart studentId={studentId} />
-              {studentId && <ExerciseHistoryTab studentId={studentId} />}
+              <ExerciseHistoryTab studentId={studentId} />
             </div>
           )}
         </TabsContent>
@@ -313,7 +250,6 @@ export default function StudentDetailPage() {
           <Card className="card-glass">
             <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Dumbbell className="h-5 w-5 text-primary" />Rutina Asignada</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              {/* Day row */}
               <div className="flex gap-2">
                 {DAYS.map((day, i) => {
                   const count = exercisesByDay[day]?.length || 0;
@@ -325,7 +261,6 @@ export default function StudentDetailPage() {
                   );
                 })}
               </div>
-
               {exercises.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">Sin ejercicios asignados</p>
               ) : (
@@ -359,15 +294,14 @@ export default function StudentDetailPage() {
       </Tabs>
 
       {/* Confirmation Dialog */}
-      <AlertDialog open={!!confirmDialog?.open} onOpenChange={(open) => { if (!open) setConfirmDialog(null); }}>
+      <AlertDialog open={!!confirmDialog?.open} onOpenChange={(open) => !open && setConfirmDialog(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Querés cambiar el plan del alumno?</AlertDialogTitle>
+            <AlertDialogTitle>¿Cambiar plan?</AlertDialogTitle>
             <AlertDialogDescription>
               {confirmDialog?.level === "none"
-                ? `Se desactivará el plan de ${confirmDialog?.planType === "entrenamiento" ? "entrenamiento" : "alimentación"}.`
-                : `Se asignará el nivel ${LEVEL_LABELS[confirmDialog?.level || ""] || confirmDialog?.level} en ${confirmDialog?.planType === "entrenamiento" ? "entrenamiento" : "alimentación"}.`
-              }
+                ? "Se desactivará el plan actual para este alumno."
+                : `Se cambiará el nivel a "${LEVEL_LABELS[confirmDialog?.level || ""] || confirmDialog?.level}". Los cambios se aplican inmediatamente.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

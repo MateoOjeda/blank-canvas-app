@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchGlobalPlans,
+  saveGlobalPlan,
+  toggleGlobalPlanActive,
+  type GlobalPlan,
+} from "@/services/planes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -10,22 +15,12 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, Save, ChevronDown, ChevronUp, DollarSign, Apple, Dumbbell, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
-import { LEVELS, LEVEL_LABELS, DEFAULT_PRICES, formatPrice } from "@/lib/planConstants";
+import { LEVELS, LEVEL_LABELS, formatPrice } from "@/lib/planConstants";
 
-// Simplified plan types: nutricion, entrenamiento, cambios_fisicos (no levels for cambios_fisicos)
 const PLAN_TYPES_CONFIG = [
   { key: "nutricion", label: "Plan de Alimentación", shortLabel: "Alimentación", icon: Apple },
   { key: "entrenamiento", label: "Plan de Rutina", shortLabel: "Rutina", icon: Dumbbell },
 ] as const;
-
-interface GlobalPlan {
-  id: string;
-  plan_type: string;
-  level: string;
-  price: number;
-  content: string;
-  active: boolean;
-}
 
 export default function PlansPage() {
   const { user } = useAuth();
@@ -33,66 +28,43 @@ export default function PlansPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [expandedPlan, setExpandedPlan] = useState<string | null>(null);
-
-  // Cambio Físico special state
   const [cambioFisico, setCambioFisico] = useState<GlobalPlan | null>(null);
 
-  const fetchGlobalPlans = useCallback(async () => {
+  const loadPlans = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-
-    const { data } = await supabase
-      .from("global_plans")
-      .select("id, plan_type, level, price, content, active")
-      .eq("trainer_id", user.id);
-
-    let existing = data || [];
-
-    // Auto-create missing rows for nutricion + entrenamiento
-    const missing: any[] = [];
-    for (const pt of PLAN_TYPES_CONFIG) {
-      for (const level of LEVELS) {
-        if (!existing.find((e) => e.plan_type === pt.key && e.level === level)) {
-          missing.push({ trainer_id: user.id, plan_type: pt.key, level, price: DEFAULT_PRICES[level], content: "", active: true });
-        }
-      }
-    }
-    // Auto-create cambios_fisicos with single "unico" level
-    if (!existing.find((e) => e.plan_type === "cambios_fisicos")) {
-      missing.push({ trainer_id: user.id, plan_type: "cambios_fisicos", level: "unico", price: 0, content: "", active: true });
-    }
-
-    if (missing.length > 0) {
-      const { data: inserted } = await supabase.from("global_plans").insert(missing).select("id, plan_type, level, price, content, active");
-      if (inserted) existing = [...existing, ...inserted];
-    }
-
-    setGlobalPlans(existing.filter((e) => e.plan_type !== "cambios_fisicos"));
-    setCambioFisico(existing.find((e) => e.plan_type === "cambios_fisicos") || null);
+    const data = await fetchGlobalPlans(user.id);
+    setGlobalPlans(data.plans);
+    setCambioFisico(data.cambioFisico);
     setLoading(false);
   }, [user]);
 
-  useEffect(() => { fetchGlobalPlans(); }, [fetchGlobalPlans]);
+  useEffect(() => { loadPlans(); }, [loadPlans]);
 
   const updateField = (id: string, field: keyof GlobalPlan, value: any) => {
     setGlobalPlans((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
   };
 
-  const savePlan = async (id: string) => {
+  const handleSave = async (id: string) => {
     setSaving(id);
     const plan = globalPlans.find((p) => p.id === id) || (cambioFisico?.id === id ? cambioFisico : null);
     if (!plan) { setSaving(null); return; }
-    const { error } = await supabase.from("global_plans").update({ price: plan.price, content: plan.content, active: plan.active }).eq("id", id);
-    if (error) toast.error("Error al guardar plan");
-    else toast.success("Plan guardado — se actualiza para todos los alumnos automáticamente");
+    try {
+      await saveGlobalPlan(plan);
+      toast.success("Plan guardado — se actualiza para todos los alumnos automáticamente");
+    } catch { toast.error("Error al guardar plan"); }
     setSaving(null);
   };
 
-  const toggleActive = async (id: string, current: boolean) => {
+  const handleToggleActive = async (id: string, current: boolean) => {
     updateField(id, "active", !current);
-    const { error } = await supabase.from("global_plans").update({ active: !current }).eq("id", id);
-    if (error) { toast.error("Error al actualizar"); updateField(id, "active", current); }
-    else toast.success(!current ? "Plan activado" : "Plan desactivado");
+    try {
+      await toggleGlobalPlanActive(id, !current);
+      toast.success(!current ? "Plan activado" : "Plan desactivado");
+    } catch {
+      toast.error("Error al actualizar");
+      updateField(id, "active", current);
+    }
   };
 
   if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
@@ -137,7 +109,7 @@ export default function PlansPage() {
                             <span className="text-sm font-semibold">{LEVEL_LABELS[level]}</span>
                             <Badge variant="outline" className={`text-[10px] ${pl.active ? "border-green-400/50 text-green-600 bg-green-500/10" : "border-border text-muted-foreground"}`}>{pl.active ? "Activo" : "Inactivo"}</Badge>
                           </div>
-                          <Switch checked={pl.active} onCheckedChange={() => toggleActive(pl.id, pl.active)} />
+                          <Switch checked={pl.active} onCheckedChange={() => handleToggleActive(pl.id, pl.active)} />
                         </div>
                         <div className="flex items-center gap-2">
                           <DollarSign className="h-4 w-4 text-accent" />
@@ -146,7 +118,7 @@ export default function PlansPage() {
                           <span className="text-xs text-muted-foreground">{formatPrice(pl.price)}</span>
                         </div>
                         <Textarea placeholder={`Contenido de ${pt.shortLabel} - ${LEVEL_LABELS[level]}...`} value={pl.content} onChange={(e) => updateField(pl.id, "content", e.target.value)} className="bg-secondary/30 border-border min-h-[100px] text-sm" />
-                        <Button size="sm" variant="outline" className="gap-2" onClick={() => savePlan(pl.id)} disabled={saving === pl.id}>
+                        <Button size="sm" variant="outline" className="gap-2" onClick={() => handleSave(pl.id)} disabled={saving === pl.id}>
                           {saving === pl.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />} Guardar
                         </Button>
                       </div>
@@ -158,7 +130,7 @@ export default function PlansPage() {
           );
         })}
 
-        {/* Cambio Físico - simplified: just text + price, no levels */}
+        {/* Cambio Físico */}
         {cambioFisico && (
           <Card className="card-glass overflow-hidden">
             <CardHeader className="cursor-pointer hover:bg-secondary/20 transition-colors" onClick={() => setExpandedPlan(expandedPlan === "cambios_fisicos" ? null : "cambios_fisicos")}>
@@ -180,7 +152,7 @@ export default function PlansPage() {
                     <span className="text-sm font-semibold">Estado</span>
                     <Switch checked={cambioFisico.active} onCheckedChange={async (v) => {
                       setCambioFisico({ ...cambioFisico, active: v });
-                      await supabase.from("global_plans").update({ active: v }).eq("id", cambioFisico.id);
+                      try { await toggleGlobalPlanActive(cambioFisico.id, v); } catch { setCambioFisico({ ...cambioFisico, active: !v }); }
                     }} />
                   </div>
                   <div className="flex items-center gap-2">
@@ -193,7 +165,7 @@ export default function PlansPage() {
                     <Label className="text-xs text-muted-foreground uppercase tracking-wide">Qué incluye el cambio físico</Label>
                     <Textarea placeholder="Describe qué incluye el plan de cambio físico..." value={cambioFisico.content} onChange={(e) => setCambioFisico({ ...cambioFisico, content: e.target.value })} className="bg-secondary/30 border-border min-h-[120px] text-sm mt-1" />
                   </div>
-                  <Button size="sm" variant="outline" className="gap-2" onClick={() => savePlan(cambioFisico.id)} disabled={saving === cambioFisico.id}>
+                  <Button size="sm" variant="outline" className="gap-2" onClick={() => handleSave(cambioFisico.id)} disabled={saving === cambioFisico.id}>
                     {saving === cambioFisico.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />} Guardar
                   </Button>
                 </div>
