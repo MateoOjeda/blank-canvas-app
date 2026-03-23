@@ -2,7 +2,17 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useLinkedStudents } from "@/hooks/useLinkedStudents";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchRoutineData,
+  saveDayConfig as saveDayConfigService,
+  addExercise as addExerciseService,
+  removeExercise as removeExerciseService,
+  bulkRemoveExercises,
+  logTrainerChange,
+  setRoutineNextChangeDate,
+  type Exercise,
+  type DayConfig,
+} from "@/services/rutinas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,27 +31,6 @@ import {
 
 const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const DAY_SHORT = ["L", "M", "X", "J", "V", "S", "D"];
-
-interface Exercise {
-  id: string;
-  name: string;
-  sets: number;
-  reps: number;
-  weight: number;
-  day: string;
-  completed: boolean;
-  body_part: string;
-  is_to_failure: boolean;
-  is_dropset: boolean;
-  is_piramide: boolean;
-  pyramid_reps: string | null;
-}
-
-interface DayConfig {
-  day: string;
-  body_part_1: string;
-  body_part_2: string;
-}
 
 export default function RoutinesPage() {
   const { user } = useAuth();
@@ -71,31 +60,19 @@ export default function RoutinesPage() {
     }
   }, [students, selectedStudent, urlStudentId]);
 
-  const fetchExercises = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!user || !selectedStudent) return;
     setLoadingExercises(true);
-
-    const [exRes, dayRes, tsRes] = await Promise.all([
-      supabase.from("exercises").select("*").eq("trainer_id", user.id).eq("student_id", selectedStudent),
-      supabase.from("routine_day_config").select("day, body_part_1, body_part_2").eq("trainer_id", user.id).eq("student_id", selectedStudent),
-      supabase.from("trainer_students").select("routine_next_change_date").eq("trainer_id", user.id).eq("student_id", selectedStudent).maybeSingle(),
-    ]);
-
-    setExercises((exRes.data as Exercise[]) || []);
-
-    const configs: Record<string, DayConfig> = {};
-    (dayRes.data || []).forEach((d: any) => {
-      configs[d.day] = { day: d.day, body_part_1: d.body_part_1 || "", body_part_2: d.body_part_2 || "" };
-    });
-    setDayConfigs(configs);
-    setRoutineNextChange(tsRes.data?.routine_next_change_date || null);
+    const data = await fetchRoutineData(user.id, selectedStudent);
+    setExercises(data.exercises);
+    setDayConfigs(data.dayConfigs);
+    setRoutineNextChange(data.routineNextChange);
     setSelectedIds(new Set());
     setLoadingExercises(false);
   }, [user, selectedStudent]);
 
-  useEffect(() => { fetchExercises(); }, [fetchExercises]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Current day body parts from config
   const currentDayConfig = dayConfigs[selectedDay] || { day: selectedDay, body_part_1: "", body_part_2: "" };
   const bodyPart1 = currentDayConfig.body_part_1 as BodyPart;
   const bodyPart2 = currentDayConfig.body_part_2 as BodyPart;
@@ -105,18 +82,11 @@ export default function RoutinesPage() {
   ];
   const combinedBodyPart = [currentDayConfig.body_part_1, currentDayConfig.body_part_2].filter(Boolean).join(" y ");
 
-  const saveDayConfig = async (field: "body_part_1" | "body_part_2", value: string) => {
+  const handleSaveDayConfig = async (field: "body_part_1" | "body_part_2", value: string) => {
     if (!user || !selectedStudent) return;
     const updated = { ...currentDayConfig, [field]: value === "none" ? "" : value };
     setDayConfigs((prev) => ({ ...prev, [selectedDay]: updated }));
-
-    await supabase.from("routine_day_config").upsert({
-      trainer_id: user.id,
-      student_id: selectedStudent,
-      day: selectedDay,
-      body_part_1: updated.body_part_1,
-      body_part_2: updated.body_part_2,
-    } as any, { onConflict: "trainer_id,student_id,day" });
+    await saveDayConfigService(user.id, selectedStudent, selectedDay, updated.body_part_1, updated.body_part_2);
   };
 
   const validatePyramidReps = (value: string): boolean => {
@@ -142,76 +112,61 @@ export default function RoutinesPage() {
 
     const repsDisplay = form.isPiramide ? form.pyramidReps : (form.isToFailure ? "Al Fallo" : form.reps);
 
-    const { data, error } = await supabase.from("exercises").insert({
-      trainer_id: user.id,
-      student_id: selectedStudent,
-      name: form.name,
-      sets: parseInt(form.sets),
-      reps: form.isToFailure || form.isPiramide ? 0 : parseInt(form.reps),
-      weight: 0,
-      day: selectedDay,
-      body_part: combinedBodyPart || currentDayConfig.body_part_1,
-      is_to_failure: form.isToFailure,
-      is_dropset: form.isDropset,
-      is_piramide: form.isPiramide,
-      pyramid_reps: form.isPiramide ? form.pyramidReps.trim() : null,
-    } as any).select("id").single();
-
-    if (error) {
-      toast.error("Error al agregar ejercicio");
-    } else {
-      await supabase.from("trainer_changes").insert({
+    try {
+      const newId = await addExerciseService({
         trainer_id: user.id,
         student_id: selectedStudent,
-        change_type: "exercise_added",
-        description: `Nuevo ejercicio: ${form.name} (${form.sets}×${repsDisplay} - ${selectedDay} - ${combinedBodyPart})`,
-        entity_id: data?.id,
+        name: form.name,
+        sets: parseInt(form.sets),
+        reps: form.isToFailure || form.isPiramide ? 0 : parseInt(form.reps),
+        weight: 0,
+        day: selectedDay,
+        body_part: combinedBodyPart || currentDayConfig.body_part_1,
+        is_to_failure: form.isToFailure,
+        is_dropset: form.isDropset,
+        is_piramide: form.isPiramide,
+        pyramid_reps: form.isPiramide ? form.pyramidReps.trim() : null,
       });
+      await logTrainerChange(user.id, selectedStudent, "exercise_added",
+        `Nuevo ejercicio: ${form.name} (${form.sets}×${repsDisplay} - ${selectedDay} - ${combinedBodyPart})`,
+        newId || undefined
+      );
       toast.success("Ejercicio agregado");
       setForm({ name: "", sets: "", reps: "", isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "" });
-      fetchExercises();
-    }
+      fetchData();
+    } catch { toast.error("Error al agregar ejercicio"); }
   };
 
   const handleRemove = async (exerciseId: string) => {
+    if (!user) return;
     const exercise = exercises.find((e) => e.id === exerciseId);
-    const { error } = await supabase.from("exercises").delete().eq("id", exerciseId);
-    if (error) {
-      toast.error("Error al eliminar");
-    } else {
+    try {
+      await removeExerciseService(exerciseId);
       if (exercise) {
-        await supabase.from("trainer_changes").insert({
-          trainer_id: user!.id, student_id: selectedStudent,
-          change_type: "exercise_removed",
-          description: `Ejercicio eliminado: ${exercise.name} (${exercise.day})`,
-          entity_id: exerciseId,
-        });
+        await logTrainerChange(user.id, selectedStudent, "exercise_removed",
+          `Ejercicio eliminado: ${exercise.name} (${exercise.day})`, exerciseId
+        );
       }
-      fetchExercises();
-    }
+      fetchData();
+    } catch { toast.error("Error al eliminar"); }
   };
 
   const handleBulkDelete = async () => {
-    if (selectedIds.size === 0) return;
+    if (!user || selectedIds.size === 0) return;
     setDeleting(true);
-    const ids = Array.from(selectedIds);
-    const { error } = await supabase.from("exercises").delete().in("id", ids);
-    if (error) {
-      toast.error("Error al eliminar ejercicios");
-    } else {
+    try {
+      const ids = Array.from(selectedIds);
+      await bulkRemoveExercises(ids);
       const changes = ids.map((id) => {
         const ex = exercises.find((e) => e.id === id);
-        return {
-          trainer_id: user!.id, student_id: selectedStudent,
-          change_type: "exercise_removed",
-          description: `Ejercicio eliminado: ${ex?.name || "?"} (${ex?.day || "?"})`,
-          entity_id: id,
-        };
+        return logTrainerChange(user.id, selectedStudent, "exercise_removed",
+          `Ejercicio eliminado: ${ex?.name || "?"} (${ex?.day || "?"})`, id
+        );
       });
-      await supabase.from("trainer_changes").insert(changes);
+      await Promise.all(changes);
       toast.success(`${ids.length} ejercicio(s) eliminado(s)`);
-      fetchExercises();
-    }
+      fetchData();
+    } catch { toast.error("Error al eliminar ejercicios"); }
     setDeleting(false);
     setShowDeleteConfirm(false);
   };
@@ -224,20 +179,16 @@ export default function RoutinesPage() {
     });
   };
 
-  // Routine change countdown
   const daysUntilChange = (() => {
     if (!routineNextChange) return null;
     const diff = Math.ceil((new Date(routineNextChange).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     return diff > 0 ? diff : 0;
   })();
 
-  const setNextChangeDate = async (days: number) => {
+  const handleSetNextChange = async (days: number) => {
     if (!user || !selectedStudent) return;
-    const date = new Date();
-    date.setDate(date.getDate() + days);
-    const dateStr = date.toISOString().split("T")[0];
+    const dateStr = await setRoutineNextChangeDate(user.id, selectedStudent, days);
     setRoutineNextChange(dateStr);
-    await supabase.from("trainer_students").update({ routine_next_change_date: dateStr } as any).eq("trainer_id", user.id).eq("student_id", selectedStudent);
     toast.success(`Cambio de rutina programado en ${days} días`);
   };
 
@@ -287,25 +238,22 @@ export default function RoutinesPage() {
           </Select>
         </div>
 
-        {/* Routine change countdown */}
         <Card className="card-glass p-3 flex items-center gap-3">
           <CalendarClock className="h-5 w-5 text-primary flex-shrink-0" />
           {daysUntilChange !== null ? (
-            <div>
-              <p className="text-sm font-semibold">Días restantes para actualizar rutina: <span className="text-primary">{daysUntilChange}</span></p>
-            </div>
+            <p className="text-sm font-semibold">Días restantes para actualizar rutina: <span className="text-primary">{daysUntilChange}</span></p>
           ) : (
             <div className="flex items-center gap-2">
               <p className="text-xs text-muted-foreground">Programar cambio en:</p>
               {[7, 14, 21, 30].map((d) => (
-                <Button key={d} size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => setNextChangeDate(d)}>{d}d</Button>
+                <Button key={d} size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => handleSetNextChange(d)}>{d}d</Button>
               ))}
             </div>
           )}
         </Card>
       </div>
 
-      {/* Day selector blocks */}
+      {/* Day selector */}
       <div className="flex gap-2 flex-wrap">
         {DAYS.map((day, i) => {
           const count = exercises.filter((e) => e.day === day).length;
@@ -322,16 +270,8 @@ export default function RoutinesPage() {
                 }`}
             >
               <span className="text-[11px] sm:text-xs">{DAY_SHORT[i]}</span>
-              {count > 0 && (
-                <span className={`text-[9px] mt-0.5 ${isActive ? "text-primary-foreground/80" : "text-primary"}`}>
-                  {count}
-                </span>
-              )}
-              {dc?.body_part_1 && (
-                <span className={`text-[7px] mt-0.5 truncate max-w-[40px] ${isActive ? "text-primary-foreground/60" : "text-muted-foreground/60"}`}>
-                  {dc.body_part_1.slice(0, 4)}
-                </span>
-              )}
+              {count > 0 && <span className={`text-[9px] mt-0.5 ${isActive ? "text-primary-foreground/80" : "text-primary"}`}>{count}</span>}
+              {dc?.body_part_1 && <span className={`text-[7px] mt-0.5 truncate max-w-[40px] ${isActive ? "text-primary-foreground/60" : "text-muted-foreground/60"}`}>{dc.body_part_1.slice(0, 4)}</span>}
             </button>
           );
         })}
@@ -344,10 +284,8 @@ export default function RoutinesPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-muted-foreground">Principal</Label>
-              <Select value={currentDayConfig.body_part_1 || "none"} onValueChange={(v) => saveDayConfig("body_part_1", v)}>
-                <SelectTrigger className="bg-secondary/50 border-border">
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
+              <Select value={currentDayConfig.body_part_1 || "none"} onValueChange={(v) => handleSaveDayConfig("body_part_1", v)}>
+                <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">— Ninguno —</SelectItem>
                   {BODY_PARTS.map((bp) => <SelectItem key={bp} value={bp}>{bp}</SelectItem>)}
@@ -356,10 +294,8 @@ export default function RoutinesPage() {
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">Secundario <span className="text-muted-foreground/60">(opcional)</span></Label>
-              <Select value={currentDayConfig.body_part_2 || "none"} onValueChange={(v) => saveDayConfig("body_part_2", v)}>
-                <SelectTrigger className="bg-secondary/50 border-border">
-                  <SelectValue placeholder="Secundario" />
-                </SelectTrigger>
+              <Select value={currentDayConfig.body_part_2 || "none"} onValueChange={(v) => handleSaveDayConfig("body_part_2", v)}>
+                <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Secundario" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">— Ninguno —</SelectItem>
                   {BODY_PARTS.filter((bp) => bp !== currentDayConfig.body_part_1).map((bp) => (
@@ -387,9 +323,7 @@ export default function RoutinesPage() {
               <Label className="text-xs text-muted-foreground uppercase tracking-wide">Ejercicio</Label>
               {availableExercises.length > 0 ? (
                 <Select value={form.name} onValueChange={(v) => setForm({ ...form, name: v })}>
-                  <SelectTrigger className="bg-secondary/50 border-border">
-                    <SelectValue placeholder="Seleccionar ejercicio" />
-                  </SelectTrigger>
+                  <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Seleccionar ejercicio" /></SelectTrigger>
                   <SelectContent>
                     {availableExercises.map((ex) => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}
                   </SelectContent>
@@ -423,7 +357,6 @@ export default function RoutinesPage() {
             </div>
             <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
               <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Tipo de serie</Label>
-
               <div className="flex items-center gap-3">
                 <Switch checked={form.isToFailure} onCheckedChange={(checked) => setForm({ ...form, isToFailure: checked, reps: checked ? "" : form.reps })} />
                 <div>
@@ -431,7 +364,6 @@ export default function RoutinesPage() {
                   <p className="text-xs text-muted-foreground">El alumno hará repeticiones hasta el fallo muscular</p>
                 </div>
               </div>
-
               <div className="flex items-center gap-3">
                 <Switch checked={form.isDropset} onCheckedChange={(checked) => setForm({ ...form, isDropset: checked })} />
                 <div>
@@ -439,7 +371,6 @@ export default function RoutinesPage() {
                   <p className="text-xs text-muted-foreground">Reducir peso después de la serie y continuar</p>
                 </div>
               </div>
-
               <div className="flex items-center gap-3">
                 <Switch checked={form.isPiramide} onCheckedChange={(checked) => setForm({ ...form, isPiramide: checked, pyramidReps: checked ? form.pyramidReps : "" })} />
                 <div>
@@ -447,7 +378,6 @@ export default function RoutinesPage() {
                   <p className="text-xs text-muted-foreground">Aumentar peso y bajar repeticiones progresivamente</p>
                 </div>
               </div>
-
               {form.isPiramide && (
                 <div className="ml-11 mt-1">
                   <Label className="text-xs text-muted-foreground uppercase tracking-wide">Repeticiones por serie (pirámide)</Label>
@@ -462,13 +392,12 @@ export default function RoutinesPage() {
               )}
             </div>
             <Button onClick={handleAdd} className="w-full" disabled={!currentDayConfig.body_part_1}>
-              <Plus className="h-4 w-4 mr-2" />
-              Agregar a {selectedDay}
+              <Plus className="h-4 w-4 mr-2" /> Agregar a {selectedDay}
             </Button>
           </CardContent>
         </Card>
 
-        {/* Exercise List filtered by day */}
+        {/* Exercise List */}
         <Card className="card-glass">
           <CardHeader>
             <div className="flex items-center justify-between">
