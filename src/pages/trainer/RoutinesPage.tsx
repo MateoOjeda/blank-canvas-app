@@ -10,6 +10,8 @@ import {
   bulkRemoveExercises,
   logTrainerChange,
   setRoutineNextChangeDate,
+  addViSerieChild,
+  removeViSerieChild,
   EXERCISE_TYPES,
   type Exercise,
   type DayConfig,
