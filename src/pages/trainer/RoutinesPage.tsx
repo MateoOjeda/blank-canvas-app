@@ -359,6 +359,31 @@ export default function RoutinesPage() {
                 />
               </div>
             </div>
+            <div>
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Tipo de ejercicio</Label>
+              <Select value={form.exerciseType} onValueChange={(v) => {
+                const newType = v as ExerciseType;
+                const updates: Partial<typeof form> = { exerciseType: newType };
+                if (newType === "AL_FALLO") {
+                  updates.isToFailure = true; updates.isDropset = false; updates.isPiramide = false; updates.pyramidReps = ""; updates.reps = "";
+                } else if (newType === "DROP_SET") {
+                  updates.isDropset = true; updates.isToFailure = false; updates.isPiramide = false; updates.pyramidReps = "";
+                } else if (newType === "PIRAMIDE") {
+                  updates.isPiramide = true; updates.isToFailure = false; updates.isDropset = false;
+                } else if (newType === "VI_SERIE") {
+                  updates.isToFailure = false; updates.isDropset = false; updates.isPiramide = false; updates.pyramidReps = "";
+                } else {
+                  updates.isToFailure = false; updates.isDropset = false; updates.isPiramide = false; updates.pyramidReps = "";
+                }
+                setForm((prev) => ({ ...prev, ...updates }));
+              }}>
+                <SelectTrigger className="bg-secondary/50 border-border"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {EXERCISE_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {form.exerciseType !== "VI_SERIE" && (
             <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
               <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Tipo de serie</Label>
               <div className="flex items-center gap-3">
@@ -395,6 +420,7 @@ export default function RoutinesPage() {
                 </div>
               )}
             </div>
+            )}
             <Button onClick={handleAdd} className="w-full" disabled={!currentDayConfig.body_part_1}>
               <Plus className="h-4 w-4 mr-2" /> Agregar a {selectedDay}
             </Button>
