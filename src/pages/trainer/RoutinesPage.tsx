@@ -129,6 +129,7 @@ export default function RoutinesPage() {
         is_dropset: form.isDropset,
         is_piramide: form.isPiramide,
         pyramid_reps: form.isPiramide ? form.pyramidReps.trim() : null,
+        exercise_type: form.exerciseType,
       });
       await logTrainerChange(user.id, selectedStudent, "exercise_added",
         `Nuevo ejercicio: ${form.name} (${form.sets}×${repsDisplay} - ${selectedDay} - ${combinedBodyPart})`,
