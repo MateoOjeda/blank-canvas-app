@@ -45,6 +45,7 @@ export interface NewExercise {
   is_dropset: boolean;
   is_piramide: boolean;
   pyramid_reps: string | null;
+  exercise_type: ExerciseType;
 }
 
 export async function fetchRoutineData(trainerId: string, studentId: string) {
