@@ -199,7 +199,25 @@ export default function RoutinesPage() {
   };
 
   const student = students.find((s) => s.user_id === selectedStudent);
-  const filteredExercises = exercises.filter((e) => e.day === selectedDay);
+  const parentExercises = exercises.filter((e) => e.day === selectedDay && !e.parent_exercise_id);
+  const childExercises = exercises.filter((e) => e.day === selectedDay && e.parent_exercise_id);
+  const childByParent = new Map<string, Exercise>();
+  childExercises.forEach((c) => { if (c.parent_exercise_id) childByParent.set(c.parent_exercise_id, c); });
+
+  const handleToggleViSerie = async (ex: Exercise) => {
+    if (!user || !selectedStudent) return;
+    const hasChild = childByParent.has(ex.id);
+    try {
+      if (hasChild) {
+        await removeViSerieChild(ex.id);
+        toast.success("VI Serie eliminada");
+      } else {
+        await addViSerieChild(ex, user.id, selectedStudent);
+        toast.success("VI Serie agregada");
+      }
+      fetchData();
+    } catch { toast.error("Error al modificar VI Serie"); }
+  };
 
   if (loadingStudents) {
     return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
