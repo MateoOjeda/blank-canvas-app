@@ -10,8 +10,10 @@ import {
   bulkRemoveExercises,
   logTrainerChange,
   setRoutineNextChangeDate,
+  EXERCISE_TYPES,
   type Exercise,
   type DayConfig,
+  type ExerciseType,
 } from "@/services/rutinas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
