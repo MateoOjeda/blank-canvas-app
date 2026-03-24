@@ -1,5 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
 
+export type ExerciseType = "NORMAL" | "DROP_SET" | "PIRAMIDE" | "AL_FALLO" | "VI_SERIE";
+
+export const EXERCISE_TYPES: { value: ExerciseType; label: string }[] = [
+  { value: "NORMAL", label: "Normal" },
+  { value: "DROP_SET", label: "Drop Set" },
+  { value: "PIRAMIDE", label: "Pirámide" },
+  { value: "AL_FALLO", label: "Al Fallo" },
+  { value: "VI_SERIE", label: "VI Serie" },
+];
+
 export interface Exercise {
   id: string;
   name: string;
@@ -13,6 +23,7 @@ export interface Exercise {
   is_dropset: boolean;
   is_piramide: boolean;
   pyramid_reps: string | null;
+  exercise_type: ExerciseType;
 }
 
 export interface DayConfig {
@@ -34,6 +45,7 @@ export interface NewExercise {
   is_dropset: boolean;
   is_piramide: boolean;
   pyramid_reps: string | null;
+  exercise_type: ExerciseType;
 }
 
 export async function fetchRoutineData(trainerId: string, studentId: string) {

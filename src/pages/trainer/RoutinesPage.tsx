@@ -10,8 +10,10 @@ import {
   bulkRemoveExercises,
   logTrainerChange,
   setRoutineNextChangeDate,
+  EXERCISE_TYPES,
   type Exercise,
   type DayConfig,
+  type ExerciseType,
 } from "@/services/rutinas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,6 +47,7 @@ export default function RoutinesPage() {
   const [form, setForm] = useState({
     name: "", sets: "", reps: "",
     isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "",
+    exerciseType: "NORMAL" as ExerciseType,
   });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -126,13 +129,14 @@ export default function RoutinesPage() {
         is_dropset: form.isDropset,
         is_piramide: form.isPiramide,
         pyramid_reps: form.isPiramide ? form.pyramidReps.trim() : null,
+        exercise_type: form.exerciseType,
       });
       await logTrainerChange(user.id, selectedStudent, "exercise_added",
         `Nuevo ejercicio: ${form.name} (${form.sets}×${repsDisplay} - ${selectedDay} - ${combinedBodyPart})`,
         newId || undefined
       );
       toast.success("Ejercicio agregado");
-      setForm({ name: "", sets: "", reps: "", isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "" });
+      setForm({ name: "", sets: "", reps: "", isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "", exerciseType: "NORMAL" });
       fetchData();
     } catch { toast.error("Error al agregar ejercicio"); }
   };
@@ -355,6 +359,31 @@ export default function RoutinesPage() {
                 />
               </div>
             </div>
+            <div>
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Tipo de ejercicio</Label>
+              <Select value={form.exerciseType} onValueChange={(v) => {
+                const newType = v as ExerciseType;
+                const updates: Partial<typeof form> = { exerciseType: newType };
+                if (newType === "AL_FALLO") {
+                  updates.isToFailure = true; updates.isDropset = false; updates.isPiramide = false; updates.pyramidReps = ""; updates.reps = "";
+                } else if (newType === "DROP_SET") {
+                  updates.isDropset = true; updates.isToFailure = false; updates.isPiramide = false; updates.pyramidReps = "";
+                } else if (newType === "PIRAMIDE") {
+                  updates.isPiramide = true; updates.isToFailure = false; updates.isDropset = false;
+                } else if (newType === "VI_SERIE") {
+                  updates.isToFailure = false; updates.isDropset = false; updates.isPiramide = false; updates.pyramidReps = "";
+                } else {
+                  updates.isToFailure = false; updates.isDropset = false; updates.isPiramide = false; updates.pyramidReps = "";
+                }
+                setForm((prev) => ({ ...prev, ...updates }));
+              }}>
+                <SelectTrigger className="bg-secondary/50 border-border"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {EXERCISE_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {form.exerciseType !== "VI_SERIE" && (
             <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
               <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Tipo de serie</Label>
               <div className="flex items-center gap-3">
@@ -391,6 +420,7 @@ export default function RoutinesPage() {
                 </div>
               )}
             </div>
+            )}
             <Button onClick={handleAdd} className="w-full" disabled={!currentDayConfig.body_part_1}>
               <Plus className="h-4 w-4 mr-2" /> Agregar a {selectedDay}
             </Button>
@@ -433,6 +463,9 @@ export default function RoutinesPage() {
                             : ex.reps}
                         {ex.is_dropset && <span className="ml-1 font-semibold text-accent"> · Drop Set</span>}
                         {ex.is_piramide && <span className="ml-1 font-semibold text-primary"> · Pirámide</span>}
+                        {(ex.exercise_type && ex.exercise_type !== "NORMAL") && (
+                          <Badge className="ml-2 bg-primary/10 text-primary border-0 text-[9px] py-0">{EXERCISE_TYPES.find(t => t.value === ex.exercise_type)?.label || ex.exercise_type}</Badge>
+                        )}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
