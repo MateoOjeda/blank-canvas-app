@@ -124,6 +124,7 @@ export type Database = {
           completed: boolean
           created_at: string
           day: string
+          exercise_type: string
           id: string
           is_dropset: boolean | null
           is_piramide: boolean | null
@@ -141,6 +142,7 @@ export type Database = {
           completed?: boolean
           created_at?: string
           day?: string
+          exercise_type?: string
           id?: string
           is_dropset?: boolean | null
           is_piramide?: boolean | null
@@ -158,6 +160,7 @@ export type Database = {
           completed?: boolean
           created_at?: string
           day?: string
+          exercise_type?: string
           id?: string
           is_dropset?: boolean | null
           is_piramide?: boolean | null
@@ -213,6 +216,7 @@ export type Database = {
           body_part: string | null
           created_at: string
           day: string
+          exercise_type: string
           group_id: string
           id: string
           is_dropset: boolean | null
@@ -229,6 +233,7 @@ export type Database = {
           body_part?: string | null
           created_at?: string
           day?: string
+          exercise_type?: string
           group_id: string
           id?: string
           is_dropset?: boolean | null
@@ -245,6 +250,7 @@ export type Database = {
           body_part?: string | null
           created_at?: string
           day?: string
+          exercise_type?: string
           group_id?: string
           id?: string
           is_dropset?: boolean | null
