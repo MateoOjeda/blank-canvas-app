@@ -102,6 +102,43 @@ export async function bulkRemoveExercises(ids: string[]) {
   if (error) throw error;
 }
 
+export async function addViSerieChild(
+  parentExercise: Exercise,
+  trainerId: string,
+  studentId: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("exercises")
+    .insert({
+      trainer_id: trainerId,
+      student_id: studentId,
+      name: `${parentExercise.name} (VI Serie)`,
+      sets: parentExercise.sets,
+      reps: parentExercise.reps,
+      weight: 0,
+      day: parentExercise.day,
+      body_part: parentExercise.body_part,
+      is_to_failure: false,
+      is_dropset: false,
+      is_piramide: false,
+      pyramid_reps: null,
+      exercise_type: "VI_SERIE",
+      parent_exercise_id: parentExercise.id,
+    } as any)
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data?.id || null;
+}
+
+export async function removeViSerieChild(parentId: string) {
+  const { error } = await supabase
+    .from("exercises")
+    .delete()
+    .eq("parent_exercise_id", parentId);
+  if (error) throw error;
+}
+
 export async function logTrainerChange(
   trainerId: string,
   studentId: string,
