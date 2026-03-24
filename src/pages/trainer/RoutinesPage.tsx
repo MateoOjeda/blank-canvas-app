@@ -463,14 +463,10 @@ export default function RoutinesPage() {
                             : ex.reps}
                         {ex.is_dropset && <span className="ml-1 font-semibold text-accent"> · Drop Set</span>}
                         {ex.is_piramide && <span className="ml-1 font-semibold text-primary"> · Pirámide</span>}
+                        {(ex.exercise_type && ex.exercise_type !== "NORMAL") && (
+                          <Badge className="ml-2 bg-primary/10 text-primary border-0 text-[9px] py-0">{EXERCISE_TYPES.find(t => t.value === ex.exercise_type)?.label || ex.exercise_type}</Badge>
+                        )}
                       </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {ex.completed && <Badge className="bg-primary/20 text-primary text-[10px]">✓</Badge>}
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemove(ex.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
                   </div>
                 ))}
               </div>
