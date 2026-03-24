@@ -24,6 +24,7 @@ export interface Exercise {
   is_piramide: boolean;
   pyramid_reps: string | null;
   exercise_type: ExerciseType;
+  parent_exercise_id: string | null;
 }
 
 export interface DayConfig {
