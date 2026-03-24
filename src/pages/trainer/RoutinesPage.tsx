@@ -10,6 +10,8 @@ import {
   bulkRemoveExercises,
   logTrainerChange,
   setRoutineNextChangeDate,
+  addViSerieChild,
+  removeViSerieChild,
   EXERCISE_TYPES,
   type Exercise,
   type DayConfig,
@@ -197,7 +199,25 @@ export default function RoutinesPage() {
   };
 
   const student = students.find((s) => s.user_id === selectedStudent);
-  const filteredExercises = exercises.filter((e) => e.day === selectedDay);
+  const parentExercises = exercises.filter((e) => e.day === selectedDay && !e.parent_exercise_id);
+  const childExercises = exercises.filter((e) => e.day === selectedDay && e.parent_exercise_id);
+  const childByParent = new Map<string, Exercise>();
+  childExercises.forEach((c) => { if (c.parent_exercise_id) childByParent.set(c.parent_exercise_id, c); });
+
+  const handleToggleViSerie = async (ex: Exercise) => {
+    if (!user || !selectedStudent) return;
+    const hasChild = childByParent.has(ex.id);
+    try {
+      if (hasChild) {
+        await removeViSerieChild(ex.id);
+        toast.success("VI Serie eliminada");
+      } else {
+        await addViSerieChild(ex, user.id, selectedStudent);
+        toast.success("VI Serie agregada");
+      }
+      fetchData();
+    } catch { toast.error("Error al modificar VI Serie"); }
+  };
 
   if (loadingStudents) {
     return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
@@ -446,36 +466,62 @@ export default function RoutinesPage() {
           <CardContent>
             {loadingExercises ? (
               <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-            ) : filteredExercises.length === 0 ? (
+            ) : parentExercises.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-8">No hay ejercicios para este día</p>
             ) : (
               <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-                {filteredExercises.map((ex) => (
-                  <div key={ex.id} className="flex items-center gap-2 p-3 rounded-lg bg-secondary/30">
-                    <Checkbox checked={selectedIds.has(ex.id)} onCheckedChange={() => toggleSelect(ex.id)} className="h-4 w-4" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm">{ex.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {ex.sets}×{ex.is_piramide && ex.pyramid_reps
-                          ? <span className="font-semibold text-accent">{ex.pyramid_reps}</span>
-                          : ex.is_to_failure
-                            ? <span className="font-semibold text-destructive">Al Fallo</span>
-                            : ex.reps}
-                        {ex.is_dropset && <span className="ml-1 font-semibold text-accent"> · Drop Set</span>}
-                        {ex.is_piramide && <span className="ml-1 font-semibold text-primary"> · Pirámide</span>}
-                        {(ex.exercise_type && ex.exercise_type !== "NORMAL") && (
-                          <Badge className="ml-2 bg-primary/10 text-primary border-0 text-[9px] py-0">{EXERCISE_TYPES.find(t => t.value === ex.exercise_type)?.label || ex.exercise_type}</Badge>
-                        )}
-                      </p>
+                {parentExercises.map((ex) => {
+                  const child = childByParent.get(ex.id);
+                  return (
+                    <div key={ex.id}>
+                      <div className="flex items-center gap-2 p-3 rounded-lg bg-secondary/30">
+                        <Checkbox checked={selectedIds.has(ex.id)} onCheckedChange={() => toggleSelect(ex.id)} className="h-4 w-4" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">{ex.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {ex.sets}×{ex.is_piramide && ex.pyramid_reps
+                              ? <span className="font-semibold text-accent">{ex.pyramid_reps}</span>
+                              : ex.is_to_failure
+                                ? <span className="font-semibold text-destructive">Al Fallo</span>
+                                : ex.reps}
+                            {ex.is_dropset && <span className="ml-1 font-semibold text-accent"> · Drop Set</span>}
+                            {ex.is_piramide && <span className="ml-1 font-semibold text-primary"> · Pirámide</span>}
+                            {(ex.exercise_type && ex.exercise_type !== "NORMAL") && (
+                              <Badge className="ml-2 bg-primary/10 text-primary border-0 text-[9px] py-0">{EXERCISE_TYPES.find(t => t.value === ex.exercise_type)?.label || ex.exercise_type}</Badge>
+                            )}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5" title="VI Serie">
+                            <Switch checked={!!child} onCheckedChange={() => handleToggleViSerie(ex)} className="scale-75" />
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">VI</span>
+                          </div>
+                          {ex.completed && <Badge className="bg-primary/20 text-primary text-[10px]">✓</Badge>}
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemove(ex.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      {child && (
+                        <div className="ml-6 mt-1 flex items-center gap-2 p-3 rounded-lg bg-accent/10 border border-accent/20">
+                          <div className="w-1 h-8 bg-accent rounded-full flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm text-accent">{child.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {child.sets}×{child.is_to_failure
+                                ? <span className="font-semibold text-destructive">Al Fallo</span>
+                                : child.reps}
+                              {child.is_dropset && <span className="ml-1 font-semibold text-accent"> · Drop Set</span>}
+                            </p>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemove(child.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      {ex.completed && <Badge className="bg-primary/20 text-primary text-[10px]">✓</Badge>}
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemove(ex.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

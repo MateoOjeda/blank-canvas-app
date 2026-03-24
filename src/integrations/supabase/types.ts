@@ -130,6 +130,7 @@ export type Database = {
           is_piramide: boolean | null
           is_to_failure: boolean | null
           name: string
+          parent_exercise_id: string | null
           pyramid_reps: string | null
           reps: number
           sets: number
@@ -148,6 +149,7 @@ export type Database = {
           is_piramide?: boolean | null
           is_to_failure?: boolean | null
           name: string
+          parent_exercise_id?: string | null
           pyramid_reps?: string | null
           reps?: number
           sets?: number
@@ -166,6 +168,7 @@ export type Database = {
           is_piramide?: boolean | null
           is_to_failure?: boolean | null
           name?: string
+          parent_exercise_id?: string | null
           pyramid_reps?: string | null
           reps?: number
           sets?: number
@@ -173,7 +176,15 @@ export type Database = {
           trainer_id?: string
           weight?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "exercises_parent_exercise_id_fkey"
+            columns: ["parent_exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       global_plans: {
         Row: {
