@@ -47,6 +47,7 @@ export default function RoutinesPage() {
   const [form, setForm] = useState({
     name: "", sets: "", reps: "",
     isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "",
+    exerciseType: "NORMAL" as ExerciseType,
   });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
