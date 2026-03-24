@@ -136,7 +136,7 @@ export default function RoutinesPage() {
         newId || undefined
       );
       toast.success("Ejercicio agregado");
-      setForm({ name: "", sets: "", reps: "", isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "" });
+      setForm({ name: "", sets: "", reps: "", isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "", exerciseType: "NORMAL" });
       fetchData();
     } catch { toast.error("Error al agregar ejercicio"); }
   };
