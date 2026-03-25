@@ -134,10 +134,12 @@ export default function RoutinesPage() {
   const combinedBodyPart = [currentDayConfig.body_part_1, currentDayConfig.body_part_2].filter(Boolean).join(" y ");
 
   const handleSaveDayConfig = async (field: "body_part_1" | "body_part_2", value: string) => {
-    if (!user || !selectedStudent) return;
+    if (!user) return;
+    const targetId = isGroupMode ? urlGroupId! : selectedStudent;
+    if (!targetId) return;
     const updated = { ...currentDayConfig, [field]: value === "none" ? "" : value };
     setDayConfigs((prev) => ({ ...prev, [selectedDay]: updated }));
-    await saveDayConfigService(user.id, selectedStudent, selectedDay, updated.body_part_1, updated.body_part_2);
+    await saveDayConfigService(user.id, targetId, selectedDay, updated.body_part_1, updated.body_part_2);
   };
 
   const validatePyramidReps = (value: string): boolean => {
