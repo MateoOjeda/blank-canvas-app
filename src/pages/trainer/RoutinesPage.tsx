@@ -148,7 +148,9 @@ export default function RoutinesPage() {
   };
 
   const handleAdd = async () => {
-    if (!user || !selectedStudent) return;
+    if (!user) return;
+    const targetId = isGroupMode ? urlGroupId! : selectedStudent;
+    if (!targetId) return;
     if (!form.name || !form.sets || !currentDayConfig.body_part_1) {
       toast.error("Selecciona el grupo muscular del día y completa los campos");
       return;
@@ -176,43 +178,73 @@ export default function RoutinesPage() {
     const repsDisplay = form.isPiramide ? form.pyramidReps : (form.isToFailure ? "Al Fallo" : form.reps);
 
     try {
-      const newId = await addExerciseService({
-        trainer_id: user.id,
-        student_id: selectedStudent,
-        name: form.name,
-        sets: parseInt(form.sets),
-        reps: form.isToFailure || form.isPiramide ? 0 : parseInt(form.reps),
-        weight: 0,
-        day: selectedDay,
-        body_part: combinedBodyPart || currentDayConfig.body_part_1,
-        is_to_failure: form.isToFailure,
-        is_dropset: form.isDropset,
-        is_piramide: form.isPiramide,
-        pyramid_reps: form.isPiramide ? form.pyramidReps.trim() : null,
-        exercise_type: form.exerciseType,
-      });
-      await logTrainerChange(user.id, selectedStudent, "exercise_added",
-        `Nuevo ejercicio: ${form.name} (${form.sets}×${repsDisplay} - ${selectedDay} - ${combinedBodyPart})`,
-        newId || undefined
-      );
-
-      if (viSerieEnabled && newId) {
-        await addExerciseService({
+      if (isGroupMode) {
+        // Group mode: insert into group_exercises
+        const { data, error } = await supabase.from("group_exercises").insert({
+          group_id: urlGroupId!,
           trainer_id: user.id,
-          student_id: selectedStudent,
-          name: viForm.name,
-          sets: parseInt(viForm.sets),
-          reps: viForm.isToFailure ? 0 : parseInt(viForm.reps),
+          name: form.name,
+          sets: parseInt(form.sets),
+          reps: form.isToFailure || form.isPiramide ? 0 : parseInt(form.reps),
           weight: 0,
           day: selectedDay,
           body_part: combinedBodyPart || currentDayConfig.body_part_1,
-          is_to_failure: viForm.isToFailure,
-          is_dropset: viForm.isDropset,
-          is_piramide: false,
-          pyramid_reps: null,
-          exercise_type: "VI_SERIE",
-          parent_exercise_id: newId,
+          is_to_failure: form.isToFailure,
+          is_dropset: form.isDropset,
+          is_piramide: form.isPiramide,
+          pyramid_reps: form.isPiramide ? form.pyramidReps.trim() : null,
+          exercise_type: form.exerciseType,
+        }).select("id").single();
+        if (error) throw error;
+      } else {
+        // Student mode
+        const newId = await addExerciseService({
+          trainer_id: user.id,
+          student_id: selectedStudent,
+          name: form.name,
+          sets: parseInt(form.sets),
+          reps: form.isToFailure || form.isPiramide ? 0 : parseInt(form.reps),
+          weight: 0,
+          day: selectedDay,
+          body_part: combinedBodyPart || currentDayConfig.body_part_1,
+          is_to_failure: form.isToFailure,
+          is_dropset: form.isDropset,
+          is_piramide: form.isPiramide,
+          pyramid_reps: form.isPiramide ? form.pyramidReps.trim() : null,
+          exercise_type: form.exerciseType,
         });
+
+        // Ensure routine exists and link
+        try {
+          const routine = await getOrCreateActiveRoutine(user.id, "ALUMNO", selectedStudent);
+          if (newId) {
+            await supabase.from("exercises").update({ routine_id: routine.id } as any).eq("id", newId);
+          }
+        } catch {}
+
+        await logTrainerChange(user.id, selectedStudent, "exercise_added",
+          `Nuevo ejercicio: ${form.name} (${form.sets}×${repsDisplay} - ${selectedDay} - ${combinedBodyPart})`,
+          newId || undefined
+        );
+
+        if (viSerieEnabled && newId) {
+          await addExerciseService({
+            trainer_id: user.id,
+            student_id: selectedStudent,
+            name: viForm.name,
+            sets: parseInt(viForm.sets),
+            reps: viForm.isToFailure ? 0 : parseInt(viForm.reps),
+            weight: 0,
+            day: selectedDay,
+            body_part: combinedBodyPart || currentDayConfig.body_part_1,
+            is_to_failure: viForm.isToFailure,
+            is_dropset: viForm.isDropset,
+            is_piramide: false,
+            pyramid_reps: null,
+            exercise_type: "VI_SERIE",
+            parent_exercise_id: newId,
+          });
+        }
       }
 
       toast.success(viSerieEnabled ? "Ejercicio + VI Serie agregados" : "Ejercicio agregado");
