@@ -633,7 +633,7 @@ export default function RoutinesPage() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Dumbbell className="h-5 w-5 text-primary" />
-                {selectedDay} — {student?.display_name || "—"}
+                {selectedDay} — {isGroupMode ? (groupName || "Grupo") : (student?.display_name || "—")}
                 {combinedBodyPart && <Badge className="ml-2 bg-primary/15 text-primary border-0 text-[10px]">{combinedBodyPart}</Badge>}
               </CardTitle>
               {selectedIds.size > 0 && (
