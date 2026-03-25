@@ -81,7 +81,7 @@ export async function saveDayConfig(
   );
 }
 
-export async function addExercise(exercise: NewExercise): Promise<string | null> {
+export async function addExercise(exercise: NewExercise & { parent_exercise_id?: string | null }): Promise<string | null> {
   const { data, error } = await supabase
     .from("exercises")
     .insert(exercise as any)
