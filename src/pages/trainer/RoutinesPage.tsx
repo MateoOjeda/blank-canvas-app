@@ -119,6 +119,16 @@ export default function RoutinesPage() {
       toast.error("Completa las repeticiones o activa 'Al Fallo'");
       return;
     }
+    if (viSerieEnabled) {
+      if (!viForm.name || !viForm.sets) {
+        toast.error("Completa los campos del ejercicio VI Serie");
+        return;
+      }
+      if (!viForm.isToFailure && !viForm.reps) {
+        toast.error("Completa las repeticiones de VI Serie o activa 'Al Fallo'");
+        return;
+      }
+    }
 
     const repsDisplay = form.isPiramide ? form.pyramidReps : (form.isToFailure ? "Al Fallo" : form.reps);
 
@@ -142,8 +152,47 @@ export default function RoutinesPage() {
         `Nuevo ejercicio: ${form.name} (${form.sets}×${repsDisplay} - ${selectedDay} - ${combinedBodyPart})`,
         newId || undefined
       );
-      toast.success("Ejercicio agregado");
+
+      if (viSerieEnabled && newId) {
+        await addExerciseService({
+          trainer_id: user.id,
+          student_id: selectedStudent,
+          name: viForm.name,
+          sets: parseInt(viForm.sets),
+          reps: viForm.isToFailure ? 0 : parseInt(viForm.reps),
+          weight: 0,
+          day: selectedDay,
+          body_part: combinedBodyPart || currentDayConfig.body_part_1,
+          is_to_failure: viForm.isToFailure,
+          is_dropset: viForm.isDropset,
+          is_piramide: false,
+          pyramid_reps: null,
+          exercise_type: "VI_SERIE",
+        });
+        // Link child to parent
+        const { data: childData } = await (await import("@/integrations/supabase/client")).supabase
+          .from("exercises")
+          .select("id")
+          .eq("trainer_id", user.id)
+          .eq("student_id", selectedStudent)
+          .eq("day", selectedDay)
+          .eq("exercise_type", "VI_SERIE")
+          .is("parent_exercise_id", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+        if (childData?.id) {
+          await (await import("@/integrations/supabase/client")).supabase
+            .from("exercises")
+            .update({ parent_exercise_id: newId } as any)
+            .eq("id", childData.id);
+        }
+      }
+
+      toast.success(viSerieEnabled ? "Ejercicio + VI Serie agregados" : "Ejercicio agregado");
       setForm({ name: "", sets: "", reps: "", isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "", exerciseType: "NORMAL" });
+      setViForm({ name: "", sets: "", reps: "", isToFailure: false, isDropset: false });
+      setViSerieEnabled(false);
       fetchData();
     } catch { toast.error("Error al agregar ejercicio"); }
   };
