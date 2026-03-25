@@ -416,7 +416,7 @@ export default function RoutinesPage() {
                 />
               </div>
             </div>
-            <div>
+             <div>
               <Label className="text-xs text-muted-foreground uppercase tracking-wide">Tipo de ejercicio</Label>
               <Select value={form.exerciseType} onValueChange={(v) => {
                 const newType = v as ExerciseType;
@@ -427,8 +427,6 @@ export default function RoutinesPage() {
                   updates.isDropset = true; updates.isToFailure = false; updates.isPiramide = false; updates.pyramidReps = "";
                 } else if (newType === "PIRAMIDE") {
                   updates.isPiramide = true; updates.isToFailure = false; updates.isDropset = false;
-                } else if (newType === "VI_SERIE") {
-                  updates.isToFailure = false; updates.isDropset = false; updates.isPiramide = false; updates.pyramidReps = "";
                 } else {
                   updates.isToFailure = false; updates.isDropset = false; updates.isPiramide = false; updates.pyramidReps = "";
                 }
@@ -436,11 +434,10 @@ export default function RoutinesPage() {
               }}>
                 <SelectTrigger className="bg-secondary/50 border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {EXERCISE_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  {EXERCISE_TYPES.filter(t => t.value !== "VI_SERIE").map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            {form.exerciseType !== "VI_SERIE" && (
             <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
               <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Tipo de serie</Label>
               <div className="flex items-center gap-3">
@@ -477,7 +474,58 @@ export default function RoutinesPage() {
                 </div>
               )}
             </div>
-            )}
+
+            {/* VI SERIE toggle */}
+            <div className="p-4 rounded-xl bg-accent/10 border border-accent/20 space-y-4">
+              <div className="flex items-center gap-3">
+                <Switch checked={viSerieEnabled} onCheckedChange={(checked) => {
+                  setViSerieEnabled(checked);
+                  if (!checked) setViForm({ name: "", sets: "", reps: "", isToFailure: false, isDropset: false });
+                }} />
+                <div>
+                  <Label className="text-sm font-semibold cursor-pointer text-accent">VI SERIE</Label>
+                  <p className="text-xs text-muted-foreground">Agregar un ejercicio complementario vinculado</p>
+                </div>
+              </div>
+
+              {viSerieEnabled && (
+                <div className="space-y-3 pl-2 border-l-2 border-accent/40 ml-2">
+                  <p className="text-xs font-semibold text-accent uppercase tracking-wide">Ejercicio VI Serie</p>
+                  <div>
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">Ejercicio</Label>
+                    {availableExercises.length > 0 ? (
+                      <Select value={viForm.name} onValueChange={(v) => setViForm({ ...viForm, name: v })}>
+                        <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Seleccionar ejercicio" /></SelectTrigger>
+                        <SelectContent>
+                          {availableExercises.map((ex) => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input placeholder="Escribir ejercicio" value={viForm.name} onChange={(e) => setViForm({ ...viForm, name: e.target.value })} className="bg-secondary/50 border-border" />
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Series</Label>
+                      <Input type="number" placeholder="4" value={viForm.sets} onChange={(e) => setViForm({ ...viForm, sets: e.target.value })} className="bg-secondary/50 border-border" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Reps</Label>
+                      <Input type="number" placeholder={viForm.isToFailure ? "Al Fallo" : "10"} value={viForm.isToFailure ? "" : viForm.reps} onChange={(e) => setViForm({ ...viForm, reps: e.target.value })} className="bg-secondary/50 border-border" disabled={viForm.isToFailure} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch checked={viForm.isToFailure} onCheckedChange={(checked) => setViForm({ ...viForm, isToFailure: checked, reps: checked ? "" : viForm.reps })} />
+                    <Label className="text-sm cursor-pointer">Al Fallo</Label>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch checked={viForm.isDropset} onCheckedChange={(checked) => setViForm({ ...viForm, isDropset: checked })} />
+                    <Label className="text-sm cursor-pointer">Drop Set</Label>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <Button onClick={handleAdd} className="w-full" disabled={!currentDayConfig.body_part_1}>
               <Plus className="h-4 w-4 mr-2" /> Agregar a {selectedDay}
             </Button>
