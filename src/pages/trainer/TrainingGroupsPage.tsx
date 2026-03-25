@@ -28,6 +28,7 @@ interface GroupExercise { id: string; group_id: string; name: string; sets: numb
 
 export default function TrainingGroupsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { students, loading: loadingStudents } = useLinkedStudents();
   const [groups, setGroups] = useState<TrainingGroup[]>([]);
   const [loading, setLoading] = useState(true);
