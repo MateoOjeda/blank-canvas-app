@@ -327,7 +327,8 @@ export default function RoutinesPage() {
   childExercises.forEach((c) => { if (c.parent_exercise_id) childByParent.set(c.parent_exercise_id, c); });
 
   const handleToggleViSerie = async (ex: Exercise) => {
-    if (!user || !selectedStudent) return;
+    if (!user || isGroupMode) return;
+    if (!selectedStudent) return;
     const hasChild = childByParent.has(ex.id);
     try {
       if (hasChild) {

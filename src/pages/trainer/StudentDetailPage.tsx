@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { fetchStudentProfile, type StudentProfile } from "@/services/alumnos";
 import { updatePlanAssignment } from "@/services/planes";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchArchivedRoutines, fetchRoutineExercises, type Routine } from "@/services/routineManager";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
