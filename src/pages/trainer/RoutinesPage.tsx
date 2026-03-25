@@ -51,6 +51,11 @@ export default function RoutinesPage() {
     isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "",
     exerciseType: "NORMAL" as ExerciseType,
   });
+  const [viSerieEnabled, setViSerieEnabled] = useState(false);
+  const [viForm, setViForm] = useState({
+    name: "", sets: "", reps: "",
+    isToFailure: false, isDropset: false,
+  });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
