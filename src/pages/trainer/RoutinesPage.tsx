@@ -341,11 +341,11 @@ export default function RoutinesPage() {
     } catch { toast.error("Error al modificar VI Serie"); }
   };
 
-  if (loadingStudents) {
+  if (loadingStudents && !isGroupMode) {
     return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
 
-  if (students.length === 0) {
+  if (!isGroupMode && students.length === 0) {
     return (
       <div className="space-y-6">
         <div>
@@ -365,39 +365,49 @@ export default function RoutinesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Creador de Rutinas</h1>
-        <p className="text-muted-foreground text-sm mt-1">Prescribe series y repeticiones — el alumno registra el peso</p>
+        <h1 className="text-2xl font-display font-bold tracking-wide neon-text">
+          {isGroupMode ? `Rutina del Grupo: ${groupName || "..."}` : "Creador de Rutinas"}
+        </h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          {isGroupMode ? "Edita la rutina compartida del grupo" : "Prescribe series y repeticiones — el alumno registra el peso"}
+        </p>
       </div>
 
-      <div className="flex items-end gap-4 flex-wrap">
-        <div className="max-w-xs flex-1">
-          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Alumno</Label>
-          <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-            <SelectTrigger className="bg-secondary/50 border-border">
-              <SelectValue placeholder="Seleccionar alumno" />
-            </SelectTrigger>
-            <SelectContent>
-              {students.map((s) => (
-                <SelectItem key={s.user_id} value={s.user_id}>{s.display_name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {isGroupMode ? (
+        <Badge variant="outline" className="border-primary/30 text-primary text-xs">
+          <Users2 className="h-3 w-3 mr-1" /> Modo Grupo
+        </Badge>
+      ) : (
+        <div className="flex items-end gap-4 flex-wrap">
+          <div className="max-w-xs flex-1">
+            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Alumno</Label>
+            <Select value={selectedStudent} onValueChange={setSelectedStudent}>
+              <SelectTrigger className="bg-secondary/50 border-border">
+                <SelectValue placeholder="Seleccionar alumno" />
+              </SelectTrigger>
+              <SelectContent>
+                {students.map((s) => (
+                  <SelectItem key={s.user_id} value={s.user_id}>{s.display_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Card className="card-glass p-3 flex items-center gap-3">
+            <CalendarClock className="h-5 w-5 text-primary flex-shrink-0" />
+            {daysUntilChange !== null ? (
+              <p className="text-sm font-semibold">Días restantes para actualizar rutina: <span className="text-primary">{daysUntilChange}</span></p>
+            ) : (
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-muted-foreground">Programar cambio en:</p>
+                {[7, 14, 21, 30].map((d) => (
+                  <Button key={d} size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => handleSetNextChange(d)}>{d}d</Button>
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
-
-        <Card className="card-glass p-3 flex items-center gap-3">
-          <CalendarClock className="h-5 w-5 text-primary flex-shrink-0" />
-          {daysUntilChange !== null ? (
-            <p className="text-sm font-semibold">Días restantes para actualizar rutina: <span className="text-primary">{daysUntilChange}</span></p>
-          ) : (
-            <div className="flex items-center gap-2">
-              <p className="text-xs text-muted-foreground">Programar cambio en:</p>
-              {[7, 14, 21, 30].map((d) => (
-                <Button key={d} size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => handleSetNextChange(d)}>{d}d</Button>
-              ))}
-            </div>
-          )}
-        </Card>
-      </div>
+      )}
 
       {/* Day selector */}
       <div className="flex gap-2 flex-wrap">
