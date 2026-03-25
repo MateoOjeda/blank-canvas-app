@@ -244,7 +244,14 @@ export default function TrainingGroupsPage() {
                 </Card>
 
                 <Card className="card-glass neon-border">
-                  <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Dumbbell className="h-5 w-5 text-primary" />Rutina del Grupo</CardTitle></CardHeader>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg flex items-center gap-2"><Dumbbell className="h-5 w-5 text-primary" />Rutina del Grupo</CardTitle>
+                      <Button size="sm" variant="outline" className="gap-1" onClick={() => navigate(`/trainer/routines/group/${selectedGroupId}`)}>
+                        <Dumbbell className="h-3 w-3" /> Editor completo
+                      </Button>
+                    </div>
+                  </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="p-4 rounded-lg bg-secondary/30 space-y-3">
                       <p className="text-sm font-semibold">Nuevo Ejercicio</p>
