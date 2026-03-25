@@ -278,14 +278,20 @@ export default function RoutinesPage() {
     setDeleting(true);
     try {
       const ids = Array.from(selectedIds);
-      await bulkRemoveExercises(ids);
-      const changes = ids.map((id) => {
-        const ex = exercises.find((e) => e.id === id);
-        return logTrainerChange(user.id, selectedStudent, "exercise_removed",
-          `Ejercicio eliminado: ${ex?.name || "?"} (${ex?.day || "?"})`, id
-        );
-      });
-      await Promise.all(changes);
+      if (isGroupMode) {
+        for (const id of ids) {
+          await supabase.from("group_exercises").delete().eq("id", id);
+        }
+      } else {
+        await bulkRemoveExercises(ids);
+        const changes = ids.map((id) => {
+          const ex = exercises.find((e) => e.id === id);
+          return logTrainerChange(user.id, selectedStudent, "exercise_removed",
+            `Ejercicio eliminado: ${ex?.name || "?"} (${ex?.day || "?"})`, id
+          );
+        });
+        await Promise.all(changes);
+      }
       toast.success(`${ids.length} ejercicio(s) eliminado(s)`);
       fetchData();
     } catch { toast.error("Error al eliminar ejercicios"); }
