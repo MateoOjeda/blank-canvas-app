@@ -16,7 +16,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, Trash2, Users2, Loader2, Dumbbell, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { BODY_PARTS, EXERCISES_BY_BODY_PART, type BodyPart } from "@/lib/exercisesByBodyPart";
+import { assignGroupRoutineToStudent } from "@/services/routineManager";
 
 const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
