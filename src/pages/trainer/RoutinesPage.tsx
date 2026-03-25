@@ -40,8 +40,10 @@ const DAY_SHORT = ["L", "M", "X", "J", "V", "S", "D"];
 
 export default function RoutinesPage() {
   const { user } = useAuth();
-  const { studentId: urlStudentId } = useParams<{ studentId?: string }>();
+  const { studentId: urlStudentId, groupId: urlGroupId } = useParams<{ studentId?: string; groupId?: string }>();
+  const isGroupMode = !!urlGroupId;
   const { students, loading: loadingStudents } = useLinkedStudents();
+  const [groupName, setGroupName] = useState<string>("");
   const [selectedStudent, setSelectedStudent] = useState("");
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
