@@ -72,9 +72,26 @@ export default function StudentDetailPage() {
       setPaymentPaid(tsRes.data.payment_status === "pagado");
     }
     setLoading(false);
+
+    // Fetch archived routines
+    try {
+      const archived = await fetchArchivedRoutines(user.id, studentId);
+      setArchivedRoutines(archived);
+    } catch {}
   }, [user, studentId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleExpandRoutine = async (routineId: string) => {
+    if (expandedRoutine === routineId) {
+      setExpandedRoutine(null);
+      setRoutineExercises([]);
+      return;
+    }
+    setExpandedRoutine(routineId);
+    const exs = await fetchRoutineExercises(routineId);
+    setRoutineExercises(exs);
+  };
 
   const handlePaymentToggle = async (checked: boolean) => {
     if (!linkId) return;
