@@ -168,25 +168,8 @@ export default function RoutinesPage() {
           is_piramide: false,
           pyramid_reps: null,
           exercise_type: "VI_SERIE",
+          parent_exercise_id: newId,
         });
-        // Link child to parent
-        const { data: childData } = await (await import("@/integrations/supabase/client")).supabase
-          .from("exercises")
-          .select("id")
-          .eq("trainer_id", user.id)
-          .eq("student_id", selectedStudent)
-          .eq("day", selectedDay)
-          .eq("exercise_type", "VI_SERIE")
-          .is("parent_exercise_id", null)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
-        if (childData?.id) {
-          await (await import("@/integrations/supabase/client")).supabase
-            .from("exercises")
-            .update({ parent_exercise_id: newId } as any)
-            .eq("id", childData.id);
-        }
       }
 
       toast.success(viSerieEnabled ? "Ejercicio + VI Serie agregados" : "Ejercicio agregado");
