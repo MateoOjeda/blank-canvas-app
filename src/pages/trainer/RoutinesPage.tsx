@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useLinkedStudents } from "@/hooks/useLinkedStudents";
+import { supabase } from "@/integrations/supabase/client";
 import {
   fetchRoutineData,
   saveDayConfig as saveDayConfigService,
@@ -17,6 +18,7 @@ import {
   type DayConfig,
   type ExerciseType,
 } from "@/services/rutinas";
+import { getOrCreateActiveRoutine, linkExercisesToRoutine } from "@/services/routineManager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
