@@ -94,11 +94,25 @@ export default function TrainingGroupsPage() {
   };
 
   const addMembers = async () => {
-    if (!selectedGroupId || selectedStudentIds.size === 0) return;
-    const inserts = Array.from(selectedStudentIds).map((sid) => ({ group_id: selectedGroupId, student_id: sid }));
+    if (!user || !selectedGroupId || selectedStudentIds.size === 0) return;
+    const studentIds = Array.from(selectedStudentIds);
+    const inserts = studentIds.map((sid) => ({ group_id: selectedGroupId, student_id: sid }));
     const { error } = await supabase.from("training_group_members").insert(inserts);
-    if (error) toast.error("Error al agregar miembros");
-    else { toast.success(`${inserts.length} alumno(s) agregado(s)`); setSelectedStudentIds(new Set()); setShowAddMembers(false); fetchGroupDetail(selectedGroupId); }
+    if (error) { toast.error("Error al agregar miembros"); return; }
+
+    // Auto-archive individual routines and assign group routine
+    for (const sid of studentIds) {
+      try {
+        await assignGroupRoutineToStudent(user.id, sid, selectedGroupId);
+      } catch (e) {
+        console.error("Error assigning group routine to student", sid, e);
+      }
+    }
+
+    toast.success(`${inserts.length} alumno(s) agregado(s). Rutinas grupales asignadas.`);
+    setSelectedStudentIds(new Set());
+    setShowAddMembers(false);
+    fetchGroupDetail(selectedGroupId);
   };
 
   const removeMember = async (memberId: string) => {
