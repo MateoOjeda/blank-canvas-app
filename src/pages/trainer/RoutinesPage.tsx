@@ -27,7 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Dumbbell, Loader2, CalendarClock } from "lucide-react";
+import { Plus, Trash2, Dumbbell, Loader2, CalendarClock, Users2 } from "lucide-react";
 import { toast } from "sonner";
 import { BODY_PARTS, EXERCISES_BY_BODY_PART, type BodyPart } from "@/lib/exercisesByBodyPart";
 import {
