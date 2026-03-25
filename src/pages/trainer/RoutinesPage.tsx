@@ -259,11 +259,15 @@ export default function RoutinesPage() {
     if (!user) return;
     const exercise = exercises.find((e) => e.id === exerciseId);
     try {
-      await removeExerciseService(exerciseId);
-      if (exercise) {
-        await logTrainerChange(user.id, selectedStudent, "exercise_removed",
-          `Ejercicio eliminado: ${exercise.name} (${exercise.day})`, exerciseId
-        );
+      if (isGroupMode) {
+        await supabase.from("group_exercises").delete().eq("id", exerciseId);
+      } else {
+        await removeExerciseService(exerciseId);
+        if (exercise) {
+          await logTrainerChange(user.id, selectedStudent, "exercise_removed",
+            `Ejercicio eliminado: ${exercise.name} (${exercise.day})`, exerciseId
+          );
+        }
       }
       fetchData();
     } catch { toast.error("Error al eliminar"); }
