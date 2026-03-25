@@ -45,6 +45,9 @@ export default function StudentDetailPage() {
   const [selectedAlimentacion, setSelectedAlimentacion] = useState<string>("none");
   const [editingPlans, setEditingPlans] = useState(false);
   const [linkId, setLinkId] = useState<string>("");
+  const [archivedRoutines, setArchivedRoutines] = useState<Routine[]>([]);
+  const [expandedRoutine, setExpandedRoutine] = useState<string | null>(null);
+  const [routineExercises, setRoutineExercises] = useState<any[]>([]);
 
   const fetchData = useCallback(async () => {
     if (!user || !studentId) return;
