@@ -133,6 +133,7 @@ export type Database = {
           parent_exercise_id: string | null
           pyramid_reps: string | null
           reps: number
+          routine_id: string | null
           sets: number
           student_id: string
           trainer_id: string
@@ -152,6 +153,7 @@ export type Database = {
           parent_exercise_id?: string | null
           pyramid_reps?: string | null
           reps?: number
+          routine_id?: string | null
           sets?: number
           student_id: string
           trainer_id: string
@@ -171,6 +173,7 @@ export type Database = {
           parent_exercise_id?: string | null
           pyramid_reps?: string | null
           reps?: number
+          routine_id?: string | null
           sets?: number
           student_id?: string
           trainer_id?: string
@@ -182,6 +185,13 @@ export type Database = {
             columns: ["parent_exercise_id"]
             isOneToOne: false
             referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercises_routine_id_fkey"
+            columns: ["routine_id"]
+            isOneToOne: false
+            referencedRelation: "routines"
             referencedColumns: ["id"]
           },
         ]
@@ -452,6 +462,39 @@ export type Database = {
           student_id?: string
           trainer_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      routines: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          routine_type: string
+          status: string
+          target_id: string
+          target_type: string
+          trainer_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string
+          routine_type?: string
+          status?: string
+          target_id: string
+          target_type?: string
+          trainer_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          routine_type?: string
+          status?: string
+          target_id?: string
+          target_type?: string
+          trainer_id?: string
         }
         Relationships: []
       }

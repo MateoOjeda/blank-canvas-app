@@ -16,7 +16,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, Trash2, Users2, Loader2, Dumbbell, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { BODY_PARTS, EXERCISES_BY_BODY_PART, type BodyPart } from "@/lib/exercisesByBodyPart";
+import { assignGroupRoutineToStudent } from "@/services/routineManager";
 
 const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
@@ -26,6 +28,7 @@ interface GroupExercise { id: string; group_id: string; name: string; sets: numb
 
 export default function TrainingGroupsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { students, loading: loadingStudents } = useLinkedStudents();
   const [groups, setGroups] = useState<TrainingGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,11 +94,25 @@ export default function TrainingGroupsPage() {
   };
 
   const addMembers = async () => {
-    if (!selectedGroupId || selectedStudentIds.size === 0) return;
-    const inserts = Array.from(selectedStudentIds).map((sid) => ({ group_id: selectedGroupId, student_id: sid }));
+    if (!user || !selectedGroupId || selectedStudentIds.size === 0) return;
+    const studentIds = Array.from(selectedStudentIds);
+    const inserts = studentIds.map((sid) => ({ group_id: selectedGroupId, student_id: sid }));
     const { error } = await supabase.from("training_group_members").insert(inserts);
-    if (error) toast.error("Error al agregar miembros");
-    else { toast.success(`${inserts.length} alumno(s) agregado(s)`); setSelectedStudentIds(new Set()); setShowAddMembers(false); fetchGroupDetail(selectedGroupId); }
+    if (error) { toast.error("Error al agregar miembros"); return; }
+
+    // Auto-archive individual routines and assign group routine
+    for (const sid of studentIds) {
+      try {
+        await assignGroupRoutineToStudent(user.id, sid, selectedGroupId);
+      } catch (e) {
+        console.error("Error assigning group routine to student", sid, e);
+      }
+    }
+
+    toast.success(`${inserts.length} alumno(s) agregado(s). Rutinas grupales asignadas.`);
+    setSelectedStudentIds(new Set());
+    setShowAddMembers(false);
+    fetchGroupDetail(selectedGroupId);
   };
 
   const removeMember = async (memberId: string) => {
@@ -227,7 +244,14 @@ export default function TrainingGroupsPage() {
                 </Card>
 
                 <Card className="card-glass neon-border">
-                  <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Dumbbell className="h-5 w-5 text-primary" />Rutina del Grupo</CardTitle></CardHeader>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg flex items-center gap-2"><Dumbbell className="h-5 w-5 text-primary" />Rutina del Grupo</CardTitle>
+                      <Button size="sm" variant="outline" className="gap-1" onClick={() => navigate(`/trainer/routines/group/${selectedGroupId}`)}>
+                        <Dumbbell className="h-3 w-3" /> Editor completo
+                      </Button>
+                    </div>
+                  </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="p-4 rounded-lg bg-secondary/30 space-y-3">
                       <p className="text-sm font-semibold">Nuevo Ejercicio</p>

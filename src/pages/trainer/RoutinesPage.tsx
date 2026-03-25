@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useLinkedStudents } from "@/hooks/useLinkedStudents";
+import { supabase } from "@/integrations/supabase/client";
 import {
   fetchRoutineData,
   saveDayConfig as saveDayConfigService,
@@ -17,6 +18,7 @@ import {
   type DayConfig,
   type ExerciseType,
 } from "@/services/rutinas";
+import { getOrCreateActiveRoutine, linkExercisesToRoutine } from "@/services/routineManager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Dumbbell, Loader2, CalendarClock } from "lucide-react";
+import { Plus, Trash2, Dumbbell, Loader2, CalendarClock, Users2 } from "lucide-react";
 import { toast } from "sonner";
 import { BODY_PARTS, EXERCISES_BY_BODY_PART, type BodyPart } from "@/lib/exercisesByBodyPart";
 import {
@@ -38,8 +40,10 @@ const DAY_SHORT = ["L", "M", "X", "J", "V", "S", "D"];
 
 export default function RoutinesPage() {
   const { user } = useAuth();
-  const { studentId: urlStudentId } = useParams<{ studentId?: string }>();
+  const { studentId: urlStudentId, groupId: urlGroupId } = useParams<{ studentId?: string; groupId?: string }>();
+  const isGroupMode = !!urlGroupId;
   const { students, loading: loadingStudents } = useLinkedStudents();
+  const [groupName, setGroupName] = useState<string>("");
   const [selectedStudent, setSelectedStudent] = useState("");
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
@@ -60,7 +64,16 @@ export default function RoutinesPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // In group mode, fetch group name
   useEffect(() => {
+    if (isGroupMode && urlGroupId && user) {
+      supabase.from("training_groups").select("name").eq("id", urlGroupId).single()
+        .then(({ data }) => { if (data) setGroupName(data.name); });
+    }
+  }, [isGroupMode, urlGroupId, user]);
+
+  useEffect(() => {
+    if (isGroupMode) return; // Skip student selection in group mode
     if (students.length > 0 && !selectedStudent) {
       if (urlStudentId && students.some(s => s.user_id === urlStudentId)) {
         setSelectedStudent(urlStudentId);
@@ -68,10 +81,38 @@ export default function RoutinesPage() {
         setSelectedStudent(students[0].user_id);
       }
     }
-  }, [students, selectedStudent, urlStudentId]);
+  }, [students, selectedStudent, urlStudentId, isGroupMode]);
 
   const fetchData = useCallback(async () => {
-    if (!user || !selectedStudent) return;
+    if (!user) return;
+
+    if (isGroupMode && urlGroupId) {
+      // Group mode: fetch group_exercises
+      setLoadingExercises(true);
+      const [exRes, dayRes] = await Promise.all([
+        supabase.from("group_exercises").select("*").eq("group_id", urlGroupId).eq("trainer_id", user.id),
+        supabase.from("routine_day_config").select("day, body_part_1, body_part_2").eq("trainer_id", user.id).eq("student_id", urlGroupId),
+      ]);
+      const groupExercises = (exRes.data || []).map((e: any) => ({
+        ...e,
+        student_id: urlGroupId,
+        completed: false,
+        parent_exercise_id: null,
+        exercise_type: e.exercise_type || "NORMAL",
+      })) as Exercise[];
+      setExercises(groupExercises);
+      const dc: Record<string, DayConfig> = {};
+      (dayRes.data || []).forEach((d: any) => {
+        dc[d.day] = { day: d.day, body_part_1: d.body_part_1 || "", body_part_2: d.body_part_2 || "" };
+      });
+      setDayConfigs(dc);
+      setRoutineNextChange(null);
+      setSelectedIds(new Set());
+      setLoadingExercises(false);
+      return;
+    }
+
+    if (!selectedStudent) return;
     setLoadingExercises(true);
     const data = await fetchRoutineData(user.id, selectedStudent);
     setExercises(data.exercises);
@@ -79,7 +120,7 @@ export default function RoutinesPage() {
     setRoutineNextChange(data.routineNextChange);
     setSelectedIds(new Set());
     setLoadingExercises(false);
-  }, [user, selectedStudent]);
+  }, [user, selectedStudent, isGroupMode, urlGroupId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -93,10 +134,12 @@ export default function RoutinesPage() {
   const combinedBodyPart = [currentDayConfig.body_part_1, currentDayConfig.body_part_2].filter(Boolean).join(" y ");
 
   const handleSaveDayConfig = async (field: "body_part_1" | "body_part_2", value: string) => {
-    if (!user || !selectedStudent) return;
+    if (!user) return;
+    const targetId = isGroupMode ? urlGroupId! : selectedStudent;
+    if (!targetId) return;
     const updated = { ...currentDayConfig, [field]: value === "none" ? "" : value };
     setDayConfigs((prev) => ({ ...prev, [selectedDay]: updated }));
-    await saveDayConfigService(user.id, selectedStudent, selectedDay, updated.body_part_1, updated.body_part_2);
+    await saveDayConfigService(user.id, targetId, selectedDay, updated.body_part_1, updated.body_part_2);
   };
 
   const validatePyramidReps = (value: string): boolean => {
@@ -105,7 +148,9 @@ export default function RoutinesPage() {
   };
 
   const handleAdd = async () => {
-    if (!user || !selectedStudent) return;
+    if (!user) return;
+    const targetId = isGroupMode ? urlGroupId! : selectedStudent;
+    if (!targetId) return;
     if (!form.name || !form.sets || !currentDayConfig.body_part_1) {
       toast.error("Selecciona el grupo muscular del día y completa los campos");
       return;
@@ -133,43 +178,73 @@ export default function RoutinesPage() {
     const repsDisplay = form.isPiramide ? form.pyramidReps : (form.isToFailure ? "Al Fallo" : form.reps);
 
     try {
-      const newId = await addExerciseService({
-        trainer_id: user.id,
-        student_id: selectedStudent,
-        name: form.name,
-        sets: parseInt(form.sets),
-        reps: form.isToFailure || form.isPiramide ? 0 : parseInt(form.reps),
-        weight: 0,
-        day: selectedDay,
-        body_part: combinedBodyPart || currentDayConfig.body_part_1,
-        is_to_failure: form.isToFailure,
-        is_dropset: form.isDropset,
-        is_piramide: form.isPiramide,
-        pyramid_reps: form.isPiramide ? form.pyramidReps.trim() : null,
-        exercise_type: form.exerciseType,
-      });
-      await logTrainerChange(user.id, selectedStudent, "exercise_added",
-        `Nuevo ejercicio: ${form.name} (${form.sets}×${repsDisplay} - ${selectedDay} - ${combinedBodyPart})`,
-        newId || undefined
-      );
-
-      if (viSerieEnabled && newId) {
-        await addExerciseService({
+      if (isGroupMode) {
+        // Group mode: insert into group_exercises
+        const { data, error } = await supabase.from("group_exercises").insert({
+          group_id: urlGroupId!,
           trainer_id: user.id,
-          student_id: selectedStudent,
-          name: viForm.name,
-          sets: parseInt(viForm.sets),
-          reps: viForm.isToFailure ? 0 : parseInt(viForm.reps),
+          name: form.name,
+          sets: parseInt(form.sets),
+          reps: form.isToFailure || form.isPiramide ? 0 : parseInt(form.reps),
           weight: 0,
           day: selectedDay,
           body_part: combinedBodyPart || currentDayConfig.body_part_1,
-          is_to_failure: viForm.isToFailure,
-          is_dropset: viForm.isDropset,
-          is_piramide: false,
-          pyramid_reps: null,
-          exercise_type: "VI_SERIE",
-          parent_exercise_id: newId,
+          is_to_failure: form.isToFailure,
+          is_dropset: form.isDropset,
+          is_piramide: form.isPiramide,
+          pyramid_reps: form.isPiramide ? form.pyramidReps.trim() : null,
+          exercise_type: form.exerciseType,
+        }).select("id").single();
+        if (error) throw error;
+      } else {
+        // Student mode
+        const newId = await addExerciseService({
+          trainer_id: user.id,
+          student_id: selectedStudent,
+          name: form.name,
+          sets: parseInt(form.sets),
+          reps: form.isToFailure || form.isPiramide ? 0 : parseInt(form.reps),
+          weight: 0,
+          day: selectedDay,
+          body_part: combinedBodyPart || currentDayConfig.body_part_1,
+          is_to_failure: form.isToFailure,
+          is_dropset: form.isDropset,
+          is_piramide: form.isPiramide,
+          pyramid_reps: form.isPiramide ? form.pyramidReps.trim() : null,
+          exercise_type: form.exerciseType,
         });
+
+        // Ensure routine exists and link
+        try {
+          const routine = await getOrCreateActiveRoutine(user.id, "ALUMNO", selectedStudent);
+          if (newId) {
+            await supabase.from("exercises").update({ routine_id: routine.id } as any).eq("id", newId);
+          }
+        } catch {}
+
+        await logTrainerChange(user.id, selectedStudent, "exercise_added",
+          `Nuevo ejercicio: ${form.name} (${form.sets}×${repsDisplay} - ${selectedDay} - ${combinedBodyPart})`,
+          newId || undefined
+        );
+
+        if (viSerieEnabled && newId) {
+          await addExerciseService({
+            trainer_id: user.id,
+            student_id: selectedStudent,
+            name: viForm.name,
+            sets: parseInt(viForm.sets),
+            reps: viForm.isToFailure ? 0 : parseInt(viForm.reps),
+            weight: 0,
+            day: selectedDay,
+            body_part: combinedBodyPart || currentDayConfig.body_part_1,
+            is_to_failure: viForm.isToFailure,
+            is_dropset: viForm.isDropset,
+            is_piramide: false,
+            pyramid_reps: null,
+            exercise_type: "VI_SERIE",
+            parent_exercise_id: newId,
+          });
+        }
       }
 
       toast.success(viSerieEnabled ? "Ejercicio + VI Serie agregados" : "Ejercicio agregado");
@@ -184,11 +259,15 @@ export default function RoutinesPage() {
     if (!user) return;
     const exercise = exercises.find((e) => e.id === exerciseId);
     try {
-      await removeExerciseService(exerciseId);
-      if (exercise) {
-        await logTrainerChange(user.id, selectedStudent, "exercise_removed",
-          `Ejercicio eliminado: ${exercise.name} (${exercise.day})`, exerciseId
-        );
+      if (isGroupMode) {
+        await supabase.from("group_exercises").delete().eq("id", exerciseId);
+      } else {
+        await removeExerciseService(exerciseId);
+        if (exercise) {
+          await logTrainerChange(user.id, selectedStudent, "exercise_removed",
+            `Ejercicio eliminado: ${exercise.name} (${exercise.day})`, exerciseId
+          );
+        }
       }
       fetchData();
     } catch { toast.error("Error al eliminar"); }
@@ -199,14 +278,20 @@ export default function RoutinesPage() {
     setDeleting(true);
     try {
       const ids = Array.from(selectedIds);
-      await bulkRemoveExercises(ids);
-      const changes = ids.map((id) => {
-        const ex = exercises.find((e) => e.id === id);
-        return logTrainerChange(user.id, selectedStudent, "exercise_removed",
-          `Ejercicio eliminado: ${ex?.name || "?"} (${ex?.day || "?"})`, id
-        );
-      });
-      await Promise.all(changes);
+      if (isGroupMode) {
+        for (const id of ids) {
+          await supabase.from("group_exercises").delete().eq("id", id);
+        }
+      } else {
+        await bulkRemoveExercises(ids);
+        const changes = ids.map((id) => {
+          const ex = exercises.find((e) => e.id === id);
+          return logTrainerChange(user.id, selectedStudent, "exercise_removed",
+            `Ejercicio eliminado: ${ex?.name || "?"} (${ex?.day || "?"})`, id
+          );
+        });
+        await Promise.all(changes);
+      }
       toast.success(`${ids.length} ejercicio(s) eliminado(s)`);
       fetchData();
     } catch { toast.error("Error al eliminar ejercicios"); }
@@ -242,7 +327,8 @@ export default function RoutinesPage() {
   childExercises.forEach((c) => { if (c.parent_exercise_id) childByParent.set(c.parent_exercise_id, c); });
 
   const handleToggleViSerie = async (ex: Exercise) => {
-    if (!user || !selectedStudent) return;
+    if (!user || isGroupMode) return;
+    if (!selectedStudent) return;
     const hasChild = childByParent.has(ex.id);
     try {
       if (hasChild) {
@@ -256,11 +342,11 @@ export default function RoutinesPage() {
     } catch { toast.error("Error al modificar VI Serie"); }
   };
 
-  if (loadingStudents) {
+  if (loadingStudents && !isGroupMode) {
     return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
 
-  if (students.length === 0) {
+  if (!isGroupMode && students.length === 0) {
     return (
       <div className="space-y-6">
         <div>
@@ -280,39 +366,49 @@ export default function RoutinesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Creador de Rutinas</h1>
-        <p className="text-muted-foreground text-sm mt-1">Prescribe series y repeticiones — el alumno registra el peso</p>
+        <h1 className="text-2xl font-display font-bold tracking-wide neon-text">
+          {isGroupMode ? `Rutina del Grupo: ${groupName || "..."}` : "Creador de Rutinas"}
+        </h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          {isGroupMode ? "Edita la rutina compartida del grupo" : "Prescribe series y repeticiones — el alumno registra el peso"}
+        </p>
       </div>
 
-      <div className="flex items-end gap-4 flex-wrap">
-        <div className="max-w-xs flex-1">
-          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Alumno</Label>
-          <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-            <SelectTrigger className="bg-secondary/50 border-border">
-              <SelectValue placeholder="Seleccionar alumno" />
-            </SelectTrigger>
-            <SelectContent>
-              {students.map((s) => (
-                <SelectItem key={s.user_id} value={s.user_id}>{s.display_name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {isGroupMode ? (
+        <Badge variant="outline" className="border-primary/30 text-primary text-xs">
+          <Users2 className="h-3 w-3 mr-1" /> Modo Grupo
+        </Badge>
+      ) : (
+        <div className="flex items-end gap-4 flex-wrap">
+          <div className="max-w-xs flex-1">
+            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Alumno</Label>
+            <Select value={selectedStudent} onValueChange={setSelectedStudent}>
+              <SelectTrigger className="bg-secondary/50 border-border">
+                <SelectValue placeholder="Seleccionar alumno" />
+              </SelectTrigger>
+              <SelectContent>
+                {students.map((s) => (
+                  <SelectItem key={s.user_id} value={s.user_id}>{s.display_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Card className="card-glass p-3 flex items-center gap-3">
+            <CalendarClock className="h-5 w-5 text-primary flex-shrink-0" />
+            {daysUntilChange !== null ? (
+              <p className="text-sm font-semibold">Días restantes para actualizar rutina: <span className="text-primary">{daysUntilChange}</span></p>
+            ) : (
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-muted-foreground">Programar cambio en:</p>
+                {[7, 14, 21, 30].map((d) => (
+                  <Button key={d} size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => handleSetNextChange(d)}>{d}d</Button>
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
-
-        <Card className="card-glass p-3 flex items-center gap-3">
-          <CalendarClock className="h-5 w-5 text-primary flex-shrink-0" />
-          {daysUntilChange !== null ? (
-            <p className="text-sm font-semibold">Días restantes para actualizar rutina: <span className="text-primary">{daysUntilChange}</span></p>
-          ) : (
-            <div className="flex items-center gap-2">
-              <p className="text-xs text-muted-foreground">Programar cambio en:</p>
-              {[7, 14, 21, 30].map((d) => (
-                <Button key={d} size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => handleSetNextChange(d)}>{d}d</Button>
-              ))}
-            </div>
-          )}
-        </Card>
-      </div>
+      )}
 
       {/* Day selector */}
       <div className="flex gap-2 flex-wrap">
@@ -538,7 +634,7 @@ export default function RoutinesPage() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Dumbbell className="h-5 w-5 text-primary" />
-                {selectedDay} — {student?.display_name || "—"}
+                {selectedDay} — {isGroupMode ? (groupName || "Grupo") : (student?.display_name || "—")}
                 {combinedBodyPart && <Badge className="ml-2 bg-primary/15 text-primary border-0 text-[10px]">{combinedBodyPart}</Badge>}
               </CardTitle>
               {selectedIds.size > 0 && (

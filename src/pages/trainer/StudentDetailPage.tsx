@@ -4,11 +4,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { fetchStudentProfile, type StudentProfile } from "@/services/alumnos";
 import { updatePlanAssignment } from "@/services/planes";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchArchivedRoutines, fetchRoutineExercises, type Routine } from "@/services/routineManager";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Dumbbell, CheckCircle, Apple, Loader2, Sparkles, Pencil } from "lucide-react";
+import { ArrowLeft, Dumbbell, CheckCircle, Apple, Loader2, Sparkles, Pencil, Archive } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -44,6 +45,9 @@ export default function StudentDetailPage() {
   const [selectedAlimentacion, setSelectedAlimentacion] = useState<string>("none");
   const [editingPlans, setEditingPlans] = useState(false);
   const [linkId, setLinkId] = useState<string>("");
+  const [archivedRoutines, setArchivedRoutines] = useState<Routine[]>([]);
+  const [expandedRoutine, setExpandedRoutine] = useState<string | null>(null);
+  const [routineExercises, setRoutineExercises] = useState<any[]>([]);
 
   const fetchData = useCallback(async () => {
     if (!user || !studentId) return;
@@ -68,9 +72,26 @@ export default function StudentDetailPage() {
       setPaymentPaid(tsRes.data.payment_status === "pagado");
     }
     setLoading(false);
+
+    // Fetch archived routines
+    try {
+      const archived = await fetchArchivedRoutines(user.id, studentId);
+      setArchivedRoutines(archived);
+    } catch {}
   }, [user, studentId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleExpandRoutine = async (routineId: string) => {
+    if (expandedRoutine === routineId) {
+      setExpandedRoutine(null);
+      setRoutineExercises([]);
+      return;
+    }
+    setExpandedRoutine(routineId);
+    const exs = await fetchRoutineExercises(routineId);
+    setRoutineExercises(exs);
+  };
 
   const handlePaymentToggle = async (checked: boolean) => {
     if (!linkId) return;
@@ -226,10 +247,11 @@ export default function StudentDetailPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="w-full grid grid-cols-4 bg-secondary/50">
+        <TabsList className="w-full grid grid-cols-5 bg-secondary/50">
           <TabsTrigger value="weight" className="text-xs">📈 Peso</TabsTrigger>
           <TabsTrigger value="meals" className="text-xs">🍽️ Comidas</TabsTrigger>
           <TabsTrigger value="routine" className="text-xs">🏋️ Rutina</TabsTrigger>
+          <TabsTrigger value="library" className="text-xs"><Archive className="h-3 w-3 mr-1" />Biblioteca</TabsTrigger>
           <TabsTrigger value="diagnostic" className="text-xs"><Sparkles className="h-3 w-3 mr-1" />Encuesta</TabsTrigger>
         </TabsList>
 
@@ -281,6 +303,70 @@ export default function StudentDetailPage() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="library">
+          <Card className="card-glass">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Archive className="h-5 w-5 text-primary" />
+                Rutinas Anteriores
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {archivedRoutines.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Sin rutinas archivadas</p>
+              ) : (
+                archivedRoutines.map((routine) => (
+                  <div key={routine.id} className="rounded-lg border border-border overflow-hidden">
+                    <button
+                      onClick={() => handleExpandRoutine(routine.id)}
+                      className="w-full flex items-center justify-between p-3 bg-secondary/30 hover:bg-secondary/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
+                          <Dumbbell className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-medium">{routine.name || "Rutina archivada"}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {new Date(routine.created_at).toLocaleDateString("es-AR")}
+                            {routine.routine_type === "GRUPAL" && (
+                              <Badge variant="outline" className="ml-2 text-[9px] border-accent/30 text-accent">Grupal</Badge>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] border-muted-foreground/30">
+                        {expandedRoutine === routine.id ? "Ocultar" : "Ver"}
+                      </Badge>
+                    </button>
+                    {expandedRoutine === routine.id && (
+                      <div className="p-3 border-t border-border space-y-2">
+                        {routineExercises.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-2">Sin ejercicios registrados</p>
+                        ) : (
+                          DAYS.filter((day) => routineExercises.some((e: any) => e.day === day)).map((day) => (
+                            <div key={day}>
+                              <p className="text-xs font-semibold text-primary mb-1">{day}</p>
+                              {routineExercises.filter((e: any) => e.day === day).map((ex: any) => (
+                                <div key={ex.id} className="flex items-center gap-2 p-2 rounded bg-secondary/20 mb-1">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-medium truncate">{ex.name}</p>
+                                    <p className="text-[10px] text-muted-foreground">{ex.sets}×{ex.reps}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
