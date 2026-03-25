@@ -64,7 +64,16 @@ export default function RoutinesPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // In group mode, fetch group name
   useEffect(() => {
+    if (isGroupMode && urlGroupId && user) {
+      supabase.from("training_groups").select("name").eq("id", urlGroupId).single()
+        .then(({ data }) => { if (data) setGroupName(data.name); });
+    }
+  }, [isGroupMode, urlGroupId, user]);
+
+  useEffect(() => {
+    if (isGroupMode) return; // Skip student selection in group mode
     if (students.length > 0 && !selectedStudent) {
       if (urlStudentId && students.some(s => s.user_id === urlStudentId)) {
         setSelectedStudent(urlStudentId);
@@ -72,10 +81,38 @@ export default function RoutinesPage() {
         setSelectedStudent(students[0].user_id);
       }
     }
-  }, [students, selectedStudent, urlStudentId]);
+  }, [students, selectedStudent, urlStudentId, isGroupMode]);
 
   const fetchData = useCallback(async () => {
-    if (!user || !selectedStudent) return;
+    if (!user) return;
+
+    if (isGroupMode && urlGroupId) {
+      // Group mode: fetch group_exercises
+      setLoadingExercises(true);
+      const [exRes, dayRes] = await Promise.all([
+        supabase.from("group_exercises").select("*").eq("group_id", urlGroupId).eq("trainer_id", user.id),
+        supabase.from("routine_day_config").select("day, body_part_1, body_part_2").eq("trainer_id", user.id).eq("student_id", urlGroupId),
+      ]);
+      const groupExercises = (exRes.data || []).map((e: any) => ({
+        ...e,
+        student_id: urlGroupId,
+        completed: false,
+        parent_exercise_id: null,
+        exercise_type: e.exercise_type || "NORMAL",
+      })) as Exercise[];
+      setExercises(groupExercises);
+      const dc: Record<string, DayConfig> = {};
+      (dayRes.data || []).forEach((d: any) => {
+        dc[d.day] = { day: d.day, body_part_1: d.body_part_1 || "", body_part_2: d.body_part_2 || "" };
+      });
+      setDayConfigs(dc);
+      setRoutineNextChange(null);
+      setSelectedIds(new Set());
+      setLoadingExercises(false);
+      return;
+    }
+
+    if (!selectedStudent) return;
     setLoadingExercises(true);
     const data = await fetchRoutineData(user.id, selectedStudent);
     setExercises(data.exercises);
@@ -83,7 +120,7 @@ export default function RoutinesPage() {
     setRoutineNextChange(data.routineNextChange);
     setSelectedIds(new Set());
     setLoadingExercises(false);
-  }, [user, selectedStudent]);
+  }, [user, selectedStudent, isGroupMode, urlGroupId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
