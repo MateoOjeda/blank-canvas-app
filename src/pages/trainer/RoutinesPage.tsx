@@ -247,7 +247,7 @@ export default function RoutinesPage() {
             trainer_id: user.id,
             student_id: selectedStudent,
             name: viForm.name,
-            sets: parseInt(viForm.sets),
+            sets: parseInt(form.sets), // Linked to parent exercise sets
             reps: viForm.isToFailure ? 0 : parseInt(viForm.reps),
             weight: 0,
             day: selectedDay,
@@ -649,15 +649,9 @@ export default function RoutinesPage() {
                         <Input placeholder="Escribir ejercicio" value={viForm.name} onChange={(e) => setViForm({ ...viForm, name: e.target.value })} className="bg-secondary/50 border-border" />
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Series</Label>
-                        <Input type="number" placeholder="4" value={viForm.sets} onChange={(e) => setViForm({ ...viForm, sets: e.target.value })} className="bg-secondary/50 border-border" />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Reps</Label>
-                        <Input type="number" placeholder={viForm.isToFailure ? "Al Fallo" : "10"} value={viForm.isToFailure ? "" : viForm.reps} onChange={(e) => setViForm({ ...viForm, reps: e.target.value })} className="bg-secondary/50 border-border" disabled={viForm.isToFailure} />
-                      </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Reps</Label>
+                      <Input type="number" placeholder={viForm.isToFailure ? "Al Fallo" : "10"} value={viForm.isToFailure ? "" : viForm.reps} onChange={(e) => setViForm({ ...viForm, reps: e.target.value })} className="bg-secondary/50 border-border" disabled={viForm.isToFailure} />
                     </div>
                     <div className="flex items-center gap-3">
                       <Switch checked={viForm.isToFailure} onCheckedChange={(checked) => setViForm({ ...viForm, isToFailure: checked, reps: checked ? "" : viForm.reps })} />
