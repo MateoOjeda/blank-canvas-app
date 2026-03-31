@@ -277,15 +277,30 @@ export default function StudentDetailPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="w-full grid grid-cols-5 bg-secondary/50">
-          <TabsTrigger value="weight" className="text-xs">📈 Peso</TabsTrigger>
-          <TabsTrigger value="meals" className="text-xs">🍽️ Comidas</TabsTrigger>
-          <TabsTrigger value="routine" className="text-xs">🏋️ Rutina</TabsTrigger>
-          {hasGroupRoutine && (
-            <TabsTrigger value="group_routine" className="text-xs">👥 Rutina de Grupo</TabsTrigger>
-          )}
-          <TabsTrigger value="library" className="text-xs"><Archive className="h-3 w-3 mr-1" />Biblioteca</TabsTrigger>
-          <TabsTrigger value="diagnostic" className="text-xs"><Sparkles className="h-3 w-3 mr-1" />Encuesta</TabsTrigger>
+        <TabsList className="w-full flex h-14 bg-secondary/50 overflow-x-auto hide-scrollbar p-1">
+          {[
+            { value: "weight", icon: "📈", label: "Peso" },
+            { value: "meals", icon: "🍽️", label: "Comidas" },
+            { value: "routine", icon: "🏋️", label: "Rutina" },
+            ...(hasGroupRoutine ? [{ value: "group_routine", icon: "👥", label: "Grupo" }] : []),
+            { value: "library", icon: <Archive className="h-4 w-4" />, label: "Biblioteca" },
+            { value: "diagnostic", icon: <Sparkles className="h-4 w-4" />, label: "Encuesta" }
+          ].map((tab) => (
+            <TabsTrigger 
+              key={tab.value} 
+              value={tab.value} 
+              className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1 transition-all shadow-none data-[state=active]:shadow-sm ${
+                activeTab === tab.value ? "min-w-[80px]" : "min-w-[48px]"
+              }`}
+            >
+              <div className="text-lg flex items-center justify-center">{tab.icon}</div>
+              {activeTab === tab.value && (
+                <span className="text-[10px] truncate w-full text-center animate-in fade-in slide-in-from-bottom-1">
+                  {tab.label}
+                </span>
+              )}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="weight">
