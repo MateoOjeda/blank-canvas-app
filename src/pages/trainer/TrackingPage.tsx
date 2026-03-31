@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Loader2, CheckCircle, Dumbbell, Lock, Unlock } from "lucide-react";
+import { BarChart3, Loader2, CheckCircle, Dumbbell, Lock, Unlock, ArrowLeft } from "lucide-react";
 
 interface Exercise {
   id: string;
@@ -89,18 +89,18 @@ export default function TrackingPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        {viewMode === 'detail' && (
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleBackToList}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        )}
         <div>
           <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Seguimiento</h1>
           <p className="text-muted-foreground text-sm mt-1">
             {viewMode === 'list' ? 'Selecciona un alumno para ver su progreso' : `Progreso de ${student?.display_name}`}
           </p>
         </div>
-        {viewMode === 'detail' && (
-          <Button variant="outline" size="sm" onClick={handleBackToList}>
-            Volver a la lista
-          </Button>
-        )}
       </div>
 
       {viewMode === 'list' ? (

@@ -29,7 +29,7 @@ import MealsTab from "@/components/trainer/MealsTab";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Dumbbell, Loader2, CalendarClock, Users2 } from "lucide-react";
+import { Plus, Trash2, Dumbbell, Loader2, CalendarClock, Users2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { BODY_PARTS, EXERCISES_BY_BODY_PART, type BodyPart } from "@/lib/exercisesByBodyPart";
 import {
@@ -387,7 +387,12 @@ export default function RoutinesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        {selectedStudent && !isGroupMode && (
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleBackToList}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        )}
         <div>
           <h1 className="text-2xl font-display font-bold tracking-wide neon-text">
             {isGroupMode ? `Rutina del Grupo: ${groupName || "..."}` : "Creador de Rutinas"}
@@ -400,11 +405,6 @@ export default function RoutinesPage() {
                 : "Selecciona un alumno para crear o editar su rutina"}
           </p>
         </div>
-        {selectedStudent && !isGroupMode && (
-          <Button variant="outline" size="sm" onClick={handleBackToList}>
-            Volver a la lista
-          </Button>
-        )}
       </div>
 
       {!isGroupMode && !selectedStudent ? (
