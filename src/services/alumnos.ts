@@ -15,6 +15,7 @@ export interface LinkedStudent extends StudentProfile {
   planAlimentacion: string;
   linkId: string;
   paymentStatus: string;
+  groupName?: string | null;
 }
 
 export interface AvailableStudent {
@@ -38,15 +39,27 @@ export async function fetchLinkedStudents(trainerId: string): Promise<LinkedStud
     .select("user_id, display_name, avatar_initials, avatar_url, weight, age")
     .in("user_id", studentIds);
 
+  const { data: groupMembers } = await supabase
+    .from("training_group_members")
+    .select(`
+      student_id,
+      training_groups ( name )
+    `)
+    .in("student_id", studentIds);
+
   return (profiles || []).map((p: any) => {
     const link = links.find((l) => l.student_id === p.user_id);
+    const membership = groupMembers?.find((gm) => gm.student_id === p.user_id);
+    const groupData = membership?.training_groups as any;
+
     return {
       ...p,
       linked_at: link?.created_at || "",
-      planEntrenamiento: link?.plan_entrenamiento || "inicial",
-      planAlimentacion: link?.plan_alimentacion || "inicial",
+      planEntrenamiento: link?.plan_entrenamiento || "none",
+      planAlimentacion: link?.plan_alimentacion || "none",
       linkId: link?.id || "",
       paymentStatus: link?.payment_status || "pendiente",
+      groupName: groupData?.name || null,
     };
   });
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, Users2, Dumbbell, ClipboardList, BarChart3, CalendarCheck, Trophy, User, Zap, LogOut, Bell, Sparkles, Camera } from "lucide-react";
+import { Users, Users2, Dumbbell, ClipboardList, BarChart3, CalendarCheck, Trophy, User, Zap, LogOut, Bell, Sparkles, Camera, FileText } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +7,8 @@ import ProfilePhotoUpload from "@/components/ProfilePhotoUpload";
 import TrainerSettingsDialog from "@/components/TrainerSettingsDialog";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
-  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar } from
+  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
+  SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton } from
 "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 
@@ -17,17 +18,17 @@ const trainerItems = [
 { title: "Planes", url: "/trainer/plans", icon: ClipboardList },
 { title: "Seguimiento", url: "/trainer/tracking", icon: BarChart3 },
 { title: "Grupos", url: "/trainer/groups", icon: Users2 },
-{ title: "Notificaciones", url: "/trainer/notifications", icon: Bell }];
-
+{ title: "Notificaciones", url: "/trainer/notifications", icon: Bell },
+{ title: "Encuestas", url: "/trainer/surveys", icon: FileText }];
 
 const studentItems = [
 { title: "Novedades", url: "/student/feed", icon: Bell },
+{ title: "Rutinas", url: "/student/routines", icon: Dumbbell },
 { title: "Mi Rutina Hoy", url: "/student/today", icon: CalendarCheck },
 { title: "Mis Planes", url: "/student/plans", icon: Trophy },
 { title: "Mi Progreso", url: "/student/progress", icon: Zap },
 { title: "Cambio Personal", url: "/student/personal-change", icon: Sparkles },
 { title: "Mi Transformación", url: "/student/transformation", icon: Camera }];
-
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -71,8 +72,8 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) =>
-              <SidebarMenuItem key={item.title}>
+              {items.map((item) => (
+                <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} end className="hover:bg-secondary/80 transition-colors" activeClassName="bg-primary/10 text-primary neon-border">
                       <item.icon className="mr-2 h-4 w-4" />
@@ -80,7 +81,7 @@ export function AppSidebar() {
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              )}
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -106,6 +107,6 @@ export function AppSidebar() {
           {!collapsed && <span className="ml-2">Cerrar Sesión</span>}
         </Button>
       </SidebarFooter>
-    </Sidebar>);
-
+    </Sidebar>
+  );
 }

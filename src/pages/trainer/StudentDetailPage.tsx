@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Dumbbell, CheckCircle, Apple, Loader2, Sparkles, Pencil, Archive } from "lucide-react";
+import { ArrowLeft, Dumbbell, CheckCircle, Apple, Loader2, Sparkles, Pencil, Archive, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -48,15 +48,18 @@ export default function StudentDetailPage() {
   const [archivedRoutines, setArchivedRoutines] = useState<Routine[]>([]);
   const [expandedRoutine, setExpandedRoutine] = useState<string | null>(null);
   const [routineExercises, setRoutineExercises] = useState<any[]>([]);
+  const [hasGroupRoutine, setHasGroupRoutine] = useState(false);
+  const [groupExercises, setGroupExercises] = useState<any[]>([]);
 
   const fetchData = useCallback(async () => {
     if (!user || !studentId) return;
     setLoading(true);
-    const [prof, exRes, plRes, tsRes] = await Promise.all([
+    const [prof, exRes, plRes, tsRes, groupMemberships] = await Promise.all([
       fetchStudentProfile(studentId),
       supabase.from("exercises").select("id, name, sets, reps, weight, day, completed").eq("trainer_id", user.id).eq("student_id", studentId),
       supabase.from("plan_levels").select("plan_type, level, unlocked").eq("trainer_id", user.id).eq("student_id", studentId),
       supabase.from("trainer_students").select("id, payment_status, plan_entrenamiento, plan_alimentacion").eq("trainer_id", user.id).eq("student_id", studentId).maybeSingle(),
+      supabase.from("training_group_members").select("group_id").eq("student_id", studentId),
     ]);
     setProfile(prof);
     setExercises(exRes.data || []);
@@ -71,13 +74,29 @@ export default function StudentDetailPage() {
       setLinkId(tsRes.data.id);
       setPaymentPaid(tsRes.data.payment_status === "pagado");
     }
+
+    if (groupMemberships.data && groupMemberships.data.length > 0) {
+      const groupId = groupMemberships.data[0].group_id;
+      const { data: grpExercises } = await supabase.from("group_exercises").select("*").eq("group_id", groupId);
+      if (grpExercises && grpExercises.length > 0) {
+        setGroupExercises(grpExercises);
+        setHasGroupRoutine(true);
+      } else {
+        setGroupExercises([]);
+        setHasGroupRoutine(false);
+      }
+    } else {
+      setGroupExercises([]);
+      setHasGroupRoutine(false);
+    }
+    
     setLoading(false);
 
     // Fetch archived routines
     try {
       const archived = await fetchArchivedRoutines(user.id, studentId);
       setArchivedRoutines(archived);
-    } catch {}
+    } catch { }
   }, [user, studentId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -135,6 +154,12 @@ export default function StudentDetailPage() {
     exercisesByDay[ex.day].push(ex);
   });
 
+  const groupExercisesByDay: Record<string, any[]> = {};
+  groupExercises.forEach((ex) => {
+    if (!groupExercisesByDay[ex.day]) groupExercisesByDay[ex.day] = [];
+    groupExercisesByDay[ex.day].push(ex);
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -179,43 +204,48 @@ export default function StudentDetailPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {[
-            { type: "entrenamiento", icon: Dumbbell, label: "Entrenamiento", selected: selectedEntrenamiento },
-            { type: "nutricion", icon: Apple, label: "Alimentación", selected: selectedAlimentacion },
-          ].map(({ type, icon: Icon, label, selected }) => (
-            <div key={type} className="flex items-center gap-4 p-3 rounded-lg bg-secondary/30">
-              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Icon className="h-4 w-4 text-primary" />
+          {!editingPlans && selectedEntrenamiento === "none" && selectedAlimentacion === "none" ? (
+             <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-center">
+               <p className="text-sm font-semibold text-destructive">Este alumno no tiene planes asignados</p>
+             </div>
+          ) : (
+            [
+              { type: "entrenamiento", icon: Dumbbell, label: "Entrenamiento", selected: selectedEntrenamiento },
+              { type: "nutricion", icon: Apple, label: "Alimentación", selected: selectedAlimentacion },
+            ]
+            .filter(({ selected }) => editingPlans || selected !== "none")
+            .map(({ type, icon: Icon, label, selected }) => (
+              <div key={type} className="flex items-center gap-4 p-3 rounded-lg bg-secondary/30">
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Icon className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <Label className="text-sm font-semibold">{label}</Label>
+                  <p className="text-xs mt-0.5">
+                    {selected !== "none"
+                      ? <Badge variant="outline" className="text-[10px] bg-green-500/15 text-green-500 border-green-500/30">{LEVEL_LABELS[selected]} — Activo</Badge>
+                      : <span className="text-[10px] text-destructive">Sin plan asignado</span>}
+                  </p>
+                </div>
+                {editingPlans && (
+                  <Select value={selected} onValueChange={(val) => handlePlanChangeRequest(type, val)}>
+                    <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin plan</SelectItem>
+                      <SelectItem value="principiante">Inicial</SelectItem>
+                      <SelectItem value="intermedio">Intermedio</SelectItem>
+                      <SelectItem value="avanzado">Avanzado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <Label className="text-sm font-semibold">{label}</Label>
-                <p className="text-xs mt-0.5">
-                  {selected !== "none"
-                    ? <Badge variant="outline" className="text-[10px] bg-green-500/15 text-green-500 border-green-500/30">{LEVEL_LABELS[selected]} — Activo</Badge>
-                    : <span className="text-[10px] text-destructive">Sin plan asignado</span>}
-                </p>
-              </div>
-              {editingPlans && (
-                <Select value={selected} onValueChange={(val) => handlePlanChangeRequest(type, val)}>
-                  <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin plan</SelectItem>
-                    <SelectItem value="principiante">Inicial</SelectItem>
-                    <SelectItem value="intermedio">Intermedio</SelectItem>
-                    <SelectItem value="avanzado">Avanzado</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          ))}
+            ))
+          )}
         </CardContent>
       </Card>
 
       {/* Quick Actions */}
       <div className="flex gap-2 flex-wrap">
-        <Button variant="outline" size="sm" className="gap-2" onClick={() => navigate(`/trainer/routines/${studentId}`)}>
-          <Dumbbell className="h-4 w-4" /> Editar Rutina
-        </Button>
         <Button variant="outline" size="sm" className="gap-2" onClick={() => setActiveTab("diagnostic")}>
           <Sparkles className="h-4 w-4" /> Ver Encuesta
         </Button>
@@ -251,6 +281,9 @@ export default function StudentDetailPage() {
           <TabsTrigger value="weight" className="text-xs">📈 Peso</TabsTrigger>
           <TabsTrigger value="meals" className="text-xs">🍽️ Comidas</TabsTrigger>
           <TabsTrigger value="routine" className="text-xs">🏋️ Rutina</TabsTrigger>
+          {hasGroupRoutine && (
+            <TabsTrigger value="group_routine" className="text-xs">👥 Rutina de Grupo</TabsTrigger>
+          )}
           <TabsTrigger value="library" className="text-xs"><Archive className="h-3 w-3 mr-1" />Biblioteca</TabsTrigger>
           <TabsTrigger value="diagnostic" className="text-xs"><Sparkles className="h-3 w-3 mr-1" />Encuesta</TabsTrigger>
         </TabsList>
@@ -265,7 +298,7 @@ export default function StudentDetailPage() {
         </TabsContent>
 
         <TabsContent value="meals">
-          {studentId && <MealsTab studentId={studentId} />}
+          {studentId && <MealsTab studentId={studentId} nutritionLevel={selectedAlimentacion} readOnly={true} />}
         </TabsContent>
 
         <TabsContent value="routine">
@@ -308,6 +341,52 @@ export default function StudentDetailPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="group_routine">
+          {hasGroupRoutine && (
+            <Card className="card-glass">
+              <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Users className="h-5 w-5 text-accent" />Rutina de Grupo</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2 w-full overflow-x-auto pb-2">
+                  {DAYS.map((day, i) => {
+                    const count = groupExercisesByDay[day]?.length || 0;
+                    return (
+                      <div key={day} className={`flex flex-col items-center justify-center w-10 min-w-10 h-12 rounded-lg text-xs font-bold border flex-shrink-0 ${count > 0 ? "bg-accent/10 border-accent/30 text-accent" : "bg-secondary/30 border-border text-muted-foreground"}`}>
+                        <span className="text-[11px]">{DAY_SHORT[i]}</span>
+                        {count > 0 && <span className="text-[9px] mt-0.5">{count}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+                {groupExercises.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">Sin ejercicios asignados al grupo</p>
+                ) : (
+                  DAYS.filter((day) => groupExercisesByDay[day]?.length).map((day) => (
+                    <div key={day}>
+                      <p className="text-xs font-semibold text-accent mb-2">{day}</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {groupExercisesByDay[day].map((ex) => (
+                          <div key={ex.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
+                            <div className="h-4 w-4 flex-shrink-0 bg-accent/20 rounded-full flex items-center justify-center">
+                              <Dumbbell className="h-2.5 w-2.5 text-accent" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{ex.name}</p>
+                              <p className="text-[10px] text-muted-foreground">{ex.sets}×{ex.reps} {ex.weight ? `· ${ex.weight}kg` : ""}</p>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] flex-shrink-0 border-accent/40 text-accent">
+                              Grupal
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="library">

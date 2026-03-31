@@ -14,7 +14,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Users2, Loader2, Dumbbell, UserPlus, X } from "lucide-react";
+import { Plus, Trash2, Users2, Loader2, Dumbbell, UserPlus, X, Eye, Edit3 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { BODY_PARTS, EXERCISES_BY_BODY_PART, type BodyPart } from "@/lib/exercisesByBodyPart";
@@ -43,6 +43,7 @@ export default function TrainingGroupsPage() {
   const [exForm, setExForm] = useState({ name: "", sets: "", reps: "", day: "", bodyPart: "", bodyPart2: "", isToFailure: false });
   const [deleteTarget, setDeleteTarget] = useState<TrainingGroup | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showInlineRoutine, setShowInlineRoutine] = useState(false);
 
   const fetchGroups = useCallback(async () => {
     if (!user) return;
@@ -247,92 +248,56 @@ export default function TrainingGroupsPage() {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg flex items-center gap-2"><Dumbbell className="h-5 w-5 text-primary" />Rutina del Grupo</CardTitle>
-                      <Button size="sm" variant="outline" className="gap-1" onClick={() => navigate(`/trainer/routines/group/${selectedGroupId}`)}>
-                        <Dumbbell className="h-3 w-3" /> Editor completo
-                      </Button>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="p-4 rounded-lg bg-secondary/30 space-y-3">
-                      <p className="text-sm font-semibold">Nuevo Ejercicio</p>
-                      <div>
-                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Día</Label>
-                        <Select value={exForm.day} onValueChange={(v) => setExForm({ ...exForm, day: v })}>
-                          <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Seleccionar día" /></SelectTrigger>
-                          <SelectContent>{DAYS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Grupo Muscular 1</Label>
-                          <Select value={exForm.bodyPart} onValueChange={(v) => setExForm({ ...exForm, bodyPart: v, name: "" })}>
-                            <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Principal" /></SelectTrigger>
-                            <SelectContent>{BODY_PARTS.map((bp) => <SelectItem key={bp} value={bp}>{bp}</SelectItem>)}</SelectContent>
-                          </Select>
+                  <CardContent className="space-y-6">
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <Button variant="outline" className="flex-1 h-auto flex flex-col items-center justify-center gap-3 hover:bg-secondary/50 group py-6" onClick={() => setShowInlineRoutine(!showInlineRoutine)}>
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <Eye className="h-5 w-5 text-primary" />
                         </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Grupo Muscular 2</Label>
-                          <Select value={exForm.bodyPart2} onValueChange={(v) => setExForm({ ...exForm, bodyPart2: v, name: "" })}>
-                            <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Secundario" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">— Ninguno —</SelectItem>
-                              {BODY_PARTS.filter((bp) => bp !== exForm.bodyPart).map((bp) => <SelectItem key={bp} value={bp}>{bp}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
+                        <span className="font-semibold text-center leading-tight">Ver rutina del grupo</span>
+                      </Button>
+
+                      <Button variant="outline" className="flex-1 h-auto flex flex-col items-center justify-center gap-3 hover:bg-secondary/50 group py-6" onClick={() => navigate(`/trainer/routines/group/${selectedGroupId}`)}>
+                        <div className="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <Edit3 className="h-5 w-5 text-accent" />
                         </div>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Ejercicio</Label>
-                        {availableExercises.length > 0 ? (
-                          <Select value={exForm.name} onValueChange={(v) => setExForm({ ...exForm, name: v })}>
-                            <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Seleccionar ejercicio" /></SelectTrigger>
-                            <SelectContent>{availableExercises.map((ex) => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}</SelectContent>
-                          </Select>
-                        ) : (
-                          <Input placeholder="Primero selecciona el grupo muscular" value={exForm.name} onChange={(e) => setExForm({ ...exForm, name: e.target.value })} className="bg-secondary/50 border-border" disabled={!exForm.bodyPart} />
-                        )}
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Series</Label>
-                          <Input type="number" placeholder="4" value={exForm.sets} onChange={(e) => setExForm({ ...exForm, sets: e.target.value })} className="bg-secondary/50 border-border" />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Reps</Label>
-                          <Input type="number" placeholder={exForm.isToFailure ? "Al Fallo" : "10"} value={exForm.isToFailure ? "" : exForm.reps} onChange={(e) => setExForm({ ...exForm, reps: e.target.value })} className="bg-secondary/50 border-border" disabled={exForm.isToFailure} />
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/40">
-                        <Switch checked={exForm.isToFailure} onCheckedChange={(checked) => setExForm({ ...exForm, isToFailure: checked, reps: checked ? "" : exForm.reps })} />
-                        <div><Label className="text-sm font-medium">Al Fallo</Label><p className="text-xs text-muted-foreground">Repeticiones hasta el fallo muscular</p></div>
-                      </div>
-                      <Button onClick={addExercise} className="w-full"><Plus className="h-4 w-4 mr-2" />Agregar Ejercicio</Button>
+                        <span className="font-semibold text-center leading-tight">Editar rutina del grupo</span>
+                      </Button>
                     </div>
-                    {exercises.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-4">Sin ejercicios asignados al grupo</p>
-                    ) : (
-                      <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-                        {DAYS.map((day) => {
-                          const dayExs = exercises.filter((e) => e.day === day);
-                          if (dayExs.length === 0) return null;
-                          return (
-                            <div key={day}>
-                              <Badge variant="outline" className="mb-2 border-primary/30 text-primary text-[10px]">{day}</Badge>
-                              {dayExs.map((ex) => (
-                                <div key={ex.id} className="flex items-center gap-2 p-3 rounded-lg bg-secondary/30 mb-1">
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-sm">{ex.name}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {ex.body_part && <span className="text-primary">{ex.body_part} · </span>}
-                                      {ex.sets}×{ex.is_to_failure ? <span className="text-amber-400 font-semibold">Al Fallo</span> : ex.reps}
-                                    </p>
-                                  </div>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => removeExercise(ex.id)}><Trash2 className="h-4 w-4" /></Button>
+
+                    {showInlineRoutine && (
+                      <div className="pt-6 border-t border-border animate-in fade-in slide-in-from-top-2">
+                        <div className="flex items-center justify-between mb-4">
+                           <h3 className="font-semibold text-sm">Vista previa de la rutina</h3>
+                        </div>
+                        {exercises.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-4 bg-secondary/20 rounded-lg">Sin ejercicios asignados al grupo</p>
+                        ) : (
+                          <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+                            {DAYS.map((day) => {
+                              const dayExs = exercises.filter((e) => e.day === day);
+                              if (dayExs.length === 0) return null;
+                              return (
+                                <div key={day}>
+                                  <Badge variant="outline" className="mb-2 border-primary/30 text-primary text-[10px]">{day}</Badge>
+                                  {dayExs.map((ex) => (
+                                    <div key={ex.id} className="flex items-center gap-2 p-3 rounded-lg bg-secondary/30 mb-1">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-sm">{ex.name}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {ex.body_part && <span className="text-primary">{ex.body_part} · </span>}
+                                          {ex.sets}×{ex.is_to_failure ? <span className="text-amber-400 font-semibold">Al Fallo</span> : ex.reps}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
-                          );
-                        })}
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     )}
                   </CardContent>

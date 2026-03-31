@@ -14,10 +14,12 @@ import PlansPage from "@/pages/trainer/PlansPage";
 import TrackingPage from "@/pages/trainer/TrackingPage";
 import NotificationsPage from "@/pages/trainer/NotificationsPage";
 import TrainingGroupsPage from "@/pages/trainer/TrainingGroupsPage";
+import TrainerSurveysPage from "@/pages/trainer/TrainerSurveysPage";
 import TodayRoutinePage from "@/pages/student/TodayRoutinePage";
 import MyPlansPage from "@/pages/student/MyPlansPage";
 import ProgressPage from "@/pages/student/ProgressPage";
 import StudentFeedPage from "@/pages/student/StudentFeedPage";
+import StudentRoutinesPage from "@/pages/student/StudentRoutinesPage";
 import PersonalChangePage from "@/pages/student/PersonalChangePage";
 import TransformationPage from "@/pages/student/TransformationPage";
 import NotFound from "./pages/NotFound";
@@ -58,7 +60,9 @@ const App = () => (
               <Route path="/trainer/tracking" element={<ProtectedRoute requiredRole="trainer"><TrackingPage /></ProtectedRoute>} />
               <Route path="/trainer/notifications" element={<ProtectedRoute requiredRole="trainer"><NotificationsPage /></ProtectedRoute>} />
               <Route path="/trainer/groups" element={<ProtectedRoute requiredRole="trainer"><TrainingGroupsPage /></ProtectedRoute>} />
+              <Route path="/trainer/surveys" element={<ProtectedRoute requiredRole="trainer"><TrainerSurveysPage /></ProtectedRoute>} />
               <Route path="/student/feed" element={<ProtectedRoute requiredRole="student"><StudentFeedPage /></ProtectedRoute>} />
+              <Route path="/student/routines" element={<ProtectedRoute requiredRole="student"><StudentRoutinesPage /></ProtectedRoute>} />
               <Route path="/student/today" element={<ProtectedRoute requiredRole="student"><TodayRoutinePage /></ProtectedRoute>} />
               <Route path="/student/plans" element={<ProtectedRoute requiredRole="student"><MyPlansPage /></ProtectedRoute>} />
               <Route path="/student/progress" element={<ProtectedRoute requiredRole="student"><ProgressPage /></ProtectedRoute>} />

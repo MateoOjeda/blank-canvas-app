@@ -8,7 +8,6 @@ import {
   unlinkStudent as unlinkStudentService,
   deleteStudentPermanently,
   updatePaymentStatus,
-  updatePlanLevel as updatePlanLevelService,
   type LinkedStudent,
   type AvailableStudent,
 } from "@/services/alumnos";
@@ -22,7 +21,6 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Users, Loader2, Trash2, Dumbbell, Apple, Eye, Pencil, Plus, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 
@@ -47,7 +45,6 @@ export default function StudentsPage() {
   const [deleteTarget, setDeleteTarget] = useState<LinkedStudent | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [editingPlans, setEditingPlans] = useState(false);
 
   const refreshAll = useCallback(async () => {
     if (!user) return;
@@ -95,15 +92,6 @@ export default function StudentsPage() {
       toast.error("Error al actualizar pago");
       setLinkedStudents((prev) => prev.map((s) => s.user_id === student.user_id ? { ...s, paymentStatus: checked ? "pendiente" : "pagado" } : s));
     }
-  };
-
-  const handlePlanUpdate = async (linkId: string, field: "plan_entrenamiento" | "plan_alimentacion", value: string) => {
-    const stateKey = field === "plan_entrenamiento" ? "planEntrenamiento" : "planAlimentacion";
-    setLinkedStudents((prev) => prev.map((s) => s.linkId === linkId ? { ...s, [stateKey]: value } : s));
-    try {
-      await updatePlanLevelService(linkId, field, value);
-      toast.success("Plan actualizado");
-    } catch { toast.error("Error al actualizar plan"); }
   };
 
   const confirmDeleteStudent = async () => {
@@ -170,13 +158,20 @@ export default function StudentsPage() {
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{student.display_name}</p>
-                          <Badge variant="outline" className={`text-[9px] px-1.5 py-0 mt-0.5 ${
-                            student.paymentStatus === "pagado"
-                              ? "border-green-400/50 text-green-600"
-                              : "border-orange-400/50 text-orange-600"
-                          }`}>
-                            {student.paymentStatus === "pagado" ? "✓ Pagado" : "⏳ No pagado"}
-                          </Badge>
+                          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                            <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${
+                              student.paymentStatus === "pagado"
+                                ? "border-green-400/50 text-green-600"
+                                : "border-orange-400/50 text-orange-600"
+                            }`}>
+                              {student.paymentStatus === "pagado" ? "✓ Pagado" : "⏳ No pagado"}
+                            </Badge>
+                            {student.groupName && (
+                              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20">
+                                {student.groupName}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </button>
                       <Button
@@ -250,18 +245,33 @@ export default function StudentsPage() {
             <CardContent className="p-6 space-y-6 overflow-y-auto max-h-[75vh]">
               {/* Profile header */}
               <div className="flex items-center gap-4">
-                <Avatar className="h-20 w-20 border-2 border-accent/30">
-                  <AvatarImage src={selectedStudent.avatar_url || undefined} />
-                  <AvatarFallback className="bg-accent/10 text-accent font-bold text-2xl">
-                    {selectedStudent.avatar_initials || selectedStudent.display_name.slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                <div 
+                  className="cursor-pointer transition-opacity hover:opacity-80"
+                  onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}
+                >
+                  <Avatar className="h-20 w-20 border-2 border-accent/30">
+                    <AvatarImage src={selectedStudent.avatar_url || undefined} />
+                    <AvatarFallback className="bg-accent/10 text-accent font-bold text-2xl">
+                      {selectedStudent.avatar_initials || selectedStudent.display_name.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
                 <div className="flex-1">
-                  <h2 className="text-xl font-display font-bold neon-text">{selectedStudent.display_name}</h2>
-                  <div className="flex items-center gap-2 mt-2">
+                  <h2 
+                    className="text-xl font-display font-bold neon-text cursor-pointer hover:opacity-80 transition-opacity inline-block"
+                    onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}
+                  >
+                    {selectedStudent.display_name}
+                  </h2>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <Badge variant="outline" className={`text-xs ${selectedStudent.paymentStatus === "pagado" ? "border-green-400/50 text-green-600" : "border-orange-400/50 text-orange-600"}`}>
                       {selectedStudent.paymentStatus === "pagado" ? "✓ Pagado" : "⏳ No pagado"}
                     </Badge>
+                    {selectedStudent.groupName && (
+                      <Badge variant="secondary" className="text-xs bg-accent/10 text-accent border-accent/20">
+                        Grupo: {selectedStudent.groupName}
+                      </Badge>
+                    )}
                     <Switch
                       checked={selectedStudent.paymentStatus === "pagado"}
                       onCheckedChange={(c) => handlePaymentToggle(selectedStudent, c)}
@@ -278,72 +288,40 @@ export default function StudentsPage() {
                 </Button>
               </div>
 
-              {/* Plan selectors with edit lock */}
-              <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">Asignación de planes</h3>
-                  <Button
-                    variant="ghost" size="icon"
-                    className={`h-7 w-7 ${editingPlans ? "text-primary" : "text-muted-foreground"}`}
-                    onClick={() => setEditingPlans(!editingPlans)}
-                    title={editingPlans ? "Bloquear edición" : "Habilitar edición"}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
+              {/* Plan selectors */}
+              {(!selectedStudent.planEntrenamiento || selectedStudent.planEntrenamiento === "none") && (!selectedStudent.planAlimentacion || selectedStudent.planAlimentacion === "none") ? (
+                <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-center">
+                  <p className="text-sm font-semibold text-destructive">Este alumno no tiene planes asociados</p>
                 </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">Asignación de planes</h3>
+                  </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Dumbbell className="h-4 w-4 text-accent" />
-                    <Label className="text-sm font-medium">Entrenamiento</Label>
-                    {!editingPlans && (
-                      <Badge variant="outline" className={`text-[10px] ml-auto ${getLevelColor(selectedStudent.planEntrenamiento)}`}>
-                        {PLAN_LEVEL_OPTIONS.find(o => o.value === selectedStudent.planEntrenamiento)?.label || selectedStudent.planEntrenamiento}
-                      </Badge>
+                  <div className="space-y-3">
+                    {selectedStudent.planEntrenamiento && selectedStudent.planEntrenamiento !== "none" && (
+                      <div className="flex items-center gap-2">
+                        <Dumbbell className="h-4 w-4 text-accent" />
+                        <Label className="text-sm font-medium">Entrenamiento</Label>
+                        <Badge variant="outline" className={`text-[10px] ml-auto ${getLevelColor(selectedStudent.planEntrenamiento)}`}>
+                          {PLAN_LEVEL_OPTIONS.find(o => o.value === selectedStudent.planEntrenamiento)?.label || selectedStudent.planEntrenamiento}
+                        </Badge>
+                      </div>
+                    )}
+
+                    {selectedStudent.planAlimentacion && selectedStudent.planAlimentacion !== "none" && (
+                      <div className="flex items-center gap-2">
+                        <Apple className="h-4 w-4 text-accent" />
+                        <Label className="text-sm font-medium">Alimentación</Label>
+                        <Badge variant="outline" className={`text-[10px] ml-auto ${getLevelColor(selectedStudent.planAlimentacion)}`}>
+                          {PLAN_LEVEL_OPTIONS.find(o => o.value === selectedStudent.planAlimentacion)?.label || selectedStudent.planAlimentacion}
+                        </Badge>
+                      </div>
                     )}
                   </div>
-                  {editingPlans && (
-                    <Select value={selectedStudent.planEntrenamiento} onValueChange={(v) => handlePlanUpdate(selectedStudent.linkId, "plan_entrenamiento", v)}>
-                      <SelectTrigger className={`h-9 text-sm bg-secondary/50 font-medium ${getLevelColor(selectedStudent.planEntrenamiento)}`}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PLAN_LEVEL_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value} className={`text-sm font-medium ${opt.color}`}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
                 </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Apple className="h-4 w-4 text-accent" />
-                    <Label className="text-sm font-medium">Alimentación</Label>
-                    {!editingPlans && (
-                      <Badge variant="outline" className={`text-[10px] ml-auto ${getLevelColor(selectedStudent.planAlimentacion)}`}>
-                        {PLAN_LEVEL_OPTIONS.find(o => o.value === selectedStudent.planAlimentacion)?.label || selectedStudent.planAlimentacion}
-                      </Badge>
-                    )}
-                  </div>
-                  {editingPlans && (
-                    <Select value={selectedStudent.planAlimentacion} onValueChange={(v) => handlePlanUpdate(selectedStudent.linkId, "plan_alimentacion", v)}>
-                      <SelectTrigger className={`h-9 text-sm bg-secondary/50 font-medium ${getLevelColor(selectedStudent.planAlimentacion)}`}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PLAN_LEVEL_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value} className={`text-sm font-medium ${opt.color}`}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              </div>
+              )}
 
               {/* Routine section */}
               <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
@@ -357,6 +335,22 @@ export default function StudentsPage() {
                   </Button>
                   <Button size="sm" className="gap-1.5 flex-1" onClick={() => navigate(`/trainer/routines/${selectedStudent.user_id}`)}>
                     <Pencil className="h-3.5 w-3.5" /> Editar rutina
+                  </Button>
+                </div>
+              </div>
+
+              {/* Meals routine section */}
+              <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3 mt-3">
+                <div className="flex items-center gap-2">
+                  <Apple className="h-5 w-5 text-accent" />
+                  <h3 className="font-semibold text-sm">Rutina de Alimentación</h3>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="gap-1.5 flex-1" onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}>
+                    <Eye className="h-3.5 w-3.5" /> Ver detalle
+                  </Button>
+                  <Button size="sm" className="gap-1.5 flex-1" onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}>
+                    <Pencil className="h-3.5 w-3.5" /> Editar
                   </Button>
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useLinkedStudents } from "@/hooks/useLinkedStudents";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +24,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import MealsTab from "@/components/trainer/MealsTab";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
@@ -41,6 +43,9 @@ const DAY_SHORT = ["L", "M", "X", "J", "V", "S", "D"];
 export default function RoutinesPage() {
   const { user } = useAuth();
   const { studentId: urlStudentId, groupId: urlGroupId } = useParams<{ studentId?: string; groupId?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "entrenamiento";
+  
   const isGroupMode = !!urlGroupId;
   const { students, loading: loadingStudents } = useLinkedStudents();
   const [groupName, setGroupName] = useState<string>("");
@@ -63,6 +68,7 @@ export default function RoutinesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [nutritionLevel, setNutritionLevel] = useState<string>("none");
 
   // In group mode, fetch group name
   useEffect(() => {
@@ -115,6 +121,17 @@ export default function RoutinesPage() {
     if (!selectedStudent) return;
     setLoadingExercises(true);
     const data = await fetchRoutineData(user.id, selectedStudent);
+    
+    // Fetch nutrition level for the selected student
+    const { data: studentLink } = await supabase
+      .from("trainer_students")
+      .select("plan_alimentacion")
+      .eq("trainer_id", user.id)
+      .eq("student_id", selectedStudent)
+      .maybeSingle();
+    
+    setNutritionLevel(studentLink?.plan_alimentacion || "none");
+
     setExercises(data.exercises);
     setDayConfigs(data.dayConfigs);
     setRoutineNextChange(data.routineNextChange);
@@ -410,8 +427,15 @@ export default function RoutinesPage() {
         </div>
       )}
 
-      {/* Day selector */}
-      <div className="flex gap-2 flex-wrap">
+      <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v })} className="space-y-6">
+        <TabsList className="grid grid-cols-2 bg-secondary/50 max-w-md w-full">
+          <TabsTrigger value="entrenamiento" className="text-xs sm:text-sm"><Dumbbell className="w-3.5 h-3.5 mr-2" />Entrenamiento</TabsTrigger>
+          <TabsTrigger value="alimentacion" className="text-xs sm:text-sm"><CalendarClock className="w-3.5 h-3.5 mr-2" />Alimentación</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="entrenamiento" className="space-y-6 mt-0">
+          {/* Day selector */}
+          <div className="flex gap-2 flex-wrap">
         {DAYS.map((day, i) => {
           const count = exercises.filter((e) => e.day === day).length;
           const dc = dayConfigs[day];
@@ -572,55 +596,57 @@ export default function RoutinesPage() {
             </div>
 
             {/* VI SERIE toggle */}
-            <div className="p-4 rounded-xl bg-accent/10 border border-accent/20 space-y-4">
-              <div className="flex items-center gap-3">
-                <Switch checked={viSerieEnabled} onCheckedChange={(checked) => {
-                  setViSerieEnabled(checked);
-                  if (!checked) setViForm({ name: "", sets: "", reps: "", isToFailure: false, isDropset: false });
-                }} />
-                <div>
-                  <Label className="text-sm font-semibold cursor-pointer text-accent">VI SERIE</Label>
-                  <p className="text-xs text-muted-foreground">Agregar un ejercicio complementario vinculado</p>
-                </div>
-              </div>
-
-              {viSerieEnabled && (
-                <div className="space-y-3 pl-2 border-l-2 border-accent/40 ml-2">
-                  <p className="text-xs font-semibold text-accent uppercase tracking-wide">Ejercicio VI Serie</p>
+            {!isGroupMode && (
+              <div className="p-4 rounded-xl bg-accent/10 border border-accent/20 space-y-4">
+                <div className="flex items-center gap-3">
+                  <Switch checked={viSerieEnabled} onCheckedChange={(checked) => {
+                    setViSerieEnabled(checked);
+                    if (!checked) setViForm({ name: "", sets: "", reps: "", isToFailure: false, isDropset: false });
+                  }} />
                   <div>
-                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">Ejercicio</Label>
-                    {availableExercises.length > 0 ? (
-                      <Select value={viForm.name} onValueChange={(v) => setViForm({ ...viForm, name: v })}>
-                        <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Seleccionar ejercicio" /></SelectTrigger>
-                        <SelectContent>
-                          {availableExercises.map((ex) => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input placeholder="Escribir ejercicio" value={viForm.name} onChange={(e) => setViForm({ ...viForm, name: e.target.value })} className="bg-secondary/50 border-border" />
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Series</Label>
-                      <Input type="number" placeholder="4" value={viForm.sets} onChange={(e) => setViForm({ ...viForm, sets: e.target.value })} className="bg-secondary/50 border-border" />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Reps</Label>
-                      <Input type="number" placeholder={viForm.isToFailure ? "Al Fallo" : "10"} value={viForm.isToFailure ? "" : viForm.reps} onChange={(e) => setViForm({ ...viForm, reps: e.target.value })} className="bg-secondary/50 border-border" disabled={viForm.isToFailure} />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Switch checked={viForm.isToFailure} onCheckedChange={(checked) => setViForm({ ...viForm, isToFailure: checked, reps: checked ? "" : viForm.reps })} />
-                    <Label className="text-sm cursor-pointer">Al Fallo</Label>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Switch checked={viForm.isDropset} onCheckedChange={(checked) => setViForm({ ...viForm, isDropset: checked })} />
-                    <Label className="text-sm cursor-pointer">Drop Set</Label>
+                    <Label className="text-sm font-semibold cursor-pointer text-accent">VI SERIE</Label>
+                    <p className="text-xs text-muted-foreground">Agregar un ejercicio complementario vinculado</p>
                   </div>
                 </div>
-              )}
-            </div>
+
+                {viSerieEnabled && (
+                  <div className="space-y-3 pl-2 border-l-2 border-accent/40 ml-2">
+                    <p className="text-xs font-semibold text-accent uppercase tracking-wide">Ejercicio VI Serie</p>
+                    <div>
+                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Ejercicio</Label>
+                      {availableExercises.length > 0 ? (
+                        <Select value={viForm.name} onValueChange={(v) => setViForm({ ...viForm, name: v })}>
+                          <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Seleccionar ejercicio" /></SelectTrigger>
+                          <SelectContent>
+                            {availableExercises.map((ex) => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input placeholder="Escribir ejercicio" value={viForm.name} onChange={(e) => setViForm({ ...viForm, name: e.target.value })} className="bg-secondary/50 border-border" />
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Series</Label>
+                        <Input type="number" placeholder="4" value={viForm.sets} onChange={(e) => setViForm({ ...viForm, sets: e.target.value })} className="bg-secondary/50 border-border" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Reps</Label>
+                        <Input type="number" placeholder={viForm.isToFailure ? "Al Fallo" : "10"} value={viForm.isToFailure ? "" : viForm.reps} onChange={(e) => setViForm({ ...viForm, reps: e.target.value })} className="bg-secondary/50 border-border" disabled={viForm.isToFailure} />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Switch checked={viForm.isToFailure} onCheckedChange={(checked) => setViForm({ ...viForm, isToFailure: checked, reps: checked ? "" : viForm.reps })} />
+                      <Label className="text-sm cursor-pointer">Al Fallo</Label>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Switch checked={viForm.isDropset} onCheckedChange={(checked) => setViForm({ ...viForm, isDropset: checked })} />
+                      <Label className="text-sm cursor-pointer">Drop Set</Label>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <Button onClick={handleAdd} className="w-full" disabled={!currentDayConfig.body_part_1}>
               <Plus className="h-4 w-4 mr-2" /> Agregar a {selectedDay}
@@ -673,10 +699,12 @@ export default function RoutinesPage() {
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-1.5" title="VI Serie">
-                            <Switch checked={!!child} onCheckedChange={() => handleToggleViSerie(ex)} className="scale-75" />
-                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">VI</span>
-                          </div>
+                          {!isGroupMode && (
+                            <div className="flex items-center gap-1.5" title="VI Serie">
+                              <Switch checked={!!child} onCheckedChange={() => handleToggleViSerie(ex)} className="scale-75" />
+                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">VI</span>
+                            </div>
+                          )}
                           {ex.completed && <Badge className="bg-primary/20 text-primary text-[10px]">✓</Badge>}
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemove(ex.id)}>
                             <Trash2 className="h-4 w-4" />
@@ -708,6 +736,16 @@ export default function RoutinesPage() {
           </CardContent>
         </Card>
       </div>
+      </TabsContent>
+
+      <TabsContent value="alimentacion" className="mt-0">
+        {(selectedStudent || isGroupMode) ? (
+          <MealsTab studentId={isGroupMode ? urlGroupId! : selectedStudent} nutritionLevel={nutritionLevel} />
+        ) : (
+          <p className="text-muted-foreground text-sm text-center py-8">Selecciona un alumno o grupo primero</p>
+        )}
+      </TabsContent>
+      </Tabs>
 
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
