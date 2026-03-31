@@ -435,7 +435,7 @@ export default function RoutinesPage() {
 
         <TabsContent value="entrenamiento" className="space-y-6 mt-0">
           {/* Day selector */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {DAYS.map((day, i) => {
           const count = exercises.filter((e) => e.day === day).length;
           const dc = dayConfigs[day];
@@ -444,7 +444,7 @@ export default function RoutinesPage() {
             <button
               key={day}
               onClick={() => { setSelectedDay(day); setSelectedIds(new Set()); }}
-              className={`relative flex flex-col items-center justify-center w-12 h-14 sm:w-14 sm:h-16 rounded-xl text-xs font-bold transition-all border
+              className={`relative flex flex-col items-center justify-center w-full h-14 sm:h-16 rounded-xl text-xs font-bold transition-all border
                 ${isActive
                   ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/25"
                   : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/40 hover:bg-secondary"
