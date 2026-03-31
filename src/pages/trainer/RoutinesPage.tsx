@@ -62,7 +62,7 @@ export default function RoutinesPage() {
   });
   const [viSerieEnabled, setViSerieEnabled] = useState(false);
   const [viForm, setViForm] = useState({
-    name: "", sets: "", reps: "",
+    name: "", reps: "",
     isToFailure: false, isDropset: false,
   });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -180,8 +180,8 @@ export default function RoutinesPage() {
       return;
     }
     if (viSerieEnabled) {
-      if (!viForm.name || !viForm.sets) {
-        toast.error("Completa los campos del ejercicio VI Serie");
+      if (!viForm.name) {
+        toast.error("Selecciona el ejercicio para la VI Serie");
         return;
       }
       if (!viForm.isToFailure && !viForm.reps) {
@@ -266,7 +266,7 @@ export default function RoutinesPage() {
 
       toast.success(viSerieEnabled ? "Ejercicio + VI Serie agregados" : "Ejercicio agregado");
       setForm({ name: "", sets: "", reps: "", isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "", exerciseType: "NORMAL" });
-      setViForm({ name: "", sets: "", reps: "", isToFailure: false, isDropset: false });
+      setViForm({ name: "", reps: "", isToFailure: false, isDropset: false });
       setViSerieEnabled(false);
       fetchData();
     } catch { toast.error("Error al agregar ejercicio"); }
@@ -631,7 +631,7 @@ export default function RoutinesPage() {
                 <div className="flex items-center gap-3">
                   <Switch checked={viSerieEnabled} onCheckedChange={(checked) => {
                     setViSerieEnabled(checked);
-                    if (!checked) setViForm({ name: "", sets: "", reps: "", isToFailure: false, isDropset: false });
+                    if (!checked) setViForm({ name: "", reps: "", isToFailure: false, isDropset: false });
                   }} />
                   <div>
                     <Label className="text-sm font-semibold cursor-pointer text-accent">VI SERIE</Label>
