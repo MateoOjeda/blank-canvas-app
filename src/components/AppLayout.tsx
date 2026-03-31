@@ -7,12 +7,15 @@ import { AppContext } from "@/lib/context";
 import { useAppState } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
-import TrainerSettingsDialog from "@/components/TrainerSettingsDialog";
+import UserSettingsDialog from "@/components/UserSettingsDialog";
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 export function AppLayout() {
   const { role } = useAuth();
   const appState = useAppState();
   const navigate = useNavigate();
+  useAppTheme();
+  
   const isTrainer = role === "trainer";
 
   return (
@@ -29,7 +32,7 @@ export function AppLayout() {
                   </Button>
                   <div className="flex-1" />
                   <div className="md:hidden">
-                    <TrainerSettingsDialog />
+                    <UserSettingsDialog />
                   </div>
                 </>
               ) : (
