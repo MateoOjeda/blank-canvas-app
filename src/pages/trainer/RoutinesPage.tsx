@@ -435,21 +435,7 @@ export default function RoutinesPage() {
             </Badge>
           ) : (
             <div className="flex items-end gap-4 flex-wrap">
-              <div className="max-w-xs flex-1">
-                <Label className="text-xs text-muted-foreground uppercase tracking-wide">Alumno</Label>
-                <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                  <SelectTrigger className="bg-secondary/50 border-border">
-                    <SelectValue placeholder="Seleccionar alumno" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {students.map((s) => (
-                      <SelectItem key={s.user_id} value={s.user_id}>{s.display_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Card className="card-glass p-3 flex items-center gap-3">
+              <Card className="card-glass p-3 flex items-center gap-3 w-full sm:w-auto">
                 <CalendarClock className="h-5 w-5 text-primary flex-shrink-0" />
                 {daysUntilChange !== null ? (
                   <p className="text-sm font-semibold">Días restantes para actualizar rutina: <span className="text-primary">{daysUntilChange}</span></p>
