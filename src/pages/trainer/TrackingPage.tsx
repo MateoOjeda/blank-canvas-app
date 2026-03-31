@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { BarChart3, Loader2, CheckCircle, Dumbbell, Lock, Unlock } from "lucide-react";
 
 interface Exercise {
@@ -28,12 +29,7 @@ export default function TrackingPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [planLevels, setPlanLevels] = useState<PlanLevel[]>([]);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (students.length > 0 && !selectedStudent) {
-      setSelectedStudent(students[0].user_id);
-    }
-  }, [students, selectedStudent]);
+  const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
 
   const fetchData = useCallback(async () => {
     if (!user || !selectedStudent) return;
@@ -48,8 +44,10 @@ export default function TrackingPage() {
   }, [user, selectedStudent]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (selectedStudent) {
+      fetchData();
+    }
+  }, [fetchData, selectedStudent]);
 
   const completedCount = exercises.filter((e) => e.completed).length;
   const totalExercises = exercises.length;
@@ -79,126 +77,155 @@ export default function TrackingPage() {
     );
   }
 
+  const handleSelectStudent = (studentId: string) => {
+    setSelectedStudent(studentId);
+    setViewMode('detail');
+  };
+
+  const handleBackToList = () => {
+    setViewMode('list');
+    setSelectedStudent("");
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Seguimiento</h1>
-        <p className="text-muted-foreground text-sm mt-1">Progreso por alumno vinculado</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Seguimiento</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {viewMode === 'list' ? 'Selecciona un alumno para ver su progreso' : `Progreso de ${student?.display_name}`}
+          </p>
+        </div>
+        {viewMode === 'detail' && (
+          <Button variant="outline" size="sm" onClick={handleBackToList}>
+            Volver a la lista
+          </Button>
+        )}
       </div>
 
-      <div className="max-w-xs">
-        <Label className="text-xs text-muted-foreground uppercase tracking-wide">Alumno</Label>
-        <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-          <SelectTrigger className="bg-secondary/50 border-border">
-            <SelectValue placeholder="Seleccionar alumno" />
-          </SelectTrigger>
-          <SelectContent>
-            {students.map((s) => (
-              <SelectItem key={s.user_id} value={s.user_id}>{s.display_name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+      {viewMode === 'list' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {students.map((s) => (
+            <Card 
+              key={s.user_id} 
+              className="card-glass hover:bg-secondary/20 cursor-pointer transition-all border-border/50 hover:border-primary/30"
+              onClick={() => handleSelectStudent(s.user_id)}
+            >
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                  {s.display_name.slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <p className="font-semibold">{s.display_name}</p>
+                  <p className="text-xs text-muted-foreground">Ver progreso detallado</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       ) : (
         <>
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <Card className="card-glass neon-border">
-              <CardContent className="p-4 text-center">
-                <p className="text-3xl font-bold text-primary">{completionRate}%</p>
-                <p className="text-xs text-muted-foreground mt-1">Completitud</p>
-              </CardContent>
-            </Card>
-            <Card className="card-glass">
-              <CardContent className="p-4 text-center">
-                <p className="text-3xl font-bold">{completedCount}/{totalExercises}</p>
-                <p className="text-xs text-muted-foreground mt-1">Ejercicios</p>
-              </CardContent>
-            </Card>
-            <Card className="card-glass">
-              <CardContent className="p-4 text-center">
-                <p className="text-3xl font-bold">{unlockedLevels}/12</p>
-                <p className="text-xs text-muted-foreground mt-1">Niveles desbloqueados</p>
-              </CardContent>
-            </Card>
-            <Card className="card-glass">
-              <CardContent className="p-4 text-center">
-                <p className="text-3xl font-bold">{student?.age || "—"}</p>
-                <p className="text-xs text-muted-foreground mt-1">Edad</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Exercise Status */}
-          <Card className="card-glass">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Dumbbell className="h-5 w-5 text-primary" />
-                Estado de Ejercicios
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {exercises.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">Sin ejercicios asignados</p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {exercises.map((ex) => (
-                    <div key={ex.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
-                      <CheckCircle className={`h-4 w-4 ${ex.completed ? "text-primary" : "text-muted-foreground/30"}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{ex.name}</p>
-                        <p className="text-[10px] text-muted-foreground">{ex.day}</p>
-                      </div>
-                      <Badge variant="outline" className={`text-[10px] ${ex.completed ? "border-primary/40 text-primary" : "border-border"}`}>
-                        {ex.completed ? "Hecho" : "Pendiente"}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Plan Levels Status */}
-          <Card className="card-glass">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-primary" />
-                Estado de Niveles
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {["nutricion", "entrenamiento", "cambios_fisicos", "cambios_personales"].map((type) => {
-                  const typeLevels = planLevels.filter((p) => p.plan_type === type);
-                  const labels: Record<string, string> = {
-                    nutricion: "Nutrición", entrenamiento: "Entrenamiento",
-                    cambios_fisicos: "Cambios Físicos", cambios_personales: "Cambios Personales",
-                  };
-                  return (
-                    <div key={type} className="p-3 rounded-lg bg-secondary/30 space-y-2">
-                      <p className="text-sm font-semibold">{labels[type]}</p>
-                      <div className="flex gap-2">
-                        {typeLevels.map((l) => (
-                          <Badge
-                            key={`${l.plan_type}-${l.level}`}
-                            variant="outline"
-                            className={`text-[10px] gap-1 ${l.unlocked ? "border-primary/40 text-primary" : "border-border text-muted-foreground"}`}
-                          >
-                            {l.unlocked ? <Unlock className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
-                            {l.level.charAt(0).toUpperCase() + l.level.slice(1)}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
+          {loading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+          ) : (
+            <div className="space-y-6">
+              {/* Stats Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <Card className="card-glass neon-border">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-3xl font-bold text-primary">{completionRate}%</p>
+                    <p className="text-xs text-muted-foreground mt-1">Completitud</p>
+                  </CardContent>
+                </Card>
+                <Card className="card-glass">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-3xl font-bold">{completedCount}/{totalExercises}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Ejercicios</p>
+                  </CardContent>
+                </Card>
+                <Card className="card-glass">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-3xl font-bold">{unlockedLevels}/12</p>
+                    <p className="text-xs text-muted-foreground mt-1">Niveles desbloqueados</p>
+                  </CardContent>
+                </Card>
+                <Card className="card-glass">
+                  <CardContent className="p-4 text-center">
+                    <p className="text-3xl font-bold">{student?.age || "—"}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Edad</p>
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
+
+              {/* Exercise Status */}
+              <Card className="card-glass">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Dumbbell className="h-5 w-5 text-primary" />
+                    Estado de Ejercicios
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {exercises.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Sin ejercicios asignados</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {exercises.map((ex) => (
+                        <div key={ex.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
+                          <CheckCircle className={`h-4 w-4 ${ex.completed ? "text-primary" : "text-muted-foreground/30"}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{ex.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{ex.day}</p>
+                          </div>
+                          <Badge variant="outline" className={`text-[10px] ${ex.completed ? "border-primary/40 text-primary" : "border-border"}`}>
+                            {ex.completed ? "Hecho" : "Pendiente"}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Plan Levels Status */}
+              <Card className="card-glass">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-primary" />
+                    Estado de Niveles
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {["nutricion", "entrenamiento", "cambios_fisicos", "cambios_personales"].map((type) => {
+                      const typeLevels = planLevels.filter((p) => p.plan_type === type);
+                      const labels: Record<string, string> = {
+                        nutricion: "Nutrición", entrenamiento: "Entrenamiento",
+                        cambios_fisicos: "Cambios Físicos", cambios_personales: "Cambios Personales",
+                      };
+                      return (
+                        <div key={type} className="p-3 rounded-lg bg-secondary/30 space-y-2">
+                          <p className="text-sm font-semibold">{labels[type]}</p>
+                          <div className="flex gap-2">
+                            {typeLevels.map((l) => (
+                              <Badge
+                                key={`${l.plan_type}-${l.level}`}
+                                variant="outline"
+                                className={`text-[10px] gap-1 ${l.unlocked ? "border-primary/40 text-primary" : "border-border text-muted-foreground"}`}
+                              >
+                                {l.unlocked ? <Unlock className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
+                                {l.level.charAt(0).toUpperCase() + l.level.slice(1)}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </>
       )}
     </div>
