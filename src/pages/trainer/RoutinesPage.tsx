@@ -723,12 +723,6 @@ export default function RoutinesPage() {
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          {!isGroupMode && (
-                            <div className="flex items-center gap-1.5" title="VI Serie">
-                              <Switch checked={!!child} onCheckedChange={() => handleToggleViSerie(ex)} className="scale-75" />
-                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">VI</span>
-                            </div>
-                          )}
                           {ex.completed && <Badge className="bg-primary/20 text-primary text-[10px]">✓</Badge>}
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemove(ex.id)}>
                             <Trash2 className="h-4 w-4" />
