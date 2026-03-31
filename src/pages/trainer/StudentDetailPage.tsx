@@ -180,19 +180,6 @@ export default function StudentDetailPage() {
         </div>
       </div>
 
-      {/* Payment toggle */}
-      <Card className="card-glass">
-        <CardContent className="p-4 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold">Estado de pago del mes</p>
-            <p className="text-xs text-muted-foreground">{paymentPaid ? "Pagado ✓" : "Pendiente"}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="payment-switch" className="text-xs text-muted-foreground">{paymentPaid ? "Pagado" : "Pendiente"}</Label>
-            <Switch id="payment-switch" checked={paymentPaid} onCheckedChange={handlePaymentToggle} />
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Plan Assignment with edit lock */}
       <Card className="card-glass">

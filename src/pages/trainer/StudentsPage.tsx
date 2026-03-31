@@ -272,10 +272,6 @@ export default function StudentsPage() {
                         Grupo: {selectedStudent.groupName}
                       </Badge>
                     )}
-                    <Switch
-                      checked={selectedStudent.paymentStatus === "pagado"}
-                      onCheckedChange={(c) => handlePaymentToggle(selectedStudent, c)}
-                    />
                   </div>
                 </div>
                 <Button
