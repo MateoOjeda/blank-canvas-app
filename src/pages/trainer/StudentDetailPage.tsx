@@ -50,6 +50,7 @@ export default function StudentDetailPage() {
   const [routineExercises, setRoutineExercises] = useState<any[]>([]);
   const [hasGroupRoutine, setHasGroupRoutine] = useState(false);
   const [groupExercises, setGroupExercises] = useState<any[]>([]);
+  const [selectedDayTab, setSelectedDayTab] = useState<string>(DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1]);
 
   const fetchData = useCallback(async () => {
     if (!user || !studentId) return;
@@ -283,7 +284,6 @@ export default function StudentDetailPage() {
             { value: "meals", icon: "🍽️", label: "Comidas" },
             { value: "routine", icon: "🏋️", label: "Rutina" },
             ...(hasGroupRoutine ? [{ value: "group_routine", icon: "👥", label: "Grupo" }] : []),
-            { value: "library", icon: <Archive className="h-4 w-4" />, label: "Biblioteca" },
             { value: "diagnostic", icon: <Sparkles className="h-4 w-4" />, label: "Encuesta" }
           ].map((tab) => (
             <TabsTrigger 
@@ -320,40 +320,50 @@ export default function StudentDetailPage() {
           <Card className="card-glass">
             <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Dumbbell className="h-5 w-5 text-primary" />Rutina Asignada</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex gap-2">
+              <div className="grid grid-cols-7 gap-1">
                 {DAYS.map((day, i) => {
                   const count = exercisesByDay[day]?.length || 0;
+                  const isActive = selectedDayTab === day;
                   return (
-                    <div key={day} className={`flex flex-col items-center justify-center w-10 h-12 rounded-lg text-xs font-bold border ${count > 0 ? "bg-primary/10 border-primary/30 text-primary" : "bg-secondary/30 border-border text-muted-foreground"}`}>
+                    <button 
+                      key={day} 
+                      onClick={() => setSelectedDayTab(day)}
+                      className={`flex flex-col items-center justify-center h-12 rounded-lg text-xs font-bold border transition-all ${
+                        isActive 
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm" 
+                          : count > 0 
+                            ? "bg-primary/10 border-primary/30 text-primary" 
+                            : "bg-secondary/30 border-border text-muted-foreground"
+                      }`}
+                    >
                       <span className="text-[11px]">{DAY_SHORT[i]}</span>
                       {count > 0 && <span className="text-[9px] mt-0.5">{count}</span>}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
-              {exercises.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">Sin ejercicios asignados</p>
-              ) : (
-                DAYS.filter((day) => exercisesByDay[day]?.length).map((day) => (
-                  <div key={day}>
-                    <p className="text-xs font-semibold text-primary mb-2">{day}</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {exercisesByDay[day].map((ex) => (
-                        <div key={ex.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
-                          <CheckCircle className={`h-4 w-4 flex-shrink-0 ${ex.completed ? "text-primary" : "text-muted-foreground/30"}`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{ex.name}</p>
-                            <p className="text-[10px] text-muted-foreground">{ex.sets}×{ex.reps} · {ex.weight}kg</p>
-                          </div>
-                          <Badge variant="outline" className={`text-[10px] flex-shrink-0 ${ex.completed ? "border-primary/40 text-primary" : "border-border"}`}>
-                            {ex.completed ? "✓" : "—"}
-                          </Badge>
+
+              <div className="pt-2">
+                <p className="text-xs font-semibold text-primary mb-3 uppercase tracking-wider">{selectedDayTab}</p>
+                {(!exercisesByDay[selectedDayTab] || exercisesByDay[selectedDayTab].length === 0) ? (
+                  <p className="text-sm text-muted-foreground text-center py-8 bg-secondary/10 rounded-lg border border-dashed border-border">
+                    Sin ejercicios para el {selectedDayTab}
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2">
+                    {exercisesByDay[selectedDayTab].map((ex) => (
+                      <div key={ex.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30 border border-border/50">
+                        <CheckCircle className={`h-4 w-4 flex-shrink-0 ${ex.completed ? "text-primary" : "text-muted-foreground/30"}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{ex.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{ex.sets}×{ex.reps} · {ex.weight}kg</p>
                         </div>
-                      ))}
-                    </div>
+                        {ex.completed && <Badge className="bg-primary/20 text-primary text-[10px] py-0 px-1 border-0">Hecho</Badge>}
+                      </div>
+                    ))}
                   </div>
-                ))
-              )}
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -363,110 +373,59 @@ export default function StudentDetailPage() {
             <Card className="card-glass">
               <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Users className="h-5 w-5 text-accent" />Rutina de Grupo</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex gap-2 w-full overflow-x-auto pb-2">
+                <div className="grid grid-cols-7 gap-1">
                   {DAYS.map((day, i) => {
                     const count = groupExercisesByDay[day]?.length || 0;
+                    const isActive = selectedDayTab === day;
                     return (
-                      <div key={day} className={`flex flex-col items-center justify-center w-10 min-w-10 h-12 rounded-lg text-xs font-bold border flex-shrink-0 ${count > 0 ? "bg-accent/10 border-accent/30 text-accent" : "bg-secondary/30 border-border text-muted-foreground"}`}>
+                      <button 
+                        key={day} 
+                        onClick={() => setSelectedDayTab(day)}
+                        className={`flex flex-col items-center justify-center h-12 rounded-lg text-xs font-bold border transition-all ${
+                          isActive 
+                            ? "bg-accent text-accent-foreground border-accent shadow-sm" 
+                            : count > 0 
+                              ? "bg-accent/10 border-accent/30 text-accent" 
+                              : "bg-secondary/30 border-border text-muted-foreground"
+                        }`}
+                      >
                         <span className="text-[11px]">{DAY_SHORT[i]}</span>
                         {count > 0 && <span className="text-[9px] mt-0.5">{count}</span>}
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
-                {groupExercises.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">Sin ejercicios asignados al grupo</p>
-                ) : (
-                  DAYS.filter((day) => groupExercisesByDay[day]?.length).map((day) => (
-                    <div key={day}>
-                      <p className="text-xs font-semibold text-accent mb-2">{day}</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {groupExercisesByDay[day].map((ex) => (
-                          <div key={ex.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
-                            <div className="h-4 w-4 flex-shrink-0 bg-accent/20 rounded-full flex items-center justify-center">
-                              <Dumbbell className="h-2.5 w-2.5 text-accent" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{ex.name}</p>
-                              <p className="text-[10px] text-muted-foreground">{ex.sets}×{ex.reps} {ex.weight ? `· ${ex.weight}kg` : ""}</p>
-                            </div>
-                            <Badge variant="outline" className="text-[10px] flex-shrink-0 border-accent/40 text-accent">
-                              Grupal
-                            </Badge>
+
+                <div className="pt-2">
+                  <p className="text-xs font-semibold text-accent mb-3 uppercase tracking-wider">{selectedDayTab}</p>
+                  {(!groupExercisesByDay[selectedDayTab] || groupExercisesByDay[selectedDayTab].length === 0) ? (
+                    <p className="text-sm text-muted-foreground text-center py-8 bg-secondary/10 rounded-lg border border-dashed border-border">
+                      Sin ejercicios grupales para el {selectedDayTab}
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2">
+                      {groupExercisesByDay[selectedDayTab].map((ex) => (
+                        <div key={ex.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30 border border-border/50">
+                          <div className="h-4 w-4 flex-shrink-0 bg-accent/20 rounded-full flex items-center justify-center">
+                            <Dumbbell className="h-2.5 w-2.5 text-accent" />
                           </div>
-                        ))}
-                      </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{ex.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{ex.sets}×{ex.reps} {ex.weight ? `· ${ex.weight}kg` : ""}</p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] flex-shrink-0 border-accent/40 text-accent">
+                            Grupal
+                          </Badge>
+                        </div>
+                      ))}
                     </div>
-                  ))
-                )}
+                  )}
+                </div>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
-        <TabsContent value="library">
-          <Card className="card-glass">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Archive className="h-5 w-5 text-primary" />
-                Rutinas Anteriores
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {archivedRoutines.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">Sin rutinas archivadas</p>
-              ) : (
-                archivedRoutines.map((routine) => (
-                  <div key={routine.id} className="rounded-lg border border-border overflow-hidden">
-                    <button
-                      onClick={() => handleExpandRoutine(routine.id)}
-                      className="w-full flex items-center justify-between p-3 bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
-                          <Dumbbell className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div className="text-left">
-                          <p className="text-sm font-medium">{routine.name || "Rutina archivada"}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {new Date(routine.created_at).toLocaleDateString("es-AR")}
-                            {routine.routine_type === "GRUPAL" && (
-                              <Badge variant="outline" className="ml-2 text-[9px] border-accent/30 text-accent">Grupal</Badge>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant="outline" className="text-[10px] border-muted-foreground/30">
-                        {expandedRoutine === routine.id ? "Ocultar" : "Ver"}
-                      </Badge>
-                    </button>
-                    {expandedRoutine === routine.id && (
-                      <div className="p-3 border-t border-border space-y-2">
-                        {routineExercises.length === 0 ? (
-                          <p className="text-xs text-muted-foreground text-center py-2">Sin ejercicios registrados</p>
-                        ) : (
-                          DAYS.filter((day) => routineExercises.some((e: any) => e.day === day)).map((day) => (
-                            <div key={day}>
-                              <p className="text-xs font-semibold text-primary mb-1">{day}</p>
-                              {routineExercises.filter((e: any) => e.day === day).map((ex: any) => (
-                                <div key={ex.id} className="flex items-center gap-2 p-2 rounded bg-secondary/20 mb-1">
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-medium truncate">{ex.name}</p>
-                                    <p className="text-[10px] text-muted-foreground">{ex.sets}×{ex.reps}</p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="diagnostic">
           {studentId && <PersonalDiagnosticTab studentId={studentId} />}
