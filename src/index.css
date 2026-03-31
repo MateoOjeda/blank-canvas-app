@@ -105,6 +105,7 @@
   }
 }
 
+
 /* THEMES_START */
 @layer base {
 
@@ -655,45 +656,45 @@
 }
 
 [data-theme="obahia"] {
-    --background: 0 0% 9%;
-    --foreground: 210 14% 95%;
+    --background: 45 29% 97%;
+    --foreground: 220 26% 14%;
     
-    --card: 0 0% 12%;
-    --card-foreground: 210 14% 95%;
+    --card: 45 29% 95%;
+    --card-foreground: 220 26% 14%;
     
-    --popover: 0 0% 12%;
-    --popover-foreground: 210 14% 95%;
+    --popover: 45 29% 95%;
+    --popover-foreground: 220 26% 14%;
     
-    --primary: 204 57% 25%;
+    --primary: 210 100% 20%;
     --primary-foreground: 48 38% 95%;
     
-    --secondary: 206 29% 43%;
+    --secondary: 206 23% 47%;
     --secondary-foreground: 48 38% 95%;
     
-    --muted: 0 0% 15%;
-    --muted-foreground: 210 14% 75%;
+    --muted: 45 29% 92%;
+    --muted-foreground: 220 26% 34%;
     
-    --accent: 204 57% 25%;
+    --accent: 210 100% 20%;
     --accent-foreground: 48 38% 95%;
     
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
-    --ring: 204 57% 25%;
+    --border: 45 29% 92%;
+    --input: 45 29% 92%;
+    --ring: 210 100% 20%;
     
-    --sidebar-background: 0 0% 12%;
-    --sidebar-foreground: 210 14% 95%;
-    --sidebar-primary: 204 57% 25%;
+    --sidebar-background: 45 29% 95%;
+    --sidebar-foreground: 220 26% 14%;
+    --sidebar-primary: 210 100% 20%;
     --sidebar-primary-foreground: 48 38% 95%;
-    --sidebar-accent: 0 0% 15%;
-    --sidebar-accent-foreground: 210 14% 95%;
-    --sidebar-border: 0 0% 15%;
-    --sidebar-ring: 204 57% 25%;
+    --sidebar-accent: 45 29% 92%;
+    --sidebar-accent-foreground: 220 26% 14%;
+    --sidebar-border: 45 29% 92%;
+    --sidebar-ring: 210 100% 20%;
 
-    --brand-red: 204 57% 25%;
-    --neon-glow: 204 57% 25%;
-    --neon-orange: 204 57% 25%;
-    --chart-completed: 204 57% 25%;
-    --chart-pending: 0 0% 15%;
+    --brand-red: 210 100% 20%;
+    --neon-glow: 210 100% 20%;
+    --neon-orange: 210 100% 20%;
+    --chart-completed: 210 100% 20%;
+    --chart-pending: 45 29% 92%;
 }
 
 [data-theme="ara-yevi"] {

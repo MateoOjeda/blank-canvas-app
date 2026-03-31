@@ -171,8 +171,8 @@ const t12 = generateTheme('mari-mari', '#1A1A1A', '#B03030', '#701C1C', '#E1E1E1
 // 13.Papelitos: Sky Pastel (#A3D8E0), Cream White (#FBFCF9), Dusty Cyan (#6DAAB3), Soft Charcoal (#4D4D4D)
 const t13 = generateTheme('papelitos', '#FBFCF9', '#A3D8E0', '#6DAAB3', '#4D4D4D');
 
-// 14.O'bahia: Deep Ocean (#1C4966), Coal Black (#171717), Steel Blue (#4F738E), Pearl Grey (#EFF1F3)
-const t14 = generateTheme('obahia', '#171717', '#1C4966', '#4F738E', '#EFF1F3');
+// 14.O'bahia: Azul Marino (#003366), Blanco Hueso (#FAF9F6), Azul Acero (#5C7C94), Text Dark
+const t14 = generateTheme('obahia', '#FAF9F6', '#003366', '#5C7C94', '#1A202C');
 
 // 15.Ara Yevi: Matte Gold (#D3AC5D), Jet Black (#1F1F1F), Dark Ochre (#8C6E3D), Bone White (#FAF9F6)
 const t15 = generateTheme('ara-yevi', '#1F1F1F', '#D3AC5D', '#8C6E3D', '#FAF9F6');

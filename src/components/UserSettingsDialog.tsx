@@ -100,34 +100,63 @@ export default function UserSettingsDialog() {
 }
 
 function AppearanceSettings({ currentTheme, setTheme, themes }: any) {
+  const generalThemes = themes.filter((t: any) => t.category === 'general' || !t.category);
+  const tematicThemes = themes.filter((t: any) => t.category === 'tematica');
+
   return (
-    <div className="space-y-3 pb-2">
-      <div className="mb-4">
+    <div className="space-y-5 pb-2">
+      <div>
         <Label className="text-sm font-semibold">Tus Preferencias Visuales</Label>
         <p className="text-[11px] text-muted-foreground mt-1">
-          Elige entre 15 paletas distintas para sobrescribir los colores predeterminados en toda la app. 
+          Elige entre distintas paletas para sobrescribir los colores en toda la app. 
           El tema seleccionado se guardará en tu perfil localmente.
         </p>
       </div>
       
-      <div className="grid grid-cols-2 gap-3 pb-2">
-        {themes.map((t: any) => (
-          <button
-            key={t.id}
-            onClick={() => setTheme(t.id)}
-            className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-              currentTheme === t.id 
-                ? 'border-primary bg-primary/10 shadow-sm neon-border' 
-                : 'border-border bg-card/50 hover:bg-secondary/50'
-            }`}
-          >
-            <div 
-              className="w-5 h-5 rounded-full shadow flex-shrink-0 border border-black/10" 
-              style={{ backgroundColor: t.isDefault ? '#4f4f4f' : t.color }}
-            />
-            <span className="text-xs font-medium truncate">{t.name}</span>
-          </button>
-        ))}
+      <div className="space-y-3">
+        <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">General</Label>
+        <div className="grid grid-cols-2 gap-3 pb-2">
+          {generalThemes.map((t: any) => (
+            <button
+              key={t.id}
+              onClick={() => setTheme(t.id)}
+              className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                currentTheme === t.id 
+                  ? 'border-primary bg-primary/10 shadow-sm neon-border' 
+                  : 'border-border bg-card/50 hover:bg-secondary/50'
+              }`}
+            >
+              <div 
+                className="w-5 h-5 rounded-full shadow flex-shrink-0 border border-black/10" 
+                style={{ backgroundColor: t.isDefault ? '#4f4f4f' : t.color }}
+              />
+              <span className="text-xs font-medium truncate">{t.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3 pt-2 border-t border-border">
+        <Label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Paletas Temáticas</Label>
+        <div className="grid grid-cols-2 gap-3 pb-2">
+          {tematicThemes.map((t: any) => (
+            <button
+              key={t.id}
+              onClick={() => setTheme(t.id)}
+              className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                currentTheme === t.id 
+                  ? 'border-primary bg-primary/10 shadow-sm neon-border' 
+                  : 'border-border bg-card/50 hover:bg-secondary/50'
+              }`}
+            >
+              <div 
+                className="w-5 h-5 rounded-full shadow flex-shrink-0 border border-black/10" 
+                style={{ backgroundColor: t.color }}
+              />
+              <span className="text-xs font-medium truncate">{t.name}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
