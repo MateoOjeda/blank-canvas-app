@@ -195,6 +195,7 @@ export default function RoutinesPage() {
     try {
       if (isGroupMode) {
         // Group mode: insert into group_exercises
+        const exerciseType = form.isToFailure ? "AL_FALLO" : form.isDropset ? "DROP_SET" : form.isPiramide ? "PIRAMIDE" : "NORMAL";
         const { data, error } = await supabase.from("group_exercises").insert({
           group_id: urlGroupId!,
           trainer_id: user.id,
@@ -208,11 +209,12 @@ export default function RoutinesPage() {
           is_dropset: form.isDropset,
           is_piramide: form.isPiramide,
           pyramid_reps: form.isPiramide ? form.pyramidReps.trim() : null,
-          exercise_type: form.exerciseType,
+          exercise_type: exerciseType,
         }).select("id").single();
         if (error) throw error;
       } else {
         // Student mode
+        const exerciseType = form.isToFailure ? "AL_FALLO" : form.isDropset ? "DROP_SET" : form.isPiramide ? "PIRAMIDE" : "NORMAL";
         const newId = await addExerciseService({
           trainer_id: user.id,
           student_id: selectedStudent,
@@ -226,7 +228,7 @@ export default function RoutinesPage() {
           is_dropset: form.isDropset,
           is_piramide: form.isPiramide,
           pyramid_reps: form.isPiramide ? form.pyramidReps.trim() : null,
-          exercise_type: form.exerciseType,
+          exercise_type: exerciseType,
         });
 
         // Ensure routine exists and link
@@ -560,46 +562,50 @@ export default function RoutinesPage() {
                 />
               </div>
             </div>
-             <div>
-              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Tipo de ejercicio</Label>
-              <Select value={form.exerciseType} onValueChange={(v) => {
-                const newType = v as ExerciseType;
-                const updates: Partial<typeof form> = { exerciseType: newType };
-                if (newType === "AL_FALLO") {
-                  updates.isToFailure = true; updates.isDropset = false; updates.isPiramide = false; updates.pyramidReps = ""; updates.reps = "";
-                } else if (newType === "DROP_SET") {
-                  updates.isDropset = true; updates.isToFailure = false; updates.isPiramide = false; updates.pyramidReps = "";
-                } else if (newType === "PIRAMIDE") {
-                  updates.isPiramide = true; updates.isToFailure = false; updates.isDropset = false;
-                } else {
-                  updates.isToFailure = false; updates.isDropset = false; updates.isPiramide = false; updates.pyramidReps = "";
-                }
-                setForm((prev) => ({ ...prev, ...updates }));
-              }}>
-                <SelectTrigger className="bg-secondary/50 border-border"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {EXERCISE_TYPES.filter(t => t.value !== "VI_SERIE").map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
             <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
               <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Tipo de serie</Label>
               <div className="flex items-center gap-3">
-                <Switch checked={form.isToFailure} onCheckedChange={(checked) => setForm({ ...form, isToFailure: checked, reps: checked ? "" : form.reps })} />
+                <Switch 
+                  checked={form.isToFailure} 
+                  onCheckedChange={(checked) => setForm({ 
+                    ...form, 
+                    isToFailure: checked, 
+                    reps: checked ? "" : form.reps,
+                    isDropset: checked ? false : form.isDropset,
+                    isPiramide: checked ? false : form.isPiramide
+                  })} 
+                />
                 <div>
                   <Label className="text-sm font-medium cursor-pointer">Al Fallo</Label>
                   <p className="text-xs text-muted-foreground">El alumno hará repeticiones hasta el fallo muscular</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Switch checked={form.isDropset} onCheckedChange={(checked) => setForm({ ...form, isDropset: checked })} />
+                <Switch 
+                  checked={form.isDropset} 
+                  onCheckedChange={(checked) => setForm({ 
+                    ...form, 
+                    isDropset: checked,
+                    isToFailure: checked ? false : form.isToFailure,
+                    isPiramide: checked ? false : form.isPiramide
+                  })} 
+                />
                 <div>
                   <Label className="text-sm font-medium cursor-pointer">Drop Set</Label>
                   <p className="text-xs text-muted-foreground">Reducir peso después de la serie y continuar</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Switch checked={form.isPiramide} onCheckedChange={(checked) => setForm({ ...form, isPiramide: checked, pyramidReps: checked ? form.pyramidReps : "" })} />
+                <Switch 
+                  checked={form.isPiramide} 
+                  onCheckedChange={(checked) => setForm({ 
+                    ...form, 
+                    isPiramide: checked, 
+                    pyramidReps: checked ? form.pyramidReps : "",
+                    isToFailure: checked ? false : form.isToFailure,
+                    isDropset: checked ? false : form.isDropset
+                  })} 
+                />
                 <div>
                   <Label className="text-sm font-medium cursor-pointer">Pirámide</Label>
                   <p className="text-xs text-muted-foreground">Aumentar peso y bajar repeticiones progresivamente</p>
