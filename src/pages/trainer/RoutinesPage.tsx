@@ -79,12 +79,10 @@ export default function RoutinesPage() {
   }, [isGroupMode, urlGroupId, user]);
 
   useEffect(() => {
-    if (isGroupMode) return; // Skip student selection in group mode
+    if (isGroupMode) return;
     if (students.length > 0 && !selectedStudent) {
       if (urlStudentId && students.some(s => s.user_id === urlStudentId)) {
         setSelectedStudent(urlStudentId);
-      } else {
-        setSelectedStudent(students[0].user_id);
       }
     }
   }, [students, selectedStudent, urlStudentId, isGroupMode]);
@@ -380,54 +378,94 @@ export default function RoutinesPage() {
     );
   }
 
+  const handleBackToList = () => {
+    setSelectedStudent("");
+    if (urlStudentId) {
+      window.history.replaceState(null, "", "/trainer/routines");
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-bold tracking-wide neon-text">
-          {isGroupMode ? `Rutina del Grupo: ${groupName || "..."}` : "Creador de Rutinas"}
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          {isGroupMode ? "Edita la rutina compartida del grupo" : "Prescribe series y repeticiones — el alumno registra el peso"}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-display font-bold tracking-wide neon-text">
+            {isGroupMode ? `Rutina del Grupo: ${groupName || "..."}` : "Creador de Rutinas"}
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {isGroupMode 
+              ? "Edita la rutina compartida del grupo" 
+              : selectedStudent 
+                ? `Prescribe series y repeticiones para ${student?.display_name}`
+                : "Selecciona un alumno para crear o editar su rutina"}
+          </p>
+        </div>
+        {selectedStudent && !isGroupMode && (
+          <Button variant="outline" size="sm" onClick={handleBackToList}>
+            Volver a la lista
+          </Button>
+        )}
       </div>
 
-      {isGroupMode ? (
-        <Badge variant="outline" className="border-primary/30 text-primary text-xs">
-          <Users2 className="h-3 w-3 mr-1" /> Modo Grupo
-        </Badge>
-      ) : (
-        <div className="flex items-end gap-4 flex-wrap">
-          <div className="max-w-xs flex-1">
-            <Label className="text-xs text-muted-foreground uppercase tracking-wide">Alumno</Label>
-            <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-              <SelectTrigger className="bg-secondary/50 border-border">
-                <SelectValue placeholder="Seleccionar alumno" />
-              </SelectTrigger>
-              <SelectContent>
-                {students.map((s) => (
-                  <SelectItem key={s.user_id} value={s.user_id}>{s.display_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Card className="card-glass p-3 flex items-center gap-3">
-            <CalendarClock className="h-5 w-5 text-primary flex-shrink-0" />
-            {daysUntilChange !== null ? (
-              <p className="text-sm font-semibold">Días restantes para actualizar rutina: <span className="text-primary">{daysUntilChange}</span></p>
-            ) : (
-              <div className="flex items-center gap-2">
-                <p className="text-xs text-muted-foreground">Programar cambio en:</p>
-                {[7, 14, 21, 30].map((d) => (
-                  <Button key={d} size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => handleSetNextChange(d)}>{d}d</Button>
-                ))}
-              </div>
-            )}
-          </Card>
+      {!isGroupMode && !selectedStudent ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {students.map((s) => (
+            <Card 
+              key={s.user_id} 
+              className="card-glass hover:bg-secondary/20 cursor-pointer transition-all border-border/50 hover:border-primary/30"
+              onClick={() => setSelectedStudent(s.user_id)}
+            >
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                  {s.display_name.slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <p className="font-semibold">{s.display_name}</p>
+                  <p className="text-xs text-muted-foreground">Crear o editar rutina</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-      )}
+      ) : (
+        <>
+          {isGroupMode ? (
+            <Badge variant="outline" className="border-primary/30 text-primary text-xs">
+              <Users2 className="h-3 w-3 mr-1" /> Modo Grupo
+            </Badge>
+          ) : (
+            <div className="flex items-end gap-4 flex-wrap">
+              <div className="max-w-xs flex-1">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wide">Alumno</Label>
+                <Select value={selectedStudent} onValueChange={setSelectedStudent}>
+                  <SelectTrigger className="bg-secondary/50 border-border">
+                    <SelectValue placeholder="Seleccionar alumno" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {students.map((s) => (
+                      <SelectItem key={s.user_id} value={s.user_id}>{s.display_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v })} className="space-y-6">
+              <Card className="card-glass p-3 flex items-center gap-3">
+                <CalendarClock className="h-5 w-5 text-primary flex-shrink-0" />
+                {daysUntilChange !== null ? (
+                  <p className="text-sm font-semibold">Días restantes para actualizar rutina: <span className="text-primary">{daysUntilChange}</span></p>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-muted-foreground">Programar cambio en:</p>
+                    {[7, 14, 21, 30].map((d) => (
+                      <Button key={d} size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => handleSetNextChange(d)}>{d}d</Button>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
+          )}
+
+          <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v })} className="space-y-6">
         <TabsList className="grid grid-cols-2 bg-secondary/50 max-w-md w-full">
           <TabsTrigger value="entrenamiento" className="text-xs sm:text-sm"><Dumbbell className="w-3.5 h-3.5 mr-2" />Entrenamiento</TabsTrigger>
           <TabsTrigger value="alimentacion" className="text-xs sm:text-sm"><CalendarClock className="w-3.5 h-3.5 mr-2" />Alimentación</TabsTrigger>
@@ -762,6 +800,8 @@ export default function RoutinesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        </>
+      )}
     </div>
   );
 }
