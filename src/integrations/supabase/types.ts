@@ -897,6 +897,18 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_assignment_trainer: {
+        Args: { _assignment_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_survey_assigned: {
+        Args: { _student_id: string; _survey_id: string }
+        Returns: boolean
+      }
+      is_survey_trainer: {
+        Args: { _survey_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "trainer" | "student"
