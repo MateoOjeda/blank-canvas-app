@@ -52,6 +52,7 @@ export default function StudentDetailPage() {
   const [hasGroupRoutine, setHasGroupRoutine] = useState(false);
   const [groupExercises, setGroupExercises] = useState<any[]>([]);
   const [selectedDayTab, setSelectedDayTab] = useState<string>(DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1]);
+  const [surveyResults, setSurveyResults] = useState<any[]>([]);
 
   const fetchData = useCallback(async () => {
     if (!user || !studentId) return;
