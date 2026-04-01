@@ -56,12 +56,12 @@ export function MobileNav() {
             <div className={cn(
               "relative h-10 w-10 rounded-full transition-all duration-500 flex items-center justify-center mb-1",
               isActive 
-                ? "bg-background border-[2px] border-primary shadow-[0_0_15px_rgba(var(--primary),0.2)] -translate-y-2.5" 
+                ? "bg-primary border-[2px] border-primary shadow-[0_0_15px_rgba(var(--primary),0.3)] -translate-y-2.5" 
                 : "bg-transparent border-none"
             )}>
               <item.icon className={cn(
                 "h-5 w-5 transition-all duration-500", 
-                isActive ? "text-white" : "text-muted-foreground"
+                isActive ? "text-primary-foreground" : "text-muted-foreground"
               )} />
               {isActive && (
                 <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full animate-pulse" />
@@ -69,7 +69,7 @@ export function MobileNav() {
             </div>
             <span className={cn(
               "text-[7px] font-bold transition-all duration-500 uppercase tracking-tighter truncate w-full text-center px-1 mb-0.5",
-              isActive ? "text-white opacity-100 -translate-y-1.5" : "text-muted-foreground opacity-0 "
+              isActive ? "text-primary opacity-100 -translate-y-1.5" : "text-muted-foreground opacity-0 "
             )}>
               {item.title}
             </span>

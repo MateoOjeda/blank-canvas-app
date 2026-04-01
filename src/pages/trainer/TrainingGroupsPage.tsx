@@ -157,9 +157,13 @@ export default function TrainingGroupsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Grupos de Entrenamiento</h1>
-        <p className="text-muted-foreground text-sm mt-1">Crea grupos y asigna rutinas compartidas</p>
+      <div className="flex flex-col gap-1.5 min-w-0">
+        <h1 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold tracking-tight neon-text uppercase leading-none truncate">
+          Grupos de Entrenamiento
+        </h1>
+        <p className="text-muted-foreground text-xs md:text-sm uppercase tracking-wider bg-accent/5 px-2 py-0.5 rounded leading-tight mt-1">
+          Crea grupos y asigna rutinas compartidas
+        </p>
       </div>
 
       <Card className="card-glass">
