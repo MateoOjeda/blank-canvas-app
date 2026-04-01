@@ -51,18 +51,18 @@ export function MobileNav() {
             end={item.url === "/"}
             className={cn(
               "flex flex-col items-center justify-center transition-all duration-500 ease-spring flex-1 min-w-0",
-              isActive ? "scale-105" : "scale-100 opacity-60"
+              isActive ? "scale-110" : "scale-100 opacity-60"
             )}
           >
             <div className={cn(
               "relative h-10 w-10 rounded-full transition-all duration-500 flex items-center justify-center",
               isActive 
-                ? "bg-background border-[2px] border-white shadow-[0_0_15px_rgba(255,255,255,0.25)] -translate-y-3" 
+                ? "bg-background border-[2px] border-white shadow-[0_0_15px_rgba(255,255,255,0.2) -translate-y-1.5" 
                 : "bg-transparent border-none"
             )}>
               <item.icon className={cn(
                 "h-5 w-5 transition-all duration-500", 
-                isActive ? "text-white rotate-[360deg]" : "text-muted-foreground"
+                isActive ? "text-white" : "text-muted-foreground"
               )} />
               {isActive && (
                 <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full animate-pulse" />
@@ -70,7 +70,7 @@ export function MobileNav() {
             </div>
             <span className={cn(
               "text-[8px] font-bold transition-all duration-500 uppercase tracking-tighter mt-0.5 truncate w-full text-center px-0.5",
-              isActive ? "text-white opacity-100 -translate-y-2" : "text-muted-foreground opacity-0 "
+              isActive ? "text-white opacity-100 -translate-y-0.5" : "text-muted-foreground opacity-0 "
             )}>
               {item.title}
             </span>
