@@ -21,7 +21,7 @@ export function AppLayout() {
   return (
     <AppContext.Provider value={appState}>
       <SidebarProvider>
-        <div className="min-h-screen flex w-full pb-[76px] md:pb-0">
+        <div className="h-screen flex w-full pb-[72px] md:pb-0 overflow-hidden relative">
           <AppSidebar />
           <div className="flex-1 flex flex-col min-w-0">
             <header className="h-14 flex items-center justify-between border-b border-border px-4 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
@@ -42,7 +42,7 @@ export function AppLayout() {
                 </>
               )}
             </header>
-            <main className="flex-1 p-4 md:p-6 overflow-auto">
+            <main className="flex-1 p-4 md:p-6 overflow-y-auto overflow-x-hidden hide-scrollbar">
               <Outlet />
             </main>
           </div>

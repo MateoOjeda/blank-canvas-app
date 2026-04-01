@@ -38,7 +38,7 @@ export function MobileNav() {
   const items = isTrainer ? trainerItems : studentItems;
 
   return (
-    <nav className="md:hidden fixed bottom-1 left-3 right-3 z-50 bg-background/80 backdrop-blur-lg border border-white/10 rounded-3xl p-1.5 flex flex-row items-center justify-between shadow-2xl shadow-black/50">
+    <nav className="md:hidden fixed bottom-1 left-3 right-3 z-50 bg-background/80 backdrop-blur-lg border border-white/10 rounded-3xl h-[68px] px-1 flex flex-row items-center justify-between shadow-2xl shadow-black/50">
       {items.map((item) => {
         const isActive = item.url === "/" 
           ? location.pathname === "/" 
