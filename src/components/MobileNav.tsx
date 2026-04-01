@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 
 const trainerItems = [
-  { title: "Inicio", url: "/", icon: Home },
   { title: "Alumnos", url: "/trainer/students", icon: Users },
   { title: "Rutinas", url: "/trainer/routines", icon: Dumbbell },
   { title: "Planes", url: "/trainer/plans", icon: ClipboardList },
