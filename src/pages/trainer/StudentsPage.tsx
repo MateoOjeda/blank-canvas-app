@@ -159,15 +159,14 @@ export default function StudentsPage() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{student.display_name}</p>
                           <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                            <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${
-                              student.paymentStatus === "pagado"
-                                ? "border-green-400/50 text-green-600"
-                                : "border-orange-400/50 text-orange-600"
-                            }`}>
-                              {student.paymentStatus === "pagado" ? "✓ Pagado" : "⏳ No pagado"}
+                            <Badge variant="outline" className={cn(
+                              "border-none shadow-sm shadow-black/20",
+                              student.paymentStatus === "pagado" ? "badge-status-pagado" : "badge-status-pendiente"
+                            )}>
+                              {student.paymentStatus === "pagado" ? "✓ Pagado" : "⏳ Pendiente"}
                             </Badge>
                             {student.groupName && (
-                              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-accent/10 text-accent border-accent/20">
+                              <Badge className="badge-info-tag border-none shadow-sm shadow-black/20">
                                 {student.groupName}
                               </Badge>
                             )}
