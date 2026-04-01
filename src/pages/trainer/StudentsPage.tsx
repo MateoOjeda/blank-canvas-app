@@ -272,9 +272,23 @@ export default function StudentsPage() {
                       {selectedStudent.paymentStatus === "pagado" ? "✓ Pagado" : "⏳ No pagado"}
                     </Badge>
                     {selectedStudent.groupName && (
-                      <Badge variant="secondary" className="text-xs bg-accent/10 text-accent border-accent/20">
+                      <Badge className="badge-info-tag px-3 py-1 text-[11px] border-none shadow-md shadow-primary/10">
                         Grupo: {selectedStudent.groupName}
                       </Badge>
+                    )}
+                    {(selectedStudent.age || selectedStudent.weight) && (
+                      <div className="flex items-center gap-2 ml-1">
+                        {selectedStudent.age && (
+                          <Badge variant="secondary" className="bg-muted/50 text-muted-foreground text-[10px] font-bold px-2 py-0.5">
+                            {selectedStudent.age} años
+                          </Badge>
+                        )}
+                        {selectedStudent.weight && (
+                          <Badge variant="secondary" className="bg-muted/50 text-muted-foreground text-[10px] font-bold px-2 py-0.5">
+                            {selectedStudent.weight}kg
+                          </Badge>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -329,12 +343,12 @@ export default function StudentsPage() {
                   <Dumbbell className="h-5 w-5 text-accent" />
                   <h3 className="font-semibold text-sm">Rutina de entrenamiento</h3>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="gap-1.5 flex-1" onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}>
-                    <Eye className="h-3.5 w-3.5" /> Ver detalle
+                <div className="flex gap-3">
+                  <Button variant="outline" size="sm" className="btn-premium-outline flex-1 h-10 text-xs px-0 border-primary/20" onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}>
+                    <Eye className="h-4 w-4 mr-2" /> Ver detalle
                   </Button>
-                  <Button size="sm" className="gap-1.5 flex-1" onClick={() => navigate(`/trainer/routines/${selectedStudent.user_id}`)}>
-                    <Pencil className="h-3.5 w-3.5" /> Editar rutina
+                  <Button size="sm" className="btn-premium-primary flex-1 h-10 text-xs px-0" onClick={() => navigate(`/trainer/routines/${selectedStudent.user_id}`)}>
+                    <Pencil className="h-4 w-4 mr-2" /> Editar rutina
                   </Button>
                 </div>
               </div>
@@ -345,27 +359,17 @@ export default function StudentsPage() {
                   <Apple className="h-5 w-5 text-accent" />
                   <h3 className="font-semibold text-sm">Rutina de Alimentación</h3>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="gap-1.5 flex-1" onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}>
-                    <Eye className="h-3.5 w-3.5" /> Ver detalle
+                <div className="flex gap-3">
+                  <Button variant="outline" size="sm" className="btn-premium-outline flex-1 h-10 text-xs px-0 border-primary/20" onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}>
+                    <Eye className="h-4 w-4 mr-2" /> Ver detalle
                   </Button>
-                  <Button size="sm" className="gap-1.5 flex-1" onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}>
-                    <Pencil className="h-3.5 w-3.5" /> Editar
+                  <Button size="sm" className="btn-premium-primary flex-1 h-10 text-xs px-0" onClick={() => navigate(`/trainer/students/${selectedStudent.user_id}`)}>
+                    <Pencil className="h-4 w-4 mr-2" /> Editar
                   </Button>
                 </div>
               </div>
 
-              {/* Stats */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-secondary/30 text-center">
-                  <p className="text-2xl font-bold">{selectedStudent.age || "—"}</p>
-                  <p className="text-[10px] text-muted-foreground">Edad</p>
-                </div>
-                <div className="p-3 rounded-xl bg-secondary/30 text-center">
-                  <p className="text-2xl font-bold">{selectedStudent.weight ? `${selectedStudent.weight}kg` : "—"}</p>
-                  <p className="text-[10px] text-muted-foreground">Peso</p>
-                </div>
-              </div>
+              {/* Bottom grid removed to relocate info to header */}
             </CardContent>
           )}
         </Card>
