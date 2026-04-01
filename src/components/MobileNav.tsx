@@ -50,14 +50,18 @@ export function MobileNav() {
             to={item.url}
             end={item.url === "/"}
             className={cn(
-              "flex flex-col items-center justify-center flex-1 py-3 px-2 text-muted-foreground hover:bg-secondary/20 transition-all duration-300 ease-in-out",
-              isActive ? "min-w-[76px]" : "min-w-[56px]"
+              "flex flex-col items-center justify-center flex-1 py-2 px-1 transition-all duration-300 ease-in-out",
+              isActive ? "min-w-[80px]" : "min-w-[56px]"
             )}
-            activeClassName="text-primary neon-text"
           >
-            <item.icon className={cn("h-5 w-5 transition-transform duration-300", isActive && "mb-1 scale-110")} />
+            <div className={cn(
+              "p-2 rounded-full transition-all duration-300 flex items-center justify-center",
+              isActive ? "bg-background border-2 border-white shadow-[0_0_10px_rgba(255,255,255,0.2)] mb-1" : "border-2 border-transparent"
+            )}>
+              <item.icon className={cn("h-5 w-5 transition-all duration-300", isActive ? "text-white scale-110" : "text-muted-foreground")} />
+            </div>
             {isActive && (
-              <span className="text-[10px] font-medium truncate w-full text-center animate-in fade-in slide-in-from-bottom-1 font-display tracking-wider">
+              <span className="text-[10px] font-bold text-white truncate w-full text-center animate-in fade-in zoom-in-95 font-display tracking-tighter uppercase">
                 {item.title}
               </span>
             )}
