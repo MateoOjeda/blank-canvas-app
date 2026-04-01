@@ -95,10 +95,14 @@ export default function StudentDetailPage() {
     
     setLoading(false);
 
-    // Fetch archived routines
+    // Fetch archived routines and survey results
     try {
-      const archived = await fetchArchivedRoutines(user.id, studentId);
+      const [archived, sResults] = await Promise.all([
+        fetchArchivedRoutines(user.id, studentId),
+        fetchStudentSurveyResults(studentId),
+      ]);
       setArchivedRoutines(archived);
+      setSurveyResults(sResults);
     } catch { }
   }, [user, studentId]);
 
