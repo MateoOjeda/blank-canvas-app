@@ -38,7 +38,7 @@ export function MobileNav() {
   const items = isTrainer ? trainerItems : studentItems;
 
   return (
-    <nav className="md:hidden fixed bottom-1 left-3 right-3 z-50 bg-background/80 backdrop-blur-lg border border-white/10 rounded-3xl h-[68px] px-1 flex flex-row items-center justify-between shadow-2xl shadow-black/50">
+    <nav className="md:hidden fixed bottom-1 left-3 right-3 z-50 bg-background/80 backdrop-blur-lg border border-white/10 rounded-3xl h-[72px] px-1 flex flex-row items-center justify-between shadow-2xl shadow-black/50">
       {items.map((item) => {
         const isActive = item.url === "/" 
           ? location.pathname === "/" 
@@ -50,14 +50,14 @@ export function MobileNav() {
             to={item.url}
             end={item.url === "/"}
             className={cn(
-              "flex flex-col items-center justify-center transition-all duration-500 ease-spring flex-1 min-w-0",
+              "flex flex-col items-center justify-center transition-all duration-500 ease-spring flex-1 min-w-0 h-full",
               isActive ? "scale-110" : "scale-100 opacity-60"
             )}
           >
             <div className={cn(
-              "relative h-10 w-10 rounded-full transition-all duration-500 flex items-center justify-center",
+              "relative h-10 w-10 rounded-full transition-all duration-500 flex items-center justify-center mb-1",
               isActive 
-                ? "bg-background border-[2px] border-white shadow-[0_0_15px_rgba(255,255,255,0.2) -translate-y-1.5" 
+                ? "bg-background border-[2px] border-white shadow-[0_0_15px_rgba(255,255,255,0.2)] -translate-y-2" 
                 : "bg-transparent border-none"
             )}>
               <item.icon className={cn(
@@ -69,8 +69,8 @@ export function MobileNav() {
               )}
             </div>
             <span className={cn(
-              "text-[8px] font-bold transition-all duration-500 uppercase tracking-tighter mt-0.5 truncate w-full text-center px-0.5",
-              isActive ? "text-white opacity-100 -translate-y-0.5" : "text-muted-foreground opacity-0 "
+              "text-[7px] font-bold transition-all duration-500 uppercase tracking-tighter truncate w-full text-center px-1 mb-0.5",
+              isActive ? "text-white opacity-100 -translate-y-1.5" : "text-muted-foreground opacity-0 "
             )}>
               {item.title}
             </span>
