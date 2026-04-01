@@ -401,11 +401,11 @@ export default function RoutinesPage() {
         >
           <ArrowLeft className="h-6 w-6" />
         </Button>
-        <div className="flex flex-col">
-          <h1 className="text-3xl font-display font-bold tracking-tight neon-text uppercase">
+        <div className="flex flex-col min-w-0">
+          <h1 className="text-2xl md:text-3xl font-display font-bold tracking-tight neon-text uppercase truncate">
             {isGroupMode ? `Rutina de Grupo: ${groupName}` : "Crear Rutina"}
           </h1>
-          <p className="text-muted-foreground text-sm uppercase tracking-widest bg-accent/5 px-2 py-0.5 rounded">
+          <p className="text-muted-foreground text-[10px] md:text-sm uppercase tracking-wider bg-accent/5 px-2 py-0.5 rounded leading-tight">
             {isGroupMode ? "Gestión de ejercicios colectivos" : "Configuración personalizada de entrenamiento"}
           </p>
         </div>

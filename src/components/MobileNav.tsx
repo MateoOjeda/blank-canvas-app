@@ -56,7 +56,7 @@ export function MobileNav() {
             <div className={cn(
               "relative h-10 w-10 rounded-full transition-all duration-500 flex items-center justify-center mb-1",
               isActive 
-                ? "bg-background border-[2px] border-white shadow-[0_0_15px_rgba(255,255,255,0.2)] -translate-y-2" 
+                ? "bg-background border-[2px] border-primary shadow-[0_0_15px_rgba(var(--primary),0.2)] -translate-y-2.5" 
                 : "bg-transparent border-none"
             )}>
               <item.icon className={cn(
