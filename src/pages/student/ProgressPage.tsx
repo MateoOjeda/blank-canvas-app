@@ -93,7 +93,7 @@ export default function ProgressPage() {
           </div>
         </div>
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-display font-bold tracking-tighter neon-text uppercase leading-none">
+          <h1 className="text-2xl font-display font-bold tracking-tight neon-text uppercase">
             {profile?.display_name || "Mi Progreso"}
           </h1>
           <p className="text-xs text-muted-foreground font-black uppercase tracking-[0.2em] opacity-60">Resumen de desempeño</p>
