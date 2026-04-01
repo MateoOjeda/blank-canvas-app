@@ -6,34 +6,39 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Save, Loader2, Palette, CreditCard } from "lucide-react";
+import { Settings, Save, Loader2, Palette, CreditCard, User } from "lucide-react";
 import { toast } from "sonner";
 import { useAppTheme } from "@/hooks/useAppTheme";
+import ProfilePhotoUpload from "./ProfilePhotoUpload";
 
 export default function UserSettingsDialog() {
   const { user, role } = useAuth();
   const [open, setOpen] = useState(false);
   const [mercadopagoAlias, setMercadopagoAlias] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
   const { currentTheme, setTheme, themes } = useAppTheme();
   
   const isTrainer = role === "trainer";
 
   useEffect(() => {
-    if (!user || !open || !isTrainer) return;
+    if (!user || !open) return;
     supabase
       .from("profiles")
-      .select("mercadopago_alias, whatsapp_number")
+      .select("mercadopago_alias, whatsapp_number, avatar_url, display_name")
       .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setMercadopagoAlias(data.mercadopago_alias || "");
           setWhatsappNumber(data.whatsapp_number || "");
+          setAvatarUrl(data.avatar_url || "");
+          setDisplayName(data.display_name || "");
         }
       });
-  }, [user, open, isTrainer]);
+  }, [user, open]);
 
   const handleSaveBilling = async () => {
     if (!user) return;
@@ -61,13 +66,26 @@ export default function UserSettingsDialog() {
 
         {isTrainer ? (
           <Tabs defaultValue="appearance" className="flex flex-col h-full overflow-hidden mt-2">
-            <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
-              <TabsTrigger value="appearance" className="gap-2 text-xs"><Palette className="w-3.5 h-3.5" /> Apariencia</TabsTrigger>
-              <TabsTrigger value="billing" className="gap-2 text-xs"><CreditCard className="w-3.5 h-3.5" /> Cobros</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
+              <TabsTrigger value="appearance" className="gap-2 text-[10px]"><Palette className="w-3.5 h-3.5" /> Apariencia</TabsTrigger>
+              <TabsTrigger value="profile" className="gap-2 text-[10px]"><User className="w-3.5 h-3.5" /> Perfil</TabsTrigger>
+              <TabsTrigger value="billing" className="gap-2 text-[10px]"><CreditCard className="w-3.5 h-3.5" /> Cobros</TabsTrigger>
             </TabsList>
             
             <TabsContent value="appearance" className="flex-1 overflow-y-auto pt-4 space-y-4">
               <AppearanceSettings currentTheme={currentTheme} setTheme={setTheme} themes={themes} />
+            </TabsContent>
+
+            <TabsContent value="profile" className="flex-1 overflow-y-auto pt-4 flex flex-col items-center text-center space-y-6">
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">Foto de Perfil</Label>
+                <p className="text-[11px] text-muted-foreground px-4">Esta foto será visible para tus alumnos vinculados.</p>
+              </div>
+              <ProfilePhotoUpload 
+                avatarUrl={avatarUrl} 
+                initials={displayName.slice(0, 2).toUpperCase() || "??"} 
+                onUploaded={(url) => setAvatarUrl(url)}
+              />
             </TabsContent>
             
             <TabsContent value="billing" className="pt-4 space-y-4">
@@ -90,9 +108,28 @@ export default function UserSettingsDialog() {
             </TabsContent>
           </Tabs>
         ) : (
-          <div className="pt-4 flex-1 overflow-y-auto">
-            <AppearanceSettings currentTheme={currentTheme} setTheme={setTheme} themes={themes} />
-          </div>
+          <Tabs defaultValue="appearance" className="flex flex-col h-full overflow-hidden mt-2">
+            <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
+              <TabsTrigger value="appearance" className="gap-2 text-xs"><Palette className="w-3.5 h-3.5" /> Apariencia</TabsTrigger>
+              <TabsTrigger value="profile" className="gap-2 text-xs"><User className="w-3.5 h-3.5" /> Perfil</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="appearance" className="flex-1 overflow-y-auto pt-4 space-y-4">
+              <AppearanceSettings currentTheme={currentTheme} setTheme={setTheme} themes={themes} />
+            </TabsContent>
+
+            <TabsContent value="profile" className="flex-1 overflow-y-auto pt-4 flex flex-col items-center text-center space-y-6">
+              <div className="space-y-1">
+                <Label className="text-sm font-semibold">Foto de Perfil</Label>
+                <p className="text-[11px] text-muted-foreground px-4">Esta foto será visible para tu entrenador y en tus avances.</p>
+              </div>
+              <ProfilePhotoUpload 
+                avatarUrl={avatarUrl} 
+                initials={displayName.slice(0, 2).toUpperCase() || "??"} 
+                onUploaded={(url) => setAvatarUrl(url)}
+              />
+            </TabsContent>
+          </Tabs>
         )}
       </DialogContent>
     </Dialog>

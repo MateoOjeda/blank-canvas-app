@@ -37,8 +37,10 @@ export function AppLayout() {
                 </>
               ) : (
                 <>
-                  <SidebarTrigger className="mr-4 md:hidden" />
                   <div className="flex-1" />
+                  <div className="md:hidden">
+                    <UserSettingsDialog />
+                  </div>
                 </>
               )}
             </header>
