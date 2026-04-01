@@ -113,21 +113,21 @@ export default function StudentRoutinesPage() {
               <h2 className="text-xl font-display font-bold tracking-tight uppercase">Rutina Personal</h2>
             </div>
             
-            <Card className="card-premium border-white/5 overflow-hidden">
-              <CardContent className="p-6 space-y-8">
-                <div className="flex gap-4 w-full overflow-x-auto pb-4 scrollbar-hide">
+            <Card className="card-premium border-white/5 overflow-hidden shadow-2xl">
+              <CardContent className="p-4 sm:p-6 md:p-8 space-y-8">
+                <div className="flex gap-3 w-full overflow-x-auto pb-6 scrollbar-hide px-1">
                   {DAYS.map((day, i) => {
                     const count = exercisesByDay[day]?.length || 0;
                     return (
                       <div key={day} className={cn(
-                        "flex flex-col items-center justify-center min-w-[50px] h-16 rounded-2xl text-xs font-black border transition-all duration-300 flex-shrink-0",
+                        "flex flex-col items-center justify-center min-w-[60px] h-20 rounded-3xl text-sm font-black border transition-all duration-300 flex-shrink-0 shadow-lg",
                         count > 0 
-                          ? "bg-primary/10 border-primary/40 text-primary shadow-lg shadow-primary/5" 
-                          : "bg-white/5 border-white/5 text-muted-foreground opacity-40"
+                          ? "bg-primary/20 border-primary/40 text-primary shadow-primary/10" 
+                          : "bg-white/5 border-white/5 text-muted-foreground opacity-30"
                       )}>
-                        <span className="text-[10px] uppercase tracking-tighter mb-0.5">{DAY_SHORT[i]}</span>
+                        <span className="text-[11px] uppercase tracking-tighter mb-1.5 opacity-80">{DAY_SHORT[i]}</span>
                         {count > 0 && (
-                          <div className="flex items-center justify-center h-5 w-5 rounded-full bg-primary text-white text-[9px] font-bold shadow-sm">
+                          <div className="flex items-center justify-center h-6 w-6 rounded-xl bg-primary text-white text-[10px] font-black shadow-md">
                             {count}
                           </div>
                         )}
@@ -152,33 +152,37 @@ export default function StudentRoutinesPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {exercisesByDay[day].map((ex) => (
                             <div key={ex.id} className={cn(
-                              "flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 transition-all hover:bg-white/10 hover:border-white/20 group",
-                              ex.completed && "border-primary/20 bg-primary/5 opacity-80"
+                              "flex items-center gap-4 p-5 rounded-[2rem] bg-white/[0.03] border border-white/10 transition-all duration-300 hover:bg-white/[0.07] hover:border-white/20 shadow-xl group",
+                              ex.completed && "border-primary/30 bg-primary/[0.03] opacity-90 shadow-primary/5"
                             )}>
                               <div className={cn(
-                                "h-10 w-10 rounded-xl flex items-center justify-center shrink-0 border transition-colors",
-                                ex.completed ? "bg-primary/20 border-primary/20 text-primary" : "bg-white/5 border-white/5 text-muted-foreground group-hover:border-white/20"
+                                "h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 border-2 transition-all duration-300 group-hover:rotate-6",
+                                ex.completed 
+                                  ? "bg-primary/20 border-primary/30 text-primary shadow-lg shadow-primary/20" 
+                                  : "bg-white/5 border-white/10 text-muted-foreground group-hover:border-white/30"
                               )}>
-                                {ex.completed ? <CheckCircle className="h-5 w-5" /> : <Dumbbell className="h-5 w-5" />}
+                                {ex.completed ? <CheckCircle className="h-6 w-6" /> : <Dumbbell className="h-6 w-6" />}
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold truncate leading-tight uppercase tracking-tight">{ex.name}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-[11px] font-medium text-muted-foreground bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
-                                    {ex.sets}s × {ex.reps}r
+                              <div className="flex-1 min-w-0 py-0.5">
+                                <p className="text-base font-black truncate leading-none uppercase tracking-tight mb-1.5">{ex.name}</p>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-black text-muted-foreground bg-white/5 px-2.5 py-1 rounded-full border border-white/10 uppercase tracking-widest">
+                                    {ex.sets} SETS × {ex.reps} REPS
                                   </span>
                                   {ex.weight > 0 && (
-                                    <span className="text-[11px] font-black text-primary">
-                                      {ex.weight}kg
+                                    <span className="text-xs font-black text-primary bg-primary/10 px-2 py-1 rounded-full border border-primary/20">
+                                      {ex.weight}KG
                                     </span>
                                   )}
                                 </div>
                               </div>
-                              {ex.completed ? (
-                                <Badge className="badge-status-pagado text-[9px] uppercase tracking-tighter px-2">Completado</Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-[9px] uppercase tracking-tighter text-muted-foreground border-white/10 px-2 opacity-50">Pendiente</Badge>
-                              )}
+                              <div className="flex-shrink-0">
+                                {ex.completed ? (
+                                  <Badge className="badge-status-pagado text-[9px] font-black uppercase tracking-[0.1em] px-3 py-1 rounded-full border-none shadow-lg">✓ HECHO</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[9px] font-black uppercase tracking-[0.1em] text-muted-foreground/60 border-white/10 px-3 py-1 rounded-full bg-white/5">0%</Badge>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -199,21 +203,21 @@ export default function StudentRoutinesPage() {
                 <h2 className="text-xl font-display font-bold tracking-tight uppercase">Rutina de Grupo</h2>
               </div>
 
-              <Card className="card-premium border-white/5 overflow-hidden">
-                <CardContent className="p-6 space-y-8">
-                  <div className="flex gap-4 w-full overflow-x-auto pb-4 scrollbar-hide">
+              <Card className="card-premium border-white/5 overflow-hidden shadow-2xl">
+                <CardContent className="p-4 sm:p-6 md:p-8 space-y-8">
+                  <div className="flex gap-3 w-full overflow-x-auto pb-6 scrollbar-hide px-1">
                     {DAYS.map((day, i) => {
                       const count = groupExercisesByDay[day]?.length || 0;
                       return (
                         <div key={day} className={cn(
-                          "flex flex-col items-center justify-center min-w-[50px] h-16 rounded-2xl text-xs font-black border transition-all duration-300 flex-shrink-0",
+                          "flex flex-col items-center justify-center min-w-[60px] h-20 rounded-3xl text-sm font-black border transition-all duration-300 flex-shrink-0 shadow-lg",
                           count > 0 
-                            ? "bg-accent/10 border-accent/40 text-accent shadow-lg shadow-accent/5" 
-                            : "bg-white/5 border-white/5 text-muted-foreground opacity-40"
+                            ? "bg-accent/20 border-accent/40 text-accent shadow-accent/10" 
+                            : "bg-white/5 border-white/5 text-muted-foreground opacity-30"
                         )}>
-                          <span className="text-[10px] uppercase tracking-tighter mb-0.5">{DAY_SHORT[i]}</span>
+                          <span className="text-[11px] uppercase tracking-tighter mb-1.5 opacity-80">{DAY_SHORT[i]}</span>
                           {count > 0 && (
-                            <div className="flex items-center justify-center h-5 w-5 rounded-full bg-accent text-white text-[9px] font-bold shadow-sm">
+                            <div className="flex items-center justify-center h-6 w-6 rounded-xl bg-accent text-white text-[10px] font-black shadow-md">
                               {count}
                             </div>
                           )}
@@ -236,24 +240,26 @@ export default function StudentRoutinesPage() {
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {groupExercisesByDay[day].map((ex) => (
-                              <div key={ex.id} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 transition-all hover:bg-white/10 hover:border-white/20 group">
-                                <div className="h-10 w-10 rounded-xl bg-accent/10 border border-accent/10 flex items-center justify-center shrink-0 text-accent group-hover:border-accent/30 transition-colors">
-                                  <Dumbbell className="h-5 w-5" />
+                              <div key={ex.id} className="flex items-center gap-4 p-5 rounded-[2rem] bg-white/[0.03] border border-white/10 transition-all duration-300 hover:bg-white/[0.07] hover:border-white/20 shadow-xl group">
+                                <div className="h-12 w-12 rounded-2xl bg-accent/20 border-2 border-accent/30 flex items-center justify-center shrink-0 text-accent group-hover:rotate-6 transition-all duration-300 shadow-lg shadow-accent/20">
+                                  <Dumbbell className="h-6 w-6" />
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-bold truncate leading-tight uppercase tracking-tight">{ex.name}</p>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-[11px] font-medium text-muted-foreground bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
-                                      {ex.sets}s × {ex.reps}r
+                                <div className="flex-1 min-w-0 py-0.5">
+                                  <p className="text-base font-black truncate leading-none uppercase tracking-tight mb-1.5">{ex.name}</p>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-black text-muted-foreground bg-white/5 px-2.5 py-1 rounded-full border border-white/10 uppercase tracking-widest">
+                                      {ex.sets} SETS × {ex.reps} REPS
                                     </span>
                                     {ex.weight > 0 && (
-                                      <span className="text-[11px] font-black text-accent">
-                                        {ex.weight}kg
+                                      <span className="text-xs font-black text-accent bg-accent/10 px-2 py-1 rounded-full border border-accent/20">
+                                        {ex.weight}KG
                                       </span>
                                     )}
                                   </div>
                                 </div>
-                                <Badge variant="outline" className="badge-accent-tag text-[9px] uppercase tracking-tighter px-2">Grupal</Badge>
+                                <div className="flex-shrink-0">
+                                  <Badge variant="outline" className="badge-accent-tag text-[9px] font-black uppercase tracking-[0.1em] px-3 py-1 rounded-full border-none shadow-lg">GRUPAL</Badge>
+                                </div>
                               </div>
                             ))}
                           </div>

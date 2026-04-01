@@ -37,7 +37,10 @@ export function AppLayout() {
                 </>
               ) : (
                 <>
-                  <div className="flex-1 font-bold text-xs">VISTA ALUMNO</div>
+                  <Button variant="ghost" size="icon" onClick={() => navigate("/student/feed")} className="text-muted-foreground hover:text-primary">
+                    <Bell className="h-5 w-5" />
+                  </Button>
+                  <div className="flex-1" />
                   <div>
                     <UserSettingsDialog />
                   </div>
