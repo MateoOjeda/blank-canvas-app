@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -110,33 +111,41 @@ export default function StudentFeedPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Novedades</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Cambios recientes de tu entrenador
+    <div className="container-responsive space-y-8 pb-24">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-3xl font-display font-bold tracking-tight neon-text uppercase">Novedades</h1>
+          <p className="text-sm text-muted-foreground font-medium">
+            Entérate de los últimos cambios de tu entrenador.
           </p>
         </div>
         {unreadCount > 0 && (
-          <Button variant="outline" size="sm" className="gap-2" onClick={markAllRead}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="btn-premium-outline h-10 px-6 gap-2 rounded-2xl shrink-0" 
+            onClick={markAllRead}
+          >
             <CheckCheck className="h-4 w-4" />
-            Marcar todo como leído ({unreadCount})
+            <span className="uppercase tracking-tighter font-bold text-xs">Marcar leídos ({unreadCount})</span>
           </Button>
         )}
       </div>
 
       {changes.length === 0 ? (
-        <Card className="card-glass">
-          <CardContent className="p-8 text-center">
-            <Bell className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">
-              No tienes cambios recientes. Cuando tu entrenador modifique tu rutina o planes, aparecerán aquí.
+        <Card className="card-premium border-white/5 bg-white/5 py-16">
+          <CardContent className="p-0 text-center space-y-4">
+            <div className="relative inline-block">
+              <div className="absolute inset-0 bg-primary blur-2xl opacity-10 animate-pulse" />
+              <Bell className="h-16 w-16 text-muted-foreground/30 mx-auto relative" />
+            </div>
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto font-medium">
+              No tienes cambios recientes. Cuando tu entrenador actualice algo, lo verás aquí.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-4">
           {changes.map((change) => {
             const config = CHANGE_CONFIG[change.change_type] || {
               icon: Bell,
@@ -151,36 +160,43 @@ export default function StudentFeedPage() {
             return (
               <Card
                 key={change.id}
-                className={`card-glass transition-all ${isUnread ? "neon-border" : "opacity-70"}`}
+                className={cn(
+                  "card-premium transition-all duration-500 overflow-hidden group",
+                  isUnread ? "border-primary/40 bg-primary/5 shadow-lg shadow-primary/5" : "border-white/5 bg-white/5 opacity-60 grayscale-[0.5]"
+                )}
               >
-                <CardContent className="p-4 flex items-start gap-4">
-                  <div
-                    className={`h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      isUnread ? "bg-primary/15" : "bg-secondary"
-                    }`}
-                  >
-                    <Icon className={`h-5 w-5 ${isUnread ? config.color : "text-muted-foreground"}`} />
+                <CardContent className="p-5 flex items-start gap-5">
+                  <div className={cn(
+                    "h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 border transition-all duration-300 group-hover:scale-110",
+                    isUnread ? "bg-primary/20 border-primary/20 text-primary shadow-inner" : "bg-white/5 border-white/5 text-muted-foreground"
+                  )}>
+                    <Icon className="h-6 w-6" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                  <div className="flex-1 min-w-0 py-0.5">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
                       <Badge
                         variant="outline"
-                        className={`text-[10px] ${
-                          isUnread
-                            ? "border-primary/40 text-primary"
-                            : "border-border text-muted-foreground"
-                        }`}
+                        className={cn(
+                          "text-[9px] font-black uppercase tracking-widest px-3 py-0.5 border-0 rounded-full",
+                          isUnread ? "badge-info-tag" : "bg-white/10 text-muted-foreground"
+                        )}
                       >
                         {config.label}
                       </Badge>
                       {isUnread && (
-                        <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/20 rounded-full animate-in fade-in zoom-in duration-500">
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                          <span className="text-[8px] font-black text-primary uppercase tracking-tighter">Nuevo</span>
+                        </div>
                       )}
                     </div>
-                    <p className={`text-sm ${isUnread ? "font-medium" : "text-muted-foreground"}`}>
+                    <p className={cn(
+                      "text-[15px] leading-relaxed tracking-tight",
+                      isUnread ? "font-bold text-white/90" : "font-medium text-muted-foreground/80"
+                    )}>
                       {change.description}
                     </p>
-                    <p className="text-[11px] text-muted-foreground mt-1">
+                    <p className="text-[10px] font-black text-muted-foreground/50 mt-3 uppercase tracking-widest">
                       {formatDistanceToNow(new Date(change.created_at), {
                         addSuffix: true,
                         locale: es,

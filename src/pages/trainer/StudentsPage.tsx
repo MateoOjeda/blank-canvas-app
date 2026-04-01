@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import {
   fetchLinkedStudents as fetchLinkedStudentsService,
@@ -110,24 +111,26 @@ export default function StudentsPage() {
   const selectedStudent = linkedStudents.find((s) => s.user_id === selectedStudentId) || null;
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Panel del Entrenador</h1>
-        <p className="text-muted-foreground text-sm mt-1">Gestiona y supervisa a tus alumnos</p>
+    <div className="container-responsive space-y-6">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-3xl font-display font-bold tracking-tight neon-text">Panel del Entrenador</h1>
+        <p className="text-muted-foreground text-sm">Gestiona y supervisa a tus alumnos de forma eficiente</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4 min-h-[60vh]">
+      <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-6 min-h-[70vh]">
         {/* LEFT COLUMN */}
-        <div className="space-y-4">
+        <div className="flex flex-col gap-6">
           {/* Linked students */}
-          <Card className="card-glass overflow-hidden border-accent/30">
-            <CardHeader className="p-4 pb-2 bg-accent/10">
+          <Card className="card-premium overflow-hidden border-accent/20">
+            <CardHeader className="p-5 pb-3 bg-accent/5">
               <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-accent" />
-                <CardTitle className="text-sm text-accent">Alumnos vinculados ({linkedStudents.length})</CardTitle>
+                <div className="p-2 bg-accent/10 rounded-lg text-accent">
+                  <Users className="h-5 w-5" />
+                </div>
+                <CardTitle className="text-base text-accent">Alumnos vinculados ({linkedStudents.length})</CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="p-2 overflow-y-auto max-h-[35vh]">
+            <CardContent className="p-3 overflow-y-auto max-h-[45vh] hide-scrollbar">
               {loading ? (
                 <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-accent" /></div>
               ) : linkedStudents.length === 0 ? (
@@ -190,14 +193,16 @@ export default function StudentsPage() {
           </Card>
 
           {/* Available students */}
-          <Card className="card-glass overflow-hidden border-blue-400/30">
-            <CardHeader className="p-4 pb-2 bg-blue-500/10">
+          <Card className="card-premium overflow-hidden border-blue-400/20">
+            <CardHeader className="p-5 pb-3 bg-blue-500/5">
               <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-blue-500" />
-                <CardTitle className="text-sm text-blue-500">Alumnos disponibles ({availableStudents.length})</CardTitle>
+                <div className="p-2 bg-blue-500/10 rounded-lg text-blue-500">
+                  <Users className="h-5 w-5" />
+                </div>
+                <CardTitle className="text-base text-blue-500">Alumnos disponibles ({availableStudents.length})</CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="p-2 overflow-y-auto max-h-[30vh]">
+            <CardContent className="p-3 overflow-y-auto max-h-[40vh] hide-scrollbar">
               {loadingAvailable ? (
                 <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-blue-500" /></div>
               ) : availableStudents.length === 0 ? (
@@ -234,7 +239,7 @@ export default function StudentsPage() {
         </div>
 
         {/* RIGHT COLUMN */}
-        <Card className="card-glass overflow-hidden">
+        <Card className="card-premium overflow-hidden border-primary/10">
           {!selectedStudent ? (
             <CardContent className="flex flex-col items-center justify-center h-full min-h-[400px] text-center p-8">
               <Users className="h-12 w-12 text-muted-foreground/40 mb-3" />

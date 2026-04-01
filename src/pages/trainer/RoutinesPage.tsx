@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useLinkedStudents } from "@/hooks/useLinkedStudents";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,7 +30,7 @@ import MealsTab from "@/components/trainer/MealsTab";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Dumbbell, Loader2, CalendarClock, Users2, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, Dumbbell, Loader2, CalendarClock, Users, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { BODY_PARTS, EXERCISES_BY_BODY_PART, type BodyPart } from "@/lib/exercisesByBodyPart";
 import {
@@ -386,402 +387,524 @@ export default function RoutinesPage() {
       window.history.replaceState(null, "", "/trainer/routines");
     }
   };
+  const navigate = useNavigate();
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        {selectedStudent && !isGroupMode && (
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleBackToList}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        )}
-        <div>
-          <h1 className="text-2xl font-display font-bold tracking-wide neon-text">
-            {isGroupMode ? `Rutina del Grupo: ${groupName || "..."}` : "Creador de Rutinas"}
+    <div className="container-responsive space-y-6">
+      {/* Header section with back button */}
+      <div className="flex items-center gap-4 group">
+        <Button 
+          variant="ghost" size="icon" 
+          onClick={handleBackToList}
+          className="rounded-full hover:bg-accent/10 text-accent transition-all duration-300 hover:scale-110"
+          disabled={!selectedStudent && !isGroupMode}
+        >
+          <ArrowLeft className="h-6 w-6" />
+        </Button>
+        <div className="flex flex-col">
+          <h1 className="text-3xl font-display font-bold tracking-tight neon-text uppercase">
+            {isGroupMode ? `Rutina de Grupo: ${groupName}` : "Crear Rutina"}
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {isGroupMode 
-              ? "Edita la rutina compartida del grupo" 
-              : selectedStudent 
-                ? `Prescribe series y repeticiones para ${student?.display_name}`
-                : "Selecciona un alumno para crear o editar su rutina"}
+          <p className="text-muted-foreground text-sm uppercase tracking-widest bg-accent/5 px-2 py-0.5 rounded">
+            {isGroupMode ? "Gestión de ejercicios colectivos" : "Configuración personalizada de entrenamiento"}
           </p>
         </div>
       </div>
 
       {!isGroupMode && !selectedStudent ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {students.map((s) => (
             <Card 
               key={s.user_id} 
-              className="card-glass hover:bg-secondary/20 cursor-pointer transition-all border-border/50 hover:border-primary/30"
+              className="card-premium hover:border-primary/50 cursor-pointer group"
               onClick={() => setSelectedStudent(s.user_id)}
             >
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold border border-primary/20 group-hover:border-primary transition-all">
                   {s.display_name.slice(0, 2).toUpperCase()}
                 </div>
-                <div>
-                  <p className="font-semibold">{s.display_name}</p>
-                  <p className="text-xs text-muted-foreground">Crear o editar rutina</p>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-lg group-hover:text-primary transition-colors truncate">{s.display_name}</p>
+                  <p className="text-xs text-muted-foreground">Click para gestionar rutina</p>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       ) : (
-        <>
-          {isGroupMode ? (
-            <Badge variant="outline" className="border-primary/30 text-primary text-xs">
-              <Users2 className="h-3 w-3 mr-1" /> Modo Grupo
-            </Badge>
-          ) : (
-            <div className="flex items-end gap-4 flex-wrap">
-              <Card className="card-glass p-3 flex items-center gap-3 w-full sm:w-auto">
-                <CalendarClock className="h-5 w-5 text-primary flex-shrink-0" />
-                {daysUntilChange !== null ? (
-                  <p className="text-sm font-semibold">Días restantes para actualizar rutina: <span className="text-primary">{daysUntilChange}</span></p>
-                ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-[70vh]">
+          {/* Main Content Area */}
+          <div className="lg:col-span-8 space-y-6">
+            <Card className="card-premium overflow-hidden border-accent/20">
+              <CardHeader className="p-6 pb-2 border-b border-white/5 bg-accent/5">
+                <div className="flex items-center justify-between flex-wrap gap-4">
                   <div className="flex items-center gap-2">
-                    <p className="text-xs text-muted-foreground">Programar cambio en:</p>
-                    {[7, 14, 21, 30].map((d) => (
-                      <Button key={d} size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => handleSetNextChange(d)}>{d}d</Button>
-                    ))}
+                    <div className="p-2 bg-accent/10 rounded-lg text-accent">
+                      <Dumbbell className="h-5 w-5" />
+                    </div>
+                    <CardTitle className="text-lg">Configuración de Rutina</CardTitle>
                   </div>
-                )}
-              </Card>
-            </div>
-          )}
-
-          <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v })} className="space-y-6">
-        <TabsList className="grid grid-cols-2 bg-secondary/50 max-w-md w-full">
-          <TabsTrigger value="entrenamiento" className="text-xs sm:text-sm"><Dumbbell className="w-3.5 h-3.5 mr-2" />Entrenamiento</TabsTrigger>
-          <TabsTrigger value="alimentacion" className="text-xs sm:text-sm"><CalendarClock className="w-3.5 h-3.5 mr-2" />Alimentación</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="entrenamiento" className="space-y-6 mt-0">
-          {/* Day selector */}
-          <div className="grid grid-cols-7 gap-1 sm:gap-2">
-        {DAYS.map((day, i) => {
-          const count = exercises.filter((e) => e.day === day).length;
-          const dc = dayConfigs[day];
-          const isActive = selectedDay === day;
-          return (
-            <button
-              key={day}
-              onClick={() => { setSelectedDay(day); setSelectedIds(new Set()); }}
-              className={`relative flex flex-col items-center justify-center w-full h-14 sm:h-16 rounded-xl text-xs font-bold transition-all border
-                ${isActive
-                  ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/25"
-                  : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/40 hover:bg-secondary"
-                }`}
-            >
-              <span className="text-[11px] sm:text-xs">{DAY_SHORT[i]}</span>
-              {count > 0 && <span className={`text-[9px] mt-0.5 ${isActive ? "text-primary-foreground/80" : "text-primary"}`}>{count}</span>}
-              {dc?.body_part_1 && <span className={`text-[7px] mt-0.5 truncate max-w-[40px] ${isActive ? "text-primary-foreground/60" : "text-muted-foreground/60"}`}>{dc.body_part_1.slice(0, 4)}</span>}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Day body part config */}
-      <Card className="card-glass border-primary/20">
-        <CardContent className="p-4">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3 font-semibold">Grupo muscular del {selectedDay}</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs text-muted-foreground">Principal</Label>
-              <Select value={currentDayConfig.body_part_1 || "none"} onValueChange={(v) => handleSaveDayConfig("body_part_1", v)}>
-                <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— Ninguno —</SelectItem>
-                  {BODY_PARTS.map((bp) => <SelectItem key={bp} value={bp}>{bp}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Secundario <span className="text-muted-foreground/60">(opcional)</span></Label>
-              <Select value={currentDayConfig.body_part_2 || "none"} onValueChange={(v) => handleSaveDayConfig("body_part_2", v)}>
-                <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Secundario" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— Ninguno —</SelectItem>
-                  {BODY_PARTS.filter((bp) => bp !== currentDayConfig.body_part_1).map((bp) => (
-                    <SelectItem key={bp} value={bp}>{bp}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Form */}
-        <Card className="card-glass neon-border">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Plus className="h-5 w-5 text-primary" />
-              Nuevo Ejercicio — {selectedDay}
-              {combinedBodyPart && <Badge className="ml-2 bg-primary/20 text-primary border-0 text-xs">{combinedBodyPart}</Badge>}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Ejercicio</Label>
-              {availableExercises.length > 0 ? (
-                <Select value={form.name} onValueChange={(v) => setForm({ ...form, name: v })}>
-                  <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Seleccionar ejercicio" /></SelectTrigger>
-                  <SelectContent>
-                    {availableExercises.map((ex) => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  placeholder={currentDayConfig.body_part_1 ? "Escribir ejercicio manualmente" : "Primero configura el grupo muscular del día"}
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="bg-secondary/50 border-border"
-                  disabled={!currentDayConfig.body_part_1}
-                />
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground uppercase tracking-wide">Series</Label>
-                <Input type="number" placeholder="4" value={form.sets} onChange={(e) => setForm({ ...form, sets: e.target.value })} className="bg-secondary/50 border-border" />
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground uppercase tracking-wide">Reps</Label>
-                <Input
-                  type="number"
-                  placeholder={form.isToFailure ? "Al Fallo" : "10"}
-                  value={form.isToFailure || form.isPiramide ? "" : form.reps}
-                  onChange={(e) => setForm({ ...form, reps: e.target.value })}
-                  className="bg-secondary/50 border-border"
-                  disabled={form.isToFailure || form.isPiramide}
-                />
-              </div>
-            </div>
-            <div className="p-4 rounded-xl bg-secondary/30 border border-border space-y-3">
-              <Label className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Tipo de serie</Label>
-              <div className="flex items-center gap-3">
-                <Switch 
-                  checked={form.isToFailure} 
-                  onCheckedChange={(checked) => setForm({ 
-                    ...form, 
-                    isToFailure: checked, 
-                    reps: checked ? "" : form.reps,
-                    isDropset: checked ? false : form.isDropset,
-                    isPiramide: checked ? false : form.isPiramide
-                  })} 
-                />
-                <div>
-                  <Label className="text-sm font-medium cursor-pointer">Al Fallo</Label>
-                  <p className="text-xs text-muted-foreground">El alumno hará repeticiones hasta el fallo muscular</p>
+                  {!isGroupMode && selectedStudent && (
+                    <Badge variant="outline" className="badge-accent-tag">
+                      Alumno: {students.find(s => s.user_id === selectedStudent)?.display_name || "Cargando..."}
+                    </Badge>
+                  )}
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Switch 
-                  checked={form.isDropset} 
-                  onCheckedChange={(checked) => setForm({ 
-                    ...form, 
-                    isDropset: checked,
-                    isToFailure: checked ? false : form.isToFailure,
-                    isPiramide: checked ? false : form.isPiramide
-                  })} 
-                />
-                <div>
-                  <Label className="text-sm font-medium cursor-pointer">Drop Set</Label>
-                  <p className="text-xs text-muted-foreground">Reducir peso después de la serie y continuar</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Switch 
-                  checked={form.isPiramide} 
-                  onCheckedChange={(checked) => setForm({ 
-                    ...form, 
-                    isPiramide: checked, 
-                    pyramidReps: checked ? form.pyramidReps : "",
-                    isToFailure: checked ? false : form.isToFailure,
-                    isDropset: checked ? false : form.isDropset
-                  })} 
-                />
-                <div>
-                  <Label className="text-sm font-medium cursor-pointer">Pirámide</Label>
-                  <p className="text-xs text-muted-foreground">Aumentar peso y bajar repeticiones progresivamente</p>
-                </div>
-              </div>
-              {form.isPiramide && (
-                <div className="ml-11 mt-1">
-                  <Label className="text-xs text-muted-foreground uppercase tracking-wide">Repeticiones por serie (pirámide)</Label>
-                  <Input
-                    placeholder="Ej: 12-10-8-10-12"
-                    value={form.pyramidReps}
-                    onChange={(e) => setForm({ ...form, pyramidReps: e.target.value })}
-                    className="bg-secondary/50 border-border mt-1"
-                  />
-                  <p className="text-[10px] text-muted-foreground mt-1">Números separados por guiones. Ej: 10-8-6-8-10</p>
-                </div>
-              )}
-            </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v })} className="space-y-6">
+                  <TabsList className="grid grid-cols-2 bg-secondary/50 max-w-md w-full rounded-xl p-1">
+                    <TabsTrigger value="entrenamiento" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                      <Dumbbell className="w-4 h-4 mr-2" />Entrenamiento
+                    </TabsTrigger>
+                    <TabsTrigger value="alimentacion" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                      <CalendarClock className="w-4 h-4 mr-2" />Alimentación
+                    </TabsTrigger>
+                  </TabsList>
 
-            {/* VI SERIE toggle */}
-            {!isGroupMode && (
-              <div className="p-4 rounded-xl bg-accent/10 border border-accent/20 space-y-4">
-                <div className="flex items-center gap-3">
-                  <Switch checked={viSerieEnabled} onCheckedChange={(checked) => {
-                    setViSerieEnabled(checked);
-                    if (!checked) setViForm({ name: "", reps: "", isToFailure: false, isDropset: false });
-                  }} />
-                  <div>
-                    <Label className="text-sm font-semibold cursor-pointer text-accent">VI SERIE</Label>
-                    <p className="text-xs text-muted-foreground">Agregar un ejercicio complementario vinculado</p>
-                  </div>
-                </div>
-
-                {viSerieEnabled && (
-                  <div className="space-y-3 pl-2 border-l-2 border-accent/40 ml-2">
-                    <p className="text-xs font-semibold text-accent uppercase tracking-wide">Ejercicio VI Serie</p>
-                    <div>
-                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Ejercicio</Label>
-                      {availableExercises.length > 0 ? (
-                        <Select value={viForm.name} onValueChange={(v) => setViForm({ ...viForm, name: v })}>
-                          <SelectTrigger className="bg-secondary/50 border-border"><SelectValue placeholder="Seleccionar ejercicio" /></SelectTrigger>
-                          <SelectContent>
-                            {availableExercises.map((ex) => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Input placeholder="Escribir ejercicio" value={viForm.name} onChange={(e) => setViForm({ ...viForm, name: e.target.value })} className="bg-secondary/50 border-border" />
-                      )}
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground uppercase tracking-wide">Reps</Label>
-                      <Input type="number" placeholder={viForm.isToFailure ? "Al Fallo" : "10"} value={viForm.isToFailure ? "" : viForm.reps} onChange={(e) => setViForm({ ...viForm, reps: e.target.value })} className="bg-secondary/50 border-border" disabled={viForm.isToFailure} />
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Switch checked={viForm.isToFailure} onCheckedChange={(checked) => setViForm({ ...viForm, isToFailure: checked, reps: checked ? "" : viForm.reps })} />
-                      <Label className="text-sm cursor-pointer">Al Fallo</Label>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Switch checked={viForm.isDropset} onCheckedChange={(checked) => setViForm({ ...viForm, isDropset: checked })} />
-                      <Label className="text-sm cursor-pointer">Drop Set</Label>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <Button onClick={handleAdd} className="w-full" disabled={!currentDayConfig.body_part_1}>
-              <Plus className="h-4 w-4 mr-2" /> Agregar a {selectedDay}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Exercise List */}
-        <Card className="card-glass">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Dumbbell className="h-5 w-5 text-primary" />
-                {selectedDay} — {isGroupMode ? (groupName || "Grupo") : (student?.display_name || "—")}
-                {combinedBodyPart && <Badge className="ml-2 bg-primary/15 text-primary border-0 text-[10px]">{combinedBodyPart}</Badge>}
-              </CardTitle>
-              {selectedIds.size > 0 && (
-                <Button variant="destructive" size="sm" onClick={() => setShowDeleteConfirm(true)} disabled={deleting}>
-                  <Trash2 className="h-4 w-4 mr-1" /> Eliminar ({selectedIds.size})
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {loadingExercises ? (
-              <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-            ) : parentExercises.length === 0 ? (
-              <p className="text-muted-foreground text-sm text-center py-8">No hay ejercicios para este día</p>
-            ) : (
-              <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-                {parentExercises.map((ex) => {
-                  const child = childByParent.get(ex.id);
-                  return (
-                    <div key={ex.id}>
-                      <div className="flex items-center gap-2 p-3 rounded-lg bg-secondary/30">
-                        <Checkbox checked={selectedIds.has(ex.id)} onCheckedChange={() => toggleSelect(ex.id)} className="h-4 w-4" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm">{ex.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {ex.sets}×{ex.is_piramide && ex.pyramid_reps
-                              ? <span className="font-semibold text-accent">{ex.pyramid_reps}</span>
-                              : ex.is_to_failure
-                                ? <span className="font-semibold text-destructive">Al Fallo</span>
-                                : ex.reps}
-                            {ex.is_dropset && <span className="ml-1 font-semibold text-accent"> · Drop Set</span>}
-                            {ex.is_piramide && <span className="ml-1 font-semibold text-primary"> · Pirámide</span>}
-                            {(ex.exercise_type && ex.exercise_type !== "NORMAL") && (
-                              <Badge className="ml-2 bg-primary/10 text-primary border-0 text-[9px] py-0">{EXERCISE_TYPES.find(t => t.value === ex.exercise_type)?.label || ex.exercise_type}</Badge>
+                  <TabsContent value="entrenamiento" className="space-y-8 mt-0">
+                    {/* Day selector */}
+                    <div className="grid grid-cols-7 gap-2">
+                      {DAYS.map((day, i) => {
+                        const count = exercises.filter((e) => e.day === day).length;
+                        const dc = dayConfigs[day];
+                        const isActive = selectedDay === day;
+                        return (
+                          <button
+                            key={day}
+                            onClick={() => { setSelectedDay(day); setSelectedIds(new Set()); }}
+                            className={cn(
+                              "relative flex flex-col items-center justify-center w-full h-16 rounded-2xl text-xs font-bold transition-all border-2",
+                              isActive
+                                ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/25 scale-105 z-10"
+                                : "bg-card/40 text-muted-foreground border-border/50 hover:border-primary/40 hover:bg-card/60"
                             )}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {ex.completed && <Badge className="bg-primary/20 text-primary text-[10px]">✓</Badge>}
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemove(ex.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      {child && (
-                        <div className="ml-6 mt-1 flex items-center gap-2 p-3 rounded-lg bg-accent/10 border border-accent/20">
-                          <div className="w-1 h-8 bg-accent rounded-full flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm text-accent">{child.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {child.sets}×{child.is_to_failure
-                                ? <span className="font-semibold text-destructive">Al Fallo</span>
-                                : child.reps}
-                              {child.is_dropset && <span className="ml-1 font-semibold text-accent"> · Drop Set</span>}
-                            </p>
-                          </div>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemove(child.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
+                          >
+                            <span className="text-[11px] sm:text-xs">{DAY_SHORT[i]}</span>
+                            {count > 0 && <span className={cn("text-[10px] mt-0.5", isActive ? "text-primary-foreground" : "text-primary")}>{count}</span>}
+                            {dc?.body_part_1 && (
+                              <span className={cn(
+                                "text-[8px] mt-0.5 truncate max-w-[45px] uppercase tracking-tighter opacity-70",
+                                isActive ? "text-primary-foreground" : "text-muted-foreground"
+                              )}>
+                                {dc.body_part_1.slice(0, 5)}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-      </TabsContent>
 
-      <TabsContent value="alimentacion" className="mt-0">
-        {(selectedStudent || isGroupMode) ? (
-          <MealsTab studentId={isGroupMode ? urlGroupId! : selectedStudent} nutritionLevel={nutritionLevel} />
-        ) : (
-          <p className="text-muted-foreground text-sm text-center py-8">Selecciona un alumno o grupo primero</p>
-        )}
-      </TabsContent>
-      </Tabs>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Left: MUSCULAR CONFIG & FORM */}
+                      <div className="space-y-6">
+                        <Card className="card-premium border-primary/20 bg-primary/5">
+                          <CardContent className="p-4 space-y-4">
+                            <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                              Músculos {selectedDay}
+                            </p>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground ml-1">Principal</Label>
+                                <Select value={currentDayConfig.body_part_1 || "none"} onValueChange={(v) => handleSaveDayConfig("body_part_1", v)}>
+                                  <SelectTrigger className="input-premium py-1.5 h-10 border-border/40"><SelectValue placeholder="Primario" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">— Ninguno —</SelectItem>
+                                    {BODY_PARTS.map((bp) => <SelectItem key={bp} value={bp}>{bp}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground ml-1">Secundario</Label>
+                                <Select value={currentDayConfig.body_part_2 || "none"} onValueChange={(v) => handleSaveDayConfig("body_part_2", v)}>
+                                  <SelectTrigger className="input-premium py-1.5 h-10 border-border/40"><SelectValue placeholder="Secundario" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">— Ninguno —</SelectItem>
+                                    {BODY_PARTS.filter((bp) => bp !== currentDayConfig.body_part_1).map((bp) => (
+                                      <SelectItem key={bp} value={bp}>{bp}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
 
+                        <Card className="card-premium border-primary/20">
+                          <CardHeader className="p-5 pb-2">
+                            <CardTitle className="text-base flex items-center gap-2">
+                              <Users className="h-6 w-6 text-primary" />
+                              Nuevo Ejercicio
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-5 pt-0 space-y-4">
+                            <div className="space-y-1.5">
+                              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground ml-1">Ejercicio</Label>
+                              {availableExercises.length > 0 ? (
+                                <Select value={form.name} onValueChange={(v) => setForm({ ...form, name: v })}>
+                                  <SelectTrigger className="input-premium h-11 border-border/40"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                                  <SelectContent>
+                                    {availableExercises.map((ex) => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Input
+                                  placeholder={currentDayConfig.body_part_1 ? "Escribir nombre..." : "Configura grupo muscular"}
+                                  value={form.name}
+                                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                                  className="input-premium h-11 border-border/40"
+                                  disabled={!currentDayConfig.body_part_1}
+                                />
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground ml-1">Series</Label>
+                                <Input type="number" placeholder="4" value={form.sets} onChange={(e) => setForm({ ...form, sets: e.target.value })} className="input-premium h-11 border-border/40" />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-[10px] uppercase tracking-wider text-muted-foreground ml-1">Repeticiones</Label>
+                                <Input
+                                  type={form.isToFailure ? "text" : "number"}
+                                  placeholder={form.isToFailure ? "Al Fallo" : "12"}
+                                  value={form.isToFailure || form.isPiramide ? "" : form.reps}
+                                  onChange={(e) => setForm({ ...form, reps: e.target.value })}
+                                  className="input-premium h-11 border-border/40"
+                                  disabled={form.isToFailure || form.isPiramide}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="p-4 rounded-2xl bg-secondary/20 border border-border/40 space-y-4">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Tipo de serie</Label>
+                              </div>
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-colors">
+                                  <div className="flex flex-col">
+                                    <span className="text-sm font-semibold">Al Fallo</span>
+                                    <span className="text-[10px] text-muted-foreground">Esfuerzo máximo</span>
+                                  </div>
+                                  <Switch 
+                                    checked={form.isToFailure} 
+                                    onCheckedChange={(checked) => setForm({ 
+                                      ...form, 
+                                      isToFailure: checked, 
+                                      reps: checked ? "" : form.reps,
+                                      isDropset: checked ? false : form.isDropset,
+                                      isPiramide: checked ? false : form.isPiramide
+                                    })} 
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-colors">
+                                  <div className="flex flex-col">
+                                    <span className="text-sm font-semibold">Drop Set</span>
+                                    <span className="text-[10px] text-muted-foreground">Descenso de peso</span>
+                                  </div>
+                                  <Switch 
+                                    checked={form.isDropset} 
+                                    onCheckedChange={(checked) => setForm({ 
+                                      ...form, 
+                                      isDropset: checked,
+                                      isToFailure: checked ? false : form.isToFailure,
+                                      isPiramide: checked ? false : form.isPiramide
+                                    })} 
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-colors">
+                                  <div className="flex flex-col">
+                                    <span className="text-sm font-semibold">Pirámide</span>
+                                    <span className="text-[10px] text-muted-foreground">Carga progresiva</span>
+                                  </div>
+                                  <Switch 
+                                    checked={form.isPiramide} 
+                                    onCheckedChange={(checked) => setForm({ 
+                                      ...form, 
+                                      isPiramide: checked, 
+                                      pyramidReps: checked ? form.pyramidReps : "",
+                                      isToFailure: checked ? false : form.isToFailure,
+                                      isDropset: checked ? false : form.isDropset
+                                    })} 
+                                  />
+                                </div>
+                              </div>
+                              {form.isPiramide && (
+                                <div className="pt-2 animate-in slide-in-from-top-2">
+                                  <Input
+                                    placeholder="Reps: 12-10-8-10-12"
+                                    value={form.pyramidReps}
+                                    onChange={(e) => setForm({ ...form, pyramidReps: e.target.value })}
+                                    className="input-premium text-xs h-9"
+                                  />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* VI SERIE Section */}
+                            {!isGroupMode && (
+                              <div className="p-4 rounded-2xl bg-accent/5 border border-accent/20 space-y-4">
+                                <div className="flex items-center justify-between p-2">
+                                  <div className="flex flex-col">
+                                    <span className="text-sm font-bold text-accent tracking-tight">VI SERIE</span>
+                                    <span className="text-[10px] text-muted-foreground">Bi-serie vinculada</span>
+                                  </div>
+                                  <Switch checked={viSerieEnabled} onCheckedChange={(checked) => {
+                                    setViSerieEnabled(checked);
+                                    if (!checked) setViForm({ name: "", reps: "", isToFailure: false, isDropset: false });
+                                  }} />
+                                </div>
+
+                                {viSerieEnabled && (
+                                  <div className="space-y-4 pl-3 border-l-2 border-accent/30 animate-in slide-in-from-left-2">
+                                    <div className="space-y-1">
+                                      <Label className="text-[10px] uppercase text-muted-foreground">Ejercicio Complementario</Label>
+                                      {availableExercises.length > 0 ? (
+                                        <Select value={viForm.name} onValueChange={(v) => setViForm({ ...viForm, name: v })}>
+                                          <SelectTrigger className="input-premium h-10 border-accent/20"><SelectValue placeholder="Ejercicio..." /></SelectTrigger>
+                                          <SelectContent>
+                                            {availableExercises.map((ex) => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}
+                                          </SelectContent>
+                                        </Select>
+                                      ) : (
+                                        <Input placeholder="Escribir..." value={viForm.name} onChange={(e) => setViForm({ ...viForm, name: e.target.value })} className="input-premium h-10 border-accent/20" />
+                                      )}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase text-muted-foreground">Reps</Label>
+                                        <Input type="number" value={viForm.reps} onChange={(e) => setViForm({ ...viForm, reps: e.target.value })} className="input-premium h-10 border-accent/20" disabled={viForm.isToFailure} />
+                                      </div>
+                                      <div className="flex flex-col gap-1.5 justify-end pb-1 px-1">
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-[11px] font-medium">Al Fallo</span>
+                                          <Switch checked={viForm.isToFailure} onCheckedChange={(checked) => setViForm({ ...viForm, isToFailure: checked, reps: checked ? "" : viForm.reps })} className="scale-75 origin-right" />
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-[11px] font-medium">Drop Set</span>
+                                          <Switch checked={viForm.isDropset} onCheckedChange={(checked) => setViForm({ ...viForm, isDropset: checked })} className="scale-75 origin-right" />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            <Button onClick={handleAdd} className="btn-premium-primary w-full h-12 shadow-xl" disabled={!currentDayConfig.body_part_1}>
+                              <Plus className="h-5 w-5 mr-2" /> Agregar Ejercicio
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Right: EXERCISE LIST */}
+                      <div className="space-y-6">
+                        <Card className="card-premium overflow-hidden border-primary/20">
+                          <CardHeader className="p-5 pb-3 border-b border-white/5 bg-primary/5">
+                            <div className="flex items-center justify-between gap-4">
+                              <CardTitle className="text-base flex items-center gap-2">
+                                <div className="p-1.5 bg-primary/10 rounded-md">
+                                  <Dumbbell className="h-4 w-4 text-primary" />
+                                </div>
+                                {selectedDay}
+                                {combinedBodyPart && <Badge variant="outline" className="ml-1 border-primary/30 text-[9px] uppercase">{combinedBodyPart}</Badge>}
+                              </CardTitle>
+                              {selectedIds.size > 0 && (
+                                <Button 
+                                  variant="destructive" size="sm" 
+                                  className="h-8 px-3 rounded-lg text-xs" 
+                                  onClick={() => setShowDeleteConfirm(true)} 
+                                  disabled={deleting}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Borrar ({selectedIds.size})
+                                </Button>
+                              )}
+                            </div>
+                          </CardHeader>
+                          <CardContent className="p-4 overflow-y-auto max-h-[700px] hide-scrollbar">
+                            {loadingExercises ? (
+                              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
+                                <p className="text-xs text-muted-foreground font-medium animate-pulse">Sincronizando sesión...</p>
+                              </div>
+                            ) : parentExercises.length === 0 ? (
+                              <div className="flex flex-col items-center justify-center py-20 text-center space-y-3 opacity-40">
+                                <Dumbbell className="h-12 w-12" />
+                                <p className="text-sm font-medium">No hay ejercicios cargados</p>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 gap-3">
+                                {parentExercises.map((ex) => {
+                                  const child = childByParent.get(ex.id);
+                                  const isSelected = selectedIds.has(ex.id);
+                                  return (
+                                    <div key={ex.id} className="group/item">
+                                      <div className={cn(
+                                        "flex items-center gap-3 p-3.5 rounded-2xl transition-all duration-300 border",
+                                        isSelected 
+                                          ? "bg-primary/10 border-primary/40 shadow-inner" 
+                                          : "bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-white/10"
+                                      )}>
+                                        <Checkbox 
+                                          checked={isSelected} 
+                                          onCheckedChange={() => toggleSelect(ex.id)} 
+                                          className="h-5 w-5 rounded-md border-white/20 data-[state=checked]:bg-primary data-[state=checked]:border-primary" 
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                          <p className="font-bold text-sm tracking-tight truncate">{ex.name}</p>
+                                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[11px] text-muted-foreground font-medium">
+                                            <span className="text-primary/90">{ex.sets} SERIES</span>
+                                            <span className="opacity-40">·</span>
+                                            <span className={cn(ex.is_to_failure || ex.is_piramide ? "text-destructive" : "text-white/80")}>
+                                              {ex.is_piramide && ex.pyramid_reps ? ex.pyramid_reps : ex.is_to_failure ? "AL FALLO" : `${ex.reps} REPS`}
+                                            </span>
+                                            {ex.is_dropset && (
+                                              <>
+                                                <span className="opacity-40">·</span>
+                                                <Badge className="badge-accent-tag py-0 h-4 text-[8px]">DROP SET</Badge>
+                                              </>
+                                            )}
+                                            {ex.is_piramide && (
+                                              <>
+                                                <span className="opacity-40">·</span>
+                                                <Badge className="badge-info-tag py-0 h-4 text-[8px]">PIRÁMIDE</Badge>
+                                              </>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <Button 
+                                          variant="ghost" size="icon" 
+                                          className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover/item:opacity-100 transition-opacity"
+                                          onClick={() => handleRemove(ex.id)}
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                      
+                                      {child && (
+                                        <div className="ml-6 mt-1 flex items-center gap-3 p-3 rounded-2xl bg-accent/5 border border-accent/10 shadow-sm animate-in slide-in-from-left-2">
+                                          <div className="w-1.5 h-8 bg-accent/40 rounded-full flex-shrink-0" />
+                                          <div className="flex-1 min-w-0">
+                                            <p className="font-bold text-xs text-accent uppercase tracking-wide truncate">{child.name}</p>
+                                            <div className="flex items-center gap-2 mt-0.5 text-[10px] font-bold">
+                                              <span className="text-accent/80">{child.sets} SETS</span>
+                                              <span className="text-muted-foreground/40">·</span>
+                                              <span className={child.is_to_failure ? "text-destructive" : "text-muted-foreground"}>
+                                                {child.is_to_failure ? "AL FALLO" : `${child.reps} REPS`}
+                                              </span>
+                                              {child.is_dropset && <Badge className="bg-accent/20 text-accent border-0 h-3 text-[7px] px-1 ml-1">DS</Badge>}
+                                            </div>
+                                          </div>
+                                          <Button 
+                                            variant="ghost" size="icon" 
+                                            className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-40 hover:opacity-100 transition-opacity" 
+                                            onClick={() => handleRemove(child.id)}
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="alimentacion" className="mt-0">
+                    {(selectedStudent || isGroupMode) ? (
+                      <MealsTab studentId={isGroupMode ? urlGroupId! : selectedStudent} nutritionLevel={nutritionLevel} />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 opacity-40">
+                        <Users className="h-16 w-16" />
+                        <p className="text-lg font-medium">Selecciona un alumno o grupo primero</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sidemenu - Actions */}
+          <div className="lg:col-span-4 space-y-6">
+            <Card className="card-premium border-primary/20 bg-primary/5">
+              <CardHeader className="p-6 pb-2 border-b border-primary/10">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                    <CalendarClock className="h-5 w-5" />
+                  </div>
+                  <CardTitle className="text-base uppercase tracking-tighter">Control de Ciclo</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                {!isGroupMode && (
+                  <div className="space-y-4">
+                    <p className="text-xs uppercase tracking-widest text-muted-foreground font-bold flex items-center gap-2">
+                       Próxima Actualización
+                    </p>
+                    {daysUntilChange !== null ? (
+                      <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20 text-center">
+                        <p className="text-3xl font-display font-bold text-primary">{daysUntilChange}</p>
+                        <p className="text-[10px] uppercase font-bold text-primary/70 mt-1">Días Restantes</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-4 gap-2">
+                        {[7, 14, 21, 30].map((d) => (
+                          <Button 
+                            key={d} size="sm" variant="outline" 
+                            className="h-10 rounded-lg text-xs font-bold border-primary/20 hover:bg-primary hover:text-white transition-all" 
+                            onClick={() => handleSetNextChange(d)}
+                          >
+                            {d}D
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <div className="space-y-3">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Log de Cambios</Label>
+                  <div className="p-4 rounded-2xl bg-black/20 border border-white/5 max-h-[150px] overflow-y-auto text-[10px] font-mono leading-relaxed hide-scrollbar">
+                    {/* Log entries would go here */}
+                    <p className="opacity-40 italic">Iniciando seguimiento de cambios...</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* AlertDialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <AlertDialogContent>
+        <AlertDialogContent className="card-premium border-destructive/20 max-w-sm rounded-[2rem]">
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar {selectedIds.size} ejercicio(s)?</AlertDialogTitle>
-            <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
+            <AlertDialogTitle className="text-xl font-bold">¿Confirmar Eliminación?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              Se eliminarán <span className="font-bold text-destructive">{selectedIds.size}</span> registros permanentemente.
+            </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBulkDelete} disabled={deleting}>
-              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel className="rounded-xl border-none hover:bg-white/5">Cerrar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleBulkDelete} 
+              disabled={deleting}
+              className="bg-destructive hover:bg-destructive/80 text-white rounded-xl shadow-lg shadow-destructive/20"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-2" />}
               Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-        </>
-      )}
     </div>
   );
 }

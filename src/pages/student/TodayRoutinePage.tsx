@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -288,14 +289,21 @@ export default function TodayRoutinePage() {
   });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Mi Rutina Hoy</h1>
-        <div className="flex items-center gap-2 mt-1 flex-wrap">
-          <Badge variant="outline" className="border-primary/40 text-primary text-xs font-bold">{dayHeader}</Badge>
-          <span className="text-sm text-muted-foreground">{completedCount}/{exercises.length} completados</span>
+    <div className="container-responsive space-y-8 pb-24">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-display font-bold tracking-tight neon-text">Mi Rutina Hoy</h1>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Badge variant="outline" className="badge-info-tag text-[10px] font-bold py-1 px-3">
+            {dayHeader}
+          </Badge>
+          <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
+            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              {completedCount}/{exercises.length} <span className="opacity-60">Ejercicios</span>
+            </span>
+          </div>
           {groupName && (
-            <Badge variant="secondary" className="bg-accent/10 border-accent/20 text-accent text-xs">
+            <Badge variant="outline" className="badge-accent-tag text-[10px]">
               Grupo: {groupName}
             </Badge>
           )}
@@ -303,20 +311,20 @@ export default function TodayRoutinePage() {
       </div>
 
       {pendingSurveys.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {pendingSurveys.map(asst => (
-            <Card key={asst.id} className="border-primary/50 bg-primary/5 shadow-md shadow-primary/10 transition-all hover:scale-[1.01] cursor-pointer" onClick={() => setActiveSurvey(asst)}>
-              <CardContent className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 bg-primary/20 rounded-full flex items-center justify-center shrink-0">
-                    <ClipboardList className="h-5 w-5 text-primary" />
+            <Card key={asst.id} className="card-premium border-primary/30 bg-primary/5 hover:border-primary/60 cursor-pointer overflow-hidden group" onClick={() => setActiveSurvey(asst)}>
+              <CardContent className="p-5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 bg-primary/20 rounded-2xl flex items-center justify-center shrink-0 border border-primary/20 group-hover:scale-110 transition-transform">
+                    <ClipboardList className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-base neon-text">{asst.survey?.title}</h3>
-                    <p className="text-xs text-muted-foreground">Tienes una encuesta pendiente de tu entrenador</p>
+                    <h3 className="font-bold text-lg leading-tight uppercase tracking-tight">{asst.survey?.title}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">Encuesta pendiente de tu entrenador</p>
                   </div>
                 </div>
-                <Button size="sm" onClick={(e) => { e.stopPropagation(); setActiveSurvey(asst); }}>
+                <Button className="btn-premium-primary h-10 px-6 shadow-primary/20" onClick={(e) => { e.stopPropagation(); setActiveSurvey(asst); }}>
                   Responder
                 </Button>
               </CardContent>
@@ -328,11 +336,16 @@ export default function TodayRoutinePage() {
       <RestTimer />
 
       {allDone && (
-        <Card className="card-glass neon-border neon-glow">
-          <CardContent className="p-6 text-center">
-            <Flame className="h-12 w-12 text-primary mx-auto mb-2 animate-pulse" />
-            <h2 className="text-xl font-display font-bold neon-text">¡Rutina Completada!</h2>
-            <p className="text-sm text-muted-foreground mt-1">Excelente trabajo hoy 💪</p>
+        <Card className="card-premium border-primary/40 bg-primary/10 neon-glow py-8">
+          <CardContent className="p-0 text-center space-y-4">
+            <div className="relative inline-block">
+              <div className="absolute inset-0 bg-primary blur-2xl opacity-20 animate-pulse" />
+              <Flame className="h-16 w-16 text-primary mx-auto relative animate-bounce" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-2xl font-display font-bold neon-text uppercase tracking-tighter">¡Entrenamiento Finalizado!</h2>
+              <p className="text-sm text-primary/80 font-medium">Has superado todos los desafíos de hoy. ¡A seguir así! 🔥</p>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -348,71 +361,124 @@ export default function TodayRoutinePage() {
       ) : (
         <div className="space-y-5">
           {Object.entries(grouped).map(([bodyPart, exs]) => (
-            <div key={bodyPart}>
-              <Badge className="mb-2 bg-primary/20 text-primary border-0 text-xs">{bodyPart}</Badge>
-              <div className="space-y-3">
+            <div key={bodyPart} className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+                <Badge variant="outline" className="badge-info-tag uppercase tracking-widest text-[9px] px-4 py-1">
+                  {bodyPart}
+                </Badge>
+                <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {exs.map((exercise) => (
                     <Card
                       key={exercise.id}
-                      className={`card-glass transition-all duration-300 overflow-hidden ${exercise.completed ? "neon-border opacity-70" : "hover:neon-border"}`}
+                      className={cn(
+                        "card-premium transition-all duration-300 overflow-hidden flex flex-col",
+                        exercise.completed ? "border-primary/40 opacity-80" : "hover:border-primary/30"
+                      )}
                       id={`ex-${exercise.id}`}
                     >
-                      <CardContent className="p-0 flex flex-col">
+                      <CardContent className="p-0 flex flex-col h-full">
                         {/* Header */}
-                        <div className="bg-secondary/40 p-4 flex items-center justify-between border-b border-border">
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                              <Dumbbell className={`h-4 w-4 ${exercise.completed ? "text-primary" : "text-muted-foreground"}`} />
+                        <div className="bg-white/5 p-5 flex items-center justify-between border-b border-white/5">
+                          <div className="flex items-center gap-4 min-w-0">
+                            <div className={cn(
+                              "h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 transition-colors",
+                              exercise.completed ? "bg-primary/20 text-primary" : "bg-white/5 text-muted-foreground"
+                            )}>
+                              <Dumbbell className="h-5 w-5" />
                             </div>
                             <div className="min-w-0">
-                              <h3 className={`font-semibold cursor-pointer ${exercise.completed ? "text-primary/70" : ""}`} onClick={() => setLogExercise(exercise)}>
+                              <h3 className={cn(
+                                "font-bold text-base leading-tight truncate cursor-pointer hover:text-primary transition-colors",
+                                exercise.completed && "text-primary/80"
+                              )} onClick={() => setLogExercise(exercise)}>
                                 {exercise.name}
                               </h3>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                {exercise.is_to_failure && <span className="text-amber-400 font-bold text-[9px] bg-amber-400/10 px-1.5 py-0.5 rounded uppercase">Al fallo 🔥</span>}
-                                {exercise.completed && <Badge className="bg-primary/10 text-primary border-primary/20 text-[9px]">Completado</Badge>}
+                              <div className="flex items-center gap-2 mt-1">
+                                {exercise.is_to_failure && (
+                                  <span className="text-[9px] font-black bg-destructive/10 text-destructive border border-destructive/20 px-2 py-0.5 rounded uppercase tracking-tighter">
+                                    Al fallo 🔥
+                                  </span>
+                                )}
+                                {exercise.completed && (
+                                  <span className="text-[9px] font-black bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded uppercase tracking-tighter">
+                                    Listo
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-2">
                             <ExerciseVideoButton exerciseName={exercise.name} />
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => setLogExercise(exercise)} title="Registrar desempeño">
-                              <ClipboardEdit className="h-4 w-4" />
+                            <Button 
+                              size="icon" variant="ghost" 
+                              className="h-10 w-10 rounded-xl hover:bg-primary/10 hover:text-primary text-muted-foreground transition-all" 
+                              onClick={() => setLogExercise(exercise)}
+                            >
+                              <ClipboardEdit className="h-5 w-5" />
                             </Button>
                           </div>
                         </div>
 
                         {/* Sets Table */}
-                        <div className="p-4 space-y-3">
-                          {/* Headers */}
-                          <div className="grid grid-cols-[30px_1fr_1fr_40px] gap-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                            <div className="text-center">#</div>
-                            <div className="text-center">Peso (kg)</div>
-                            <div className="text-center">Reps</div>
-                            <div className="text-center">✓</div>
+                        <div className="p-5 flex-1">
+                          <div className="grid grid-cols-[40px_1fr_1fr_50px] gap-3 px-2 mb-3 text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-50">
+                            <div className="text-center">SET</div>
+                            <div className="text-center">KG</div>
+                            <div className="text-center">REPS</div>
+                            <div className="text-center">OK</div>
                           </div>
 
-                          {/* Rows */}
-                          <div className="space-y-2">
+                          <div className="space-y-3">
                             {exerciseSets[exercise.id]?.map((set, idx) => (
-                              <div key={set.id} className={`grid grid-cols-[30px_1fr_1fr_40px] items-center gap-2 px-2 py-1.5 rounded-lg transition-colors ${set.completed ? "bg-primary/5 border border-primary/20" : "bg-secondary/30 border border-transparent"}`}>
-                                <div className="text-xs font-bold text-center text-muted-foreground">{idx + 1}</div>
+                              <div 
+                                key={set.id} 
+                                className={cn(
+                                  "grid grid-cols-[40px_1fr_1fr_50px] items-center gap-3 p-1.5 rounded-2xl transition-all duration-300 border",
+                                  set.completed 
+                                    ? "bg-primary/5 border-primary/30" 
+                                    : "bg-white/5 border-white/5 hover:bg-white/10"
+                                )}
+                              >
+                                <div className="text-xs font-black text-center text-muted-foreground/60">{idx + 1}</div>
                                 <div>
-                                  <Input type="number" step="0.5" className={`h-8 w-full text-center text-xs px-1 ${set.completed ? "opacity-70 bg-transparent border-transparent" : "bg-background"}`} value={set.weight} onChange={(e) => handleSetChange(exercise.id, set.id, "weight", e.target.value)} placeholder="-" />
+                                  <Input 
+                                    type="number" step="0.5" 
+                                    className="input-premium h-10 w-full text-center text-sm font-bold border-none bg-transparent hover:bg-white/5 focus:bg-white/10" 
+                                    value={set.weight} 
+                                    onChange={(e) => handleSetChange(exercise.id, set.id, "weight", e.target.value)} 
+                                    placeholder="-" 
+                                  />
                                 </div>
                                 <div>
-                                  <Input type="number" className={`h-8 w-full text-center text-xs px-1 ${set.completed ? "opacity-70 bg-transparent border-transparent" : "bg-background"}`} value={set.reps} onChange={(e) => handleSetChange(exercise.id, set.id, "reps", e.target.value)} placeholder="-" />
+                                  <Input 
+                                    type="number" 
+                                    className="input-premium h-10 w-full text-center text-sm font-bold border-none bg-transparent hover:bg-white/5 focus:bg-white/10" 
+                                    value={set.reps} 
+                                    onChange={(e) => handleSetChange(exercise.id, set.id, "reps", e.target.value)} 
+                                    placeholder="-" 
+                                  />
                                 </div>
                                 <div className="flex justify-center">
-                                  <Checkbox checked={set.completed} onCheckedChange={(c) => handleSetComplete(exercise.id, set.id, !!c)} className="h-6 w-6 rounded-md data-[state=checked]:bg-primary data-[state=checked]:border-primary" />
+                                  <Checkbox 
+                                    checked={set.completed} 
+                                    onCheckedChange={(c) => handleSetComplete(exercise.id, set.id, !!c)} 
+                                    className="h-7 w-7 rounded-lg data-[state=checked]:bg-primary data-[state=checked]:border-primary transition-transform active:scale-90" 
+                                  />
                                 </div>
                               </div>
                             ))}
                           </div>
 
-                          <div className="pt-2 flex justify-center">
-                            <Button variant="ghost" size="sm" className="h-8 text-[11px] text-muted-foreground hover:text-primary hover:bg-primary/5 gap-1.5 rounded-full px-4" onClick={() => handleAddSet(exercise.id)}>
-                              <Plus className="h-3 w-3" /> Añadir serie
+                          <div className="mt-6 flex justify-center">
+                            <Button 
+                              variant="ghost" size="sm" 
+                              className="btn-premium-outline h-10 px-6 rounded-full text-xs gap-2 border-dashed border-muted-foreground/30 text-muted-foreground hover:text-primary hover:border-primary hover:border-solid transition-all" 
+                              onClick={() => handleAddSet(exercise.id)}
+                            >
+                              <Plus className="h-4 w-4" /> Añadir serie
                             </Button>
                           </div>
                         </div>

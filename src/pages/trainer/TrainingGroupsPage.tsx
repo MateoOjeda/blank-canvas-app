@@ -14,7 +14,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Users2, Loader2, Dumbbell, UserPlus, X, Eye, Edit3 } from "lucide-react";
+import { Plus, Trash2, Users, Loader2, Dumbbell, UserPlus, X, Eye, Edit3 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { BODY_PARTS, EXERCISES_BY_BODY_PART, type BodyPart } from "@/lib/exercisesByBodyPart";
@@ -175,12 +175,12 @@ export default function TrainingGroupsPage() {
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Mis Grupos</h2>
           {groups.length === 0 ? (
-            <Card className="card-glass"><CardContent className="p-6 text-center"><Users2 className="h-8 w-8 mx-auto text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground">Sin grupos creados</p></CardContent></Card>
+            <Card className="card-glass"><CardContent className="p-6 text-center"><Users className="h-8 w-8 mx-auto text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground">Sin grupos creados</p></CardContent></Card>
           ) : groups.map((g) => (
             <Card key={g.id} className={`card-glass cursor-pointer transition-all duration-300 ${selectedGroupId === g.id ? "neon-border" : "hover:neon-border"}`} onClick={() => setSelectedGroupId(g.id)}>
               <CardContent className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center"><Users2 className="h-4 w-4 text-primary" /></div>
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center"><Users className="h-4 w-4 text-primary" /></div>
                   <span className="font-medium text-sm">{g.name}</span>
                 </div>
                 <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteTarget(g); }}><Trash2 className="h-3.5 w-3.5" /></Button>
@@ -198,7 +198,7 @@ export default function TrainingGroupsPage() {
                 <Card className="card-glass">
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg flex items-center gap-2"><Users2 className="h-5 w-5 text-primary" />Miembros de "{selectedGroup.name}"</CardTitle>
+                      <CardTitle className="text-lg flex items-center gap-2"><Users className="h-5 w-5 text-primary" />Miembros de "{selectedGroup.name}"</CardTitle>
                       <Button size="sm" variant="outline" className="gap-1" onClick={() => setShowAddMembers(!showAddMembers)}>
                         {showAddMembers ? <X className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
                         {showAddMembers ? "Cerrar" : "Agregar"}
