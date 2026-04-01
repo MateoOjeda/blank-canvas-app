@@ -114,7 +114,7 @@ export default function StudentFeedPage() {
     <div className="container-responsive space-y-8 pb-24">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-display font-bold tracking-tight neon-text uppercase">Novedades</h1>
+          <h1 className="text-2xl font-display font-bold tracking-tight neon-text uppercase">Novedades</h1>
           <p className="text-sm text-muted-foreground font-medium">
             Entérate de los últimos cambios de tu entrenador.
           </p>

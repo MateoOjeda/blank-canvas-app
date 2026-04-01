@@ -5,11 +5,12 @@ import { fetchStudentProfile, type StudentProfile } from "@/services/alumnos";
 import { updatePlanAssignment } from "@/services/planes";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchArchivedRoutines, fetchRoutineExercises, type Routine } from "@/services/routineManager";
+import { fetchStudentSurveyResults } from "@/services/surveys";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Dumbbell, CheckCircle, Apple, Loader2, Sparkles, Pencil, Archive, Users } from "lucide-react";
+import { ArrowLeft, Dumbbell, CheckCircle, Apple, Loader2, Sparkles, Pencil, Archive, Users, ClipboardList } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -51,6 +52,7 @@ export default function StudentDetailPage() {
   const [hasGroupRoutine, setHasGroupRoutine] = useState(false);
   const [groupExercises, setGroupExercises] = useState<any[]>([]);
   const [selectedDayTab, setSelectedDayTab] = useState<string>(DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1]);
+  const [surveyResults, setSurveyResults] = useState<any[]>([]);
 
   const fetchData = useCallback(async () => {
     if (!user || !studentId) return;
@@ -93,10 +95,14 @@ export default function StudentDetailPage() {
     
     setLoading(false);
 
-    // Fetch archived routines
+    // Fetch archived routines and survey results
     try {
-      const archived = await fetchArchivedRoutines(user.id, studentId);
+      const [archived, sResults] = await Promise.all([
+        fetchArchivedRoutines(user.id, studentId),
+        fetchStudentSurveyResults(studentId),
+      ]);
       setArchivedRoutines(archived);
+      setSurveyResults(sResults);
     } catch { }
   }, [user, studentId]);
 
@@ -173,7 +179,7 @@ export default function StudentDetailPage() {
           </AvatarFallback>
         </Avatar>
         <div className="flex-1">
-          <h1 className="text-2xl font-display font-bold tracking-wide neon-text">{profile.display_name}</h1>
+          <h1 className="text-2xl font-display font-bold tracking-tight neon-text uppercase">{profile.display_name}</h1>
           <Badge variant="outline" className={`mt-1 text-xs ${paymentPaid ? "border-green-400/50 text-green-500 bg-green-500/10" : "border-destructive/50 text-destructive bg-destructive/10"}`}>
             {paymentPaid ? "✓ Pagado" : "✗ No pagado"}
           </Badge>
@@ -285,6 +291,7 @@ export default function StudentDetailPage() {
             { value: "meals", icon: "🍽️", label: "Comidas" },
             { value: "routine", icon: "🏋️", label: "Rutina" },
             ...(hasGroupRoutine ? [{ value: "group_routine", icon: "👥", label: "Grupo" }] : []),
+            { value: "surveys", icon: <ClipboardList className="h-4 w-4" />, label: "Seguimiento" },
             { value: "diagnostic", icon: <Sparkles className="h-4 w-4" />, label: "Encuesta" }
           ].map((tab) => (
             <TabsTrigger 
@@ -427,6 +434,50 @@ export default function StudentDetailPage() {
           )}
         </TabsContent>
 
+
+        <TabsContent value="surveys">
+          {surveyResults.length === 0 ? (
+            <Card className="card-glass border-dashed text-center p-12">
+              <ClipboardList className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-medium">Sin respuestas de encuestas</h3>
+              <p className="text-sm text-muted-foreground mt-1">Este alumno aún no ha completado ninguna encuesta personalizada.</p>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {surveyResults.map((result: any) => (
+                <Card key={result.id} className="card-glass">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">{result.survey?.title || "Encuesta"}</CardTitle>
+                      <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                        {result.completed_at ? new Date(result.completed_at).toLocaleDateString() : "Completada"}
+                      </Badge>
+                    </div>
+                    {result.survey?.description && (
+                      <p className="text-xs text-muted-foreground">{result.survey.description}</p>
+                    )}
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {result.survey?.questions?.map((q: any, i: number) => {
+                      const answer = result.answers?.find((a: any) => a.question_id === q.id);
+                      return (
+                        <div key={q.id} className="p-3 rounded-lg bg-secondary/20 border border-border/50 space-y-1.5">
+                          <p className="text-sm font-medium">
+                            <span className="text-primary font-bold mr-1.5">{i + 1}.</span>
+                            {q.question_text}
+                          </p>
+                          <p className="text-sm text-foreground/80 pl-4">
+                            {answer?.answer_text || <span className="text-muted-foreground italic">Sin respuesta</span>}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
 
         <TabsContent value="diagnostic">
           {studentId && <PersonalDiagnosticTab studentId={studentId} />}

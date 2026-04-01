@@ -174,7 +174,7 @@ export default function TrainerSurveysPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-display font-bold neon-text">Encuestas</h1>
+          <h1 className="text-2xl font-display font-bold tracking-tight neon-text uppercase">Encuestas</h1>
           <p className="text-sm text-muted-foreground mt-1">Crea formularios y obtén feedback estructurado</p>
         </div>
         <Button onClick={() => setCreateOpen(true)} className="gap-2">

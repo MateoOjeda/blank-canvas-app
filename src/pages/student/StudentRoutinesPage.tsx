@@ -84,7 +84,7 @@ export default function StudentRoutinesPage() {
   return (
     <div className="container-responsive space-y-8 pb-24">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-display font-bold tracking-tight neon-text uppercase">Mis Rutinas</h1>
+        <h1 className="text-2xl font-display font-bold tracking-tight neon-text uppercase">Mis Rutinas</h1>
         <p className="text-sm text-muted-foreground font-medium max-w-md">
           Tu centro de entrenamiento y nutrición personalizado.
         </p>

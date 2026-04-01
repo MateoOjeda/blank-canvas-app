@@ -68,6 +68,30 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_surveys: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          title: string
+          trainer_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          title: string
+          trainer_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          title?: string
+          trainer_id?: string
+        }
+        Relationships: []
+      }
       exercise_logs: {
         Row: {
           actual_reps: number | null
@@ -594,6 +618,118 @@ export type Database = {
         }
         Relationships: []
       }
+      survey_answers: {
+        Row: {
+          answer_text: string
+          assignment_id: string
+          created_at: string
+          id: string
+          question_id: string
+        }
+        Insert: {
+          answer_text: string
+          assignment_id: string
+          created_at?: string
+          id?: string
+          question_id: string
+        }
+        Update: {
+          answer_text?: string
+          assignment_id?: string
+          created_at?: string
+          id?: string
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_answers_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "survey_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "survey_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "survey_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_assignments: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          id: string
+          student_id: string
+          survey_id: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          student_id: string
+          survey_id: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          student_id?: string
+          survey_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_assignments_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "custom_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_questions: {
+        Row: {
+          created_at: string
+          id: string
+          options: Json | null
+          order_index: number
+          question_text: string
+          question_type: string
+          survey_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          options?: Json | null
+          order_index?: number
+          question_text: string
+          question_type?: string
+          survey_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          options?: Json | null
+          order_index?: number
+          question_text?: string
+          question_type?: string
+          survey_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_questions_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "custom_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trainer_changes: {
         Row: {
           change_type: string
@@ -759,6 +895,18 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_assignment_trainer: {
+        Args: { _assignment_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_survey_assigned: {
+        Args: { _student_id: string; _survey_id: string }
+        Returns: boolean
+      }
+      is_survey_trainer: {
+        Args: { _survey_id: string; _user_id: string }
         Returns: boolean
       }
     }

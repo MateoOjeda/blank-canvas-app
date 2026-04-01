@@ -370,7 +370,7 @@ export default function RoutinesPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Creador de Rutinas</h1>
+          <h1 className="text-2xl font-display font-bold tracking-tight neon-text uppercase">Creador de Rutinas</h1>
           <p className="text-muted-foreground text-sm mt-1">Asigna ejercicios a tus alumnos</p>
         </div>
         <Card className="card-glass">
@@ -393,21 +393,21 @@ export default function RoutinesPage() {
   return (
     <div className="container-responsive space-y-6">
       {/* Header section with back button */}
-      <div className="flex items-center gap-4 group">
-      {(selectedStudent || isGroupMode) && (
-        <Button 
-          variant="ghost" size="icon" 
-          onClick={handleBackToList}
-          className="rounded-full hover:bg-accent/10 text-accent transition-all duration-300 hover:scale-110"
-        >
-          <ArrowLeft className="h-6 w-6" />
-        </Button>
-      )}
+      <div className="flex items-center gap-4">
+        {(selectedStudent || isGroupMode) && (
+          <Button 
+            variant="ghost" size="icon" 
+            onClick={handleBackToList}
+            className="rounded-full hover:bg-accent/10 text-accent transition-all duration-300 hover:scale-110"
+          >
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+        )}
         <div className="flex flex-col gap-1.5 min-w-0">
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold tracking-tight neon-text uppercase leading-none truncate">
             {isGroupMode ? `Rutina de Grupo: ${groupName}` : "Crear Rutina"}
           </h1>
-          <p className="text-muted-foreground text-xs md:text-sm uppercase tracking-wider bg-accent/5 px-2 py-0.5 rounded leading-tight mt-1">
+          <p className="text-muted-foreground text-sm">
             {isGroupMode ? "Gestión de ejercicios colectivos" : "Configuración personalizada de entrenamiento"}
           </p>
         </div>
