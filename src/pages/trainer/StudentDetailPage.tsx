@@ -291,6 +291,7 @@ export default function StudentDetailPage() {
             { value: "meals", icon: "🍽️", label: "Comidas" },
             { value: "routine", icon: "🏋️", label: "Rutina" },
             ...(hasGroupRoutine ? [{ value: "group_routine", icon: "👥", label: "Grupo" }] : []),
+            { value: "surveys", icon: <ClipboardList className="h-4 w-4" />, label: "Seguimiento" },
             { value: "diagnostic", icon: <Sparkles className="h-4 w-4" />, label: "Encuesta" }
           ].map((tab) => (
             <TabsTrigger 
