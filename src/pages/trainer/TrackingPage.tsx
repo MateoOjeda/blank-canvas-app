@@ -96,7 +96,7 @@ export default function TrackingPage() {
           </Button>
         )}
         <div>
-          <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Seguimiento</h1>
+          <h1 className="text-2xl font-display font-bold tracking-tight neon-text uppercase">Seguimiento</h1>
           <p className="text-muted-foreground text-sm mt-1">
             {viewMode === 'list' ? 'Selecciona un alumno para ver su progreso' : `Progreso de ${student?.display_name}`}
           </p>

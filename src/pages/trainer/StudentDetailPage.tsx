@@ -179,7 +179,7 @@ export default function StudentDetailPage() {
           </AvatarFallback>
         </Avatar>
         <div className="flex-1">
-          <h1 className="text-2xl font-display font-bold tracking-wide neon-text">{profile.display_name}</h1>
+          <h1 className="text-2xl font-display font-bold tracking-tight neon-text uppercase">{profile.display_name}</h1>
           <Badge variant="outline" className={`mt-1 text-xs ${paymentPaid ? "border-green-400/50 text-green-500 bg-green-500/10" : "border-destructive/50 text-destructive bg-destructive/10"}`}>
             {paymentPaid ? "✓ Pagado" : "✗ No pagado"}
           </Badge>

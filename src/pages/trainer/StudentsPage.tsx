@@ -113,7 +113,7 @@ export default function StudentsPage() {
   return (
     <div className="container-responsive space-y-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-display font-bold tracking-tight neon-text">Panel del Entrenador</h1>
+        <h1 className="text-2xl font-display font-bold tracking-tight neon-text uppercase">Panel del Entrenador</h1>
         <p className="text-muted-foreground text-sm">Gestiona y supervisa a tus alumnos de forma eficiente</p>
       </div>
 

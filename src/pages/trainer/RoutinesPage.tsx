@@ -369,7 +369,7 @@ export default function RoutinesPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Creador de Rutinas</h1>
+          <h1 className="text-2xl font-display font-bold tracking-tight neon-text uppercase">Creador de Rutinas</h1>
           <p className="text-muted-foreground text-sm mt-1">Asigna ejercicios a tus alumnos</p>
         </div>
         <Card className="card-glass">
