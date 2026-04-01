@@ -37,8 +37,8 @@ export function AppLayout() {
                 </>
               ) : (
                 <>
-                  <div className="flex-1" />
-                  <div className="md:hidden">
+                  <div className="flex-1 font-bold text-xs">VISTA ALUMNO</div>
+                  <div>
                     <UserSettingsDialog />
                   </div>
                 </>
