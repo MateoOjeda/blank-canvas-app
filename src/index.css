@@ -34,7 +34,9 @@
     --ring: 230 28% 22%;
 
     --radius: 0.75rem;
-
+    --neon-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    --neon-intensity: 0.15;
+    
     --sidebar-background: 230 28% 18%;
     --sidebar-foreground: 48 30% 90%;
     --sidebar-primary: 8 66% 50%;
@@ -44,13 +46,26 @@
     --sidebar-border: 230 20% 25%;
     --sidebar-ring: 8 66% 41%;
 
-    --brand-red: 8 66% 41%;
+    --brand-red: 8 66% 38%; /* Slightly darker for contrast */
     --neon-glow: 8 66% 41%;
     --neon-orange: 25 95% 53%;
     --chart-completed: 8 66% 41%;
     --chart-pending: 230 20% 75%;
-    --success: 142 60% 40%;
-    --warning: 25 95% 53%;
+    --success: 142 60% 35%;
+    --warning: 25 95% 45%;
+
+    /* Badge Overrides for Light Mode */
+    --info-bg: 217 91% 95%;
+    --info-text: 217 91% 35%;
+    --info-border: 217 91% 85%;
+    
+    --success-bg: 142 60% 95%;
+    --success-text: 142 60% 30%;
+    --success-border: 142 60% 85%;
+    
+    --warning-bg: 38 92% 95%;
+    --warning-text: 38 92% 35%;
+    --warning-border: 38 92% 85%;
   }
 }
 
@@ -72,8 +87,9 @@
 @layer utilities {
   .neon-text {
     color: hsl(var(--brand-red));
-    text-shadow: 0 0 12px hsl(var(--brand-red) / 0.4), 0 0 25px hsl(var(--brand-red) / 0.2), 0 0 40px hsl(var(--brand-red) / 0.1);
-    letter-spacing: 0.05em;
+    text-shadow: var(--neon-shadow);
+    letter-spacing: 0.02em;
+    filter: drop-shadow(0 0 10px hsl(var(--brand-red) / var(--neon-intensity)));
   }
 
   .neon-border {
@@ -106,19 +122,27 @@
 
   /* Badge Premium Styles */
   .badge-status-pagado {
-    @apply bg-emerald-500/15 text-emerald-500 border-emerald-500/30 font-bold uppercase px-2 py-0.5 rounded-md text-[10px] tracking-tight;
-    text-shadow: 0 0 8px rgba(16, 185, 129, 0.2);
+    background-color: hsl(var(--success-bg, 142 60% 15%));
+    color: hsl(var(--success-text, 142 60% 50%));
+    border: 1px solid hsl(var(--success-border, 142 60% 30%));
+    @apply font-bold uppercase px-2 py-0.5 rounded-md text-[10px] tracking-tight;
   }
   .badge-status-pendiente {
-    @apply bg-amber-500/15 text-amber-500 border-amber-500/30 font-bold uppercase px-2 py-0.5 rounded-md text-[10px] tracking-tight;
-    text-shadow: 0 0 8px rgba(245, 158, 11, 0.2);
+    background-color: hsl(var(--warning-bg, 38 92% 15%));
+    color: hsl(var(--warning-text, 38 92% 50%));
+    border: 1px solid hsl(var(--warning-border, 38 92% 30%));
+    @apply font-bold uppercase px-2 py-0.5 rounded-md text-[10px] tracking-tight;
   }
   .badge-info-tag {
-    @apply bg-blue-500/15 text-blue-400 border-blue-500/30 font-medium px-2 py-0.5 rounded-md text-[10px] tracking-tight;
-    text-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
+    background-color: hsl(var(--info-bg, 217 91% 15%));
+    color: hsl(var(--info-text, 217 91% 50%));
+    border: 1px solid hsl(var(--info-border, 217 91% 30%));
+    @apply font-medium px-2 py-0.5 rounded-md text-[10px] tracking-tight;
   }
   .badge-accent-tag {
     @apply bg-accent/20 text-accent border-accent/40 font-medium px-2 py-0.5 rounded-md text-[10px] tracking-tight;
+    /* Ensure accent text is readable on light bgs */
+    color: hsl(var(--accent));
   }
 
   /* Premium Design System Core */
@@ -191,9 +215,14 @@
     --sidebar-accent: 198 19% 84%;
     --sidebar-accent-foreground: 193 9% 19%;
     --sidebar-border: 198 19% 84%;
-    --sidebar-ring: 47 64% 52%;
+    --sidebar-ring: 47 64% 42%;
 
-    --brand-red: 47 64% 52%;
+    --brand-red: 47 64% 35%; /* Darker Mustard */
+    --neon-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    --neon-intensity: 0.1;
+    --info-bg: 198 19% 95%;
+    --info-text: 198 19% 25%;
+    --info-border: 198 19% 85%;
     --neon-glow: 47 64% 52%;
     --neon-orange: 47 64% 52%;
     --chart-completed: 47 64% 52%;
@@ -236,6 +265,8 @@
     --sidebar-ring: 179 100% 40%;
 
     --brand-red: 179 100% 40%;
+    --neon-shadow: 0 0 15px hsl(var(--brand-red) / 0.4), 0 0 30px hsl(var(--brand-red) / 0.1);
+    --neon-intensity: 0.4;
     --neon-glow: 179 100% 40%;
     --neon-orange: 179 100% 40%;
     --chart-completed: 179 100% 40%;
@@ -252,7 +283,7 @@
     --popover: 38 67% 86%;
     --popover-foreground: 0 0% 29%;
     
-    --primary: 13 69% 63%;
+    --primary: 13 69% 53%;
     --primary-foreground: 230 28% 15%;
     
     --secondary: 102 45% 21%;
@@ -261,23 +292,28 @@
     --muted: 38 67% 83%;
     --muted-foreground: 0 0% 49%;
     
-    --accent: 13 69% 63%;
+    --accent: 13 69% 53%;
     --accent-foreground: 230 28% 15%;
     
     --border: 38 67% 83%;
     --input: 38 67% 83%;
-    --ring: 13 69% 63%;
+    --ring: 13 69% 53%;
     
     --sidebar-background: 38 67% 86%;
     --sidebar-foreground: 0 0% 29%;
-    --sidebar-primary: 13 69% 63%;
+    --sidebar-primary: 13 69% 53%;
     --sidebar-primary-foreground: 230 28% 15%;
     --sidebar-accent: 38 67% 83%;
     --sidebar-accent-foreground: 0 0% 29%;
     --sidebar-border: 38 67% 83%;
-    --sidebar-ring: 13 69% 63%;
+    --sidebar-ring: 13 69% 53%;
 
-    --brand-red: 13 69% 63%;
+    --brand-red: 13 69% 45%; /* Darker Rust */
+    --neon-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    --neon-intensity: 0.1;
+    --info-bg: 38 67% 95%;
+    --info-text: 38 67% 25%;
+    --info-border: 38 67% 85%;
     --neon-glow: 13 69% 63%;
     --neon-orange: 13 69% 63%;
     --chart-completed: 13 69% 63%;
@@ -320,6 +356,8 @@
     --sidebar-ring: 0 100% 73%;
 
     --brand-red: 0 100% 73%;
+    --neon-shadow: 0 0 15px hsl(var(--brand-red) / 0.5), 0 0 30px hsl(var(--brand-red) / 0.2);
+    --neon-intensity: 0.5;
     --neon-glow: 0 100% 73%;
     --neon-orange: 0 100% 73%;
     --chart-completed: 0 100% 73%;
@@ -362,6 +400,8 @@
     --sidebar-ring: 41 86% 77%;
 
     --brand-red: 41 86% 77%;
+    --neon-shadow: 0 0 15px hsl(var(--brand-red) / 0.4), 0 0 30px hsl(var(--brand-red) / 0.1);
+    --neon-intensity: 0.4;
     --neon-glow: 41 86% 77%;
     --neon-orange: 41 86% 77%;
     --chart-completed: 41 86% 77%;
@@ -404,6 +444,8 @@
     --sidebar-ring: 85 100% 46%;
 
     --brand-red: 85 100% 46%;
+    --neon-shadow: 0 0 15px hsl(var(--brand-red) / 0.4), 0 0 30px hsl(var(--brand-red) / 0.1);
+    --neon-intensity: 0.4;
     --neon-glow: 85 100% 46%;
     --neon-orange: 85 100% 46%;
     --chart-completed: 85 100% 46%;
@@ -420,7 +462,7 @@
     --popover: 240 100% 96%;
     --popover-foreground: 249 65% 12%;
     
-    --primary: 249 68% 29%;
+    --primary: 249 68% 25%;
     --primary-foreground: 48 38% 95%;
     
     --secondary: 230 97% 73%;
@@ -429,23 +471,28 @@
     --muted: 240 100% 93%;
     --muted-foreground: 249 65% 32%;
     
-    --accent: 249 68% 29%;
+    --accent: 249 68% 25%;
     --accent-foreground: 48 38% 95%;
     
     --border: 240 100% 93%;
     --input: 240 100% 93%;
-    --ring: 249 68% 29%;
+    --ring: 249 68% 25%;
     
     --sidebar-background: 240 100% 96%;
     --sidebar-foreground: 249 65% 12%;
-    --sidebar-primary: 249 68% 29%;
+    --sidebar-primary: 249 68% 25%;
     --sidebar-primary-foreground: 48 38% 95%;
     --sidebar-accent: 240 100% 93%;
     --sidebar-accent-foreground: 249 65% 12%;
     --sidebar-border: 240 100% 93%;
-    --sidebar-ring: 249 68% 29%;
+    --sidebar-ring: 249 68% 25%;
 
-    --brand-red: 249 68% 29%;
+    --brand-red: 249 68% 25%; /* Darker Blue */
+    --neon-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    --neon-intensity: 0.1;
+    --info-bg: 240 100% 95%;
+    --info-text: 240 100% 25%;
+    --info-border: 240 100% 85%;
     --neon-glow: 249 68% 29%;
     --neon-orange: 249 68% 29%;
     --chart-completed: 249 68% 29%;
@@ -488,6 +535,8 @@
     --sidebar-ring: 357 96% 60%;
 
     --brand-red: 357 96% 60%;
+    --neon-shadow: 0 0 15px hsl(var(--brand-red) / 0.5), 0 0 30px hsl(var(--brand-red) / 0.2);
+    --neon-intensity: 0.5;
     --neon-glow: 357 96% 60%;
     --neon-orange: 357 96% 60%;
     --chart-completed: 357 96% 60%;
@@ -530,6 +579,8 @@
     --sidebar-ring: 49 100% 41%;
 
     --brand-red: 49 100% 41%;
+    --neon-shadow: 0 0 15px hsl(var(--brand-red) / 0.4), 0 0 30px hsl(var(--brand-red) / 0.1);
+    --neon-intensity: 0.4;
     --neon-glow: 49 100% 41%;
     --neon-orange: 49 100% 41%;
     --chart-completed: 49 100% 41%;
@@ -546,7 +597,7 @@
     --popover: 31 100% 93%;
     --popover-foreground: 311 41% 10%;
     
-    --primary: 312 38% 16%;
+    --primary: 312 38% 12%;
     --primary-foreground: 48 38% 95%;
     
     --secondary: 310 7% 52%;
@@ -555,23 +606,28 @@
     --muted: 31 100% 90%;
     --muted-foreground: 311 41% 30%;
     
-    --accent: 312 38% 16%;
+    --accent: 312 38% 12%;
     --accent-foreground: 48 38% 95%;
     
     --border: 31 100% 90%;
     --input: 31 100% 90%;
-    --ring: 312 38% 16%;
+    --ring: 312 38% 12%;
     
     --sidebar-background: 31 100% 93%;
     --sidebar-foreground: 311 41% 10%;
-    --sidebar-primary: 312 38% 16%;
+    --sidebar-primary: 312 38% 12%;
     --sidebar-primary-foreground: 48 38% 95%;
     --sidebar-accent: 31 100% 90%;
     --sidebar-accent-foreground: 311 41% 10%;
     --sidebar-border: 31 100% 90%;
-    --sidebar-ring: 312 38% 16%;
+    --sidebar-ring: 312 38% 12%;
 
-    --brand-red: 312 38% 16%;
+    --brand-red: 312 38% 12%; /* Darker Plum */
+    --neon-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    --neon-intensity: 0.1;
+    --info-bg: 31 100% 96%;
+    --info-text: 31 100% 25%;
+    --info-border: 31 100% 85%;
     --neon-glow: 312 38% 16%;
     --neon-orange: 312 38% 16%;
     --chart-completed: 312 38% 16%;
@@ -614,6 +670,8 @@
     --sidebar-ring: 208 55% 22%;
 
     --brand-red: 208 55% 22%;
+    --neon-shadow: 0 0 15px hsl(var(--brand-red) / 0.4), 0 0 30px hsl(var(--brand-red) / 0.1);
+    --neon-intensity: 0.4;
     --neon-glow: 208 55% 22%;
     --neon-orange: 208 55% 22%;
     --chart-completed: 208 55% 22%;
@@ -656,6 +714,8 @@
     --sidebar-ring: 0 57% 44%;
 
     --brand-red: 0 57% 44%;
+    --neon-shadow: 0 0 15px hsl(var(--brand-red) / 0.5), 0 0 30px hsl(var(--brand-red) / 0.2);
+    --neon-intensity: 0.5;
     --neon-glow: 0 57% 44%;
     --neon-orange: 0 57% 44%;
     --chart-completed: 0 57% 44%;
@@ -672,8 +732,8 @@
     --popover: 80 33% 96%;
     --popover-foreground: 0 0% 30%;
     
-    --primary: 188 50% 76%;
-    --primary-foreground: 230 28% 15%;
+    --primary: 188 50% 45%; /* Much darker for text contrast */
+    --primary-foreground: 48 38% 95%;
     
     --secondary: 188 32% 56%;
     --secondary-foreground: 230 28% 15%;
@@ -697,7 +757,12 @@
     --sidebar-border: 80 33% 93%;
     --sidebar-ring: 188 50% 76%;
 
-    --brand-red: 188 50% 76%;
+    --brand-red: 188 50% 45%;
+    --neon-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    --neon-intensity: 0.1;
+    --info-bg: 80 33% 95%;
+    --info-text: 188 50% 35%;
+    --info-border: 188 50% 85%;
     --neon-glow: 188 50% 76%;
     --neon-orange: 188 50% 76%;
     --chart-completed: 188 50% 76%;
@@ -740,6 +805,11 @@
     --sidebar-ring: 210 100% 20%;
 
     --brand-red: 210 100% 20%;
+    --neon-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    --neon-intensity: 0.1;
+    --info-bg: 45 29% 95%;
+    --info-text: 210 100% 20%;
+    --info-border: 210 100% 85%;
     --neon-glow: 210 100% 20%;
     --neon-orange: 210 100% 20%;
     --chart-completed: 210 100% 20%;
@@ -782,6 +852,8 @@
     --sidebar-ring: 40 57% 60%;
 
     --brand-red: 40 57% 60%;
+    --neon-shadow: 0 0 15px hsl(var(--brand-red) / 0.4), 0 0 30px hsl(var(--brand-red) / 0.1);
+    --neon-intensity: 0.4;
     --neon-glow: 40 57% 60%;
     --neon-orange: 40 57% 60%;
     --chart-completed: 40 57% 60%;
