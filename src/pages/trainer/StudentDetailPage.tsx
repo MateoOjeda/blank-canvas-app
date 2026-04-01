@@ -435,6 +435,50 @@ export default function StudentDetailPage() {
         </TabsContent>
 
 
+        <TabsContent value="surveys">
+          {surveyResults.length === 0 ? (
+            <Card className="card-glass border-dashed text-center p-12">
+              <ClipboardList className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-medium">Sin respuestas de encuestas</h3>
+              <p className="text-sm text-muted-foreground mt-1">Este alumno aún no ha completado ninguna encuesta personalizada.</p>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {surveyResults.map((result: any) => (
+                <Card key={result.id} className="card-glass">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">{result.survey?.title || "Encuesta"}</CardTitle>
+                      <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                        {result.completed_at ? new Date(result.completed_at).toLocaleDateString() : "Completada"}
+                      </Badge>
+                    </div>
+                    {result.survey?.description && (
+                      <p className="text-xs text-muted-foreground">{result.survey.description}</p>
+                    )}
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {result.survey?.questions?.map((q: any, i: number) => {
+                      const answer = result.answers?.find((a: any) => a.question_id === q.id);
+                      return (
+                        <div key={q.id} className="p-3 rounded-lg bg-secondary/20 border border-border/50 space-y-1.5">
+                          <p className="text-sm font-medium">
+                            <span className="text-primary font-bold mr-1.5">{i + 1}.</span>
+                            {q.question_text}
+                          </p>
+                          <p className="text-sm text-foreground/80 pl-4">
+                            {answer?.answer_text || <span className="text-muted-foreground italic">Sin respuesta</span>}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
         <TabsContent value="diagnostic">
           {studentId && <PersonalDiagnosticTab studentId={studentId} />}
         </TabsContent>
