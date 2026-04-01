@@ -71,7 +71,7 @@ export default function NotificationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-display font-bold tracking-wide neon-text">Notificaciones</h1>
+          <h1 className="text-2xl font-display font-bold tracking-tight neon-text uppercase">Notificaciones</h1>
           <p className="text-muted-foreground text-sm mt-1">Alertas de tus alumnos</p>
         </div>
         {unreadCount > 0 && (

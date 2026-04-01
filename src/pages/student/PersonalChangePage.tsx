@@ -145,7 +145,7 @@ export default function PersonalChangePage() {
         <div className="inline-flex items-center justify-center h-12 w-12 rounded-2xl bg-primary/10 neon-glow">
           <Sparkles className="h-6 w-6 text-primary" />
         </div>
-        <h1 className="font-display text-xl font-bold tracking-wide neon-text">CAMBIO PERSONAL</h1>
+        <h1 className="text-2xl font-display font-bold tracking-tight neon-text uppercase">Cambio Personal</h1>
         <p className="text-sm text-muted-foreground">Cuéntanos sobre ti para personalizar tu plan</p>
       </div>
 
