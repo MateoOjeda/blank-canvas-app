@@ -45,6 +45,7 @@ export default function RoutinesPage() {
   const { user } = useAuth();
   const { studentId: urlStudentId, groupId: urlGroupId } = useParams<{ studentId?: string; groupId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const activeTab = searchParams.get("tab") || "entrenamiento";
   
   const isGroupMode = !!urlGroupId;
@@ -387,7 +388,6 @@ export default function RoutinesPage() {
       window.history.replaceState(null, "", "/trainer/routines");
     }
   };
-  const navigate = useNavigate();
 
   return (
     <div className="container-responsive space-y-6">
