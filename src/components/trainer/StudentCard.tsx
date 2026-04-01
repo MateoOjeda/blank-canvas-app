@@ -11,6 +11,7 @@ interface StudentCardProps {
   subtitle?: ReactNode;
   rightContent?: ReactNode;
   className?: string;
+  size?: "sm" | "md" | "lg";
 }
 
 export function StudentCard({
@@ -22,11 +23,16 @@ export function StudentCard({
   subtitle,
   rightContent,
   className,
+  size = "md",
 }: StudentCardProps) {
+  const isLarge = size === "lg";
+  const isSmall = size === "sm";
+
   return (
     <div
       className={cn(
-        "flex items-center gap-3 p-3 rounded-xl transition-all duration-200 border group",
+        "flex items-center transition-all duration-200 border group",
+        isSmall ? "p-2 gap-2 rounded-lg" : isLarge ? "p-4 gap-4 rounded-2xl" : "p-3 gap-3 rounded-xl",
         active
           ? "bg-accent/10 border-accent/30 shadow-sm shadow-accent/5"
           : "bg-card/40 border-transparent hover:bg-white/5 hover:border-border/50 shadow-sm",
@@ -36,24 +42,32 @@ export function StudentCard({
       onClick={onClick}
     >
       <Avatar className={cn(
-        "h-10 w-10 border transition-colors flex-shrink-0 shadow-sm",
+        "border transition-colors flex-shrink-0 shadow-sm",
+        isSmall ? "h-8 w-8" : isLarge ? "h-14 w-14" : "h-10 w-10",
         active ? "border-accent/40" : "border-accent/10 group-hover:border-accent/30"
       )}>
         <AvatarImage src={avatarUrl || undefined} />
-        <AvatarFallback className="bg-accent/5 text-accent font-bold text-xs">
+        <AvatarFallback className={cn(
+          "bg-accent/5 text-accent font-bold",
+          isSmall ? "text-[10px]" : isLarge ? "text-sm" : "text-xs"
+        )}>
           {avatarInitials || name.slice(0, 2).toUpperCase()}
         </AvatarFallback>
       </Avatar>
       
       <div className="flex-1 min-w-0">
         <p className={cn(
-          "text-sm font-bold truncate leading-none transition-colors",
+          "font-bold truncate leading-none transition-colors",
+          isSmall ? "text-xs" : isLarge ? "text-base" : "text-sm",
           active ? "text-accent" : "group-hover:text-primary"
         )}>
           {name}
         </p>
         {subtitle && (
-          <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+          <div className={cn(
+            "flex flex-wrap gap-1 items-center",
+            isSmall ? "mt-1" : isLarge ? "mt-2" : "mt-1.5"
+          )}>
             {subtitle}
           </div>
         )}

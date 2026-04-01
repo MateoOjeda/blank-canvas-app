@@ -112,6 +112,7 @@ export default function TrackingPage() {
               name={s.display_name}
               avatarUrl={s.avatar_url}
               avatarInitials={s.avatar_initials}
+              size="lg"
               onClick={() => handleSelectStudent(s.user_id)}
               subtitle={<span className="text-[10px] text-muted-foreground uppercase tracking-tight">Ver progreso detallado</span>}
               className="border-border/40 hover:border-primary/30"

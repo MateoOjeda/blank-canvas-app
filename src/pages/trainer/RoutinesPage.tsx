@@ -421,6 +421,7 @@ export default function RoutinesPage() {
               name={s.display_name}
               avatarUrl={s.avatar_url}
               avatarInitials={s.avatar_initials}
+              size="lg"
               onClick={() => setSelectedStudent(s.user_id)}
               subtitle={<span className="text-[10px] text-muted-foreground uppercase tracking-tight">Gestionar rutina</span>}
               className="border-border/40 hover:border-primary/30"

@@ -149,6 +149,7 @@ export default function StudentsPage() {
                       avatarInitials={student.avatar_initials}
                       active={selectedStudentId === student.user_id}
                       onClick={() => setSelectedStudentId(student.user_id)}
+                      size="sm"
                       subtitle={
                         <>
                           <Badge variant="outline" className={cn(
@@ -213,6 +214,7 @@ export default function StudentsPage() {
                       name={student.display_name}
                       avatarUrl={student.avatar_url}
                       avatarInitials={student.avatar_initials}
+                      size="sm"
                       rightContent={
                         <Button
                           size="sm" variant="outline"
