@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BarChart3, Loader2, CheckCircle, Dumbbell, Lock, Unlock, ArrowLeft } from "lucide-react";
+import { StudentCard } from "@/components/trainer/StudentCard";
 
 interface Exercise {
   id: string;
@@ -106,21 +107,15 @@ export default function TrackingPage() {
       {viewMode === 'list' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {students.map((s) => (
-            <Card 
-              key={s.user_id} 
-              className="card-glass hover:bg-secondary/20 cursor-pointer transition-all border-border/50 hover:border-primary/30"
+            <StudentCard
+              key={s.user_id}
+              name={s.display_name}
+              avatarUrl={s.avatar_url}
+              avatarInitials={s.avatar_initials}
               onClick={() => handleSelectStudent(s.user_id)}
-            >
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                  {s.display_name.slice(0, 2).toUpperCase()}
-                </div>
-                <div>
-                  <p className="font-semibold">{s.display_name}</p>
-                  <p className="text-xs text-muted-foreground">Ver progreso detallado</p>
-                </div>
-              </CardContent>
-            </Card>
+              subtitle={<span className="text-[10px] text-muted-foreground uppercase tracking-tight">Ver progreso detallado</span>}
+              className="border-border/40 hover:border-primary/30"
+            />
           ))}
         </div>
       ) : (

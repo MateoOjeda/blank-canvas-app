@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Users, Loader2, Trash2, Dumbbell, Apple, Eye, Pencil, Plus, UserMinus } from "lucide-react";
 import { toast } from "sonner";
+import { StudentCard } from "@/components/trainer/StudentCard";
 
 const PLAN_LEVEL_OPTIONS = [
   { value: "inicial", label: "Inicial", color: "text-green-600 border-green-400/50 bg-green-500/10" },
@@ -141,51 +142,45 @@ export default function StudentsPage() {
               ) : (
                 <div className="space-y-1">
                   {linkedStudents.map((student) => (
-                    <div
+                    <StudentCard
                       key={student.user_id}
-                      className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ${
-                        selectedStudentId === student.user_id
-                          ? "bg-accent/10 border border-accent/30"
-                          : "hover:bg-muted/50 border border-transparent"
-                      }`}
-                    >
-                      <button
-                        onClick={() => setSelectedStudentId(student.user_id)}
-                        className="flex items-center gap-3 flex-1 min-w-0 text-left"
-                      >
-                        <Avatar className="h-9 w-9 border border-accent/20 flex-shrink-0">
-                          <AvatarImage src={student.avatar_url || undefined} />
-                          <AvatarFallback className="bg-accent/10 text-accent font-bold text-xs">
-                            {student.avatar_initials || student.display_name.slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{student.display_name}</p>
-                          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                            <Badge variant="outline" className={cn(
-                              "border-none shadow-sm shadow-black/20",
-                              student.paymentStatus === "pagado" ? "badge-status-pagado" : "badge-status-pendiente"
-                            )}>
-                              {student.paymentStatus === "pagado" ? "✓ Pagado" : "⏳ Pendiente"}
+                      name={student.display_name}
+                      avatarUrl={student.avatar_url}
+                      avatarInitials={student.avatar_initials}
+                      active={selectedStudentId === student.user_id}
+                      onClick={() => setSelectedStudentId(student.user_id)}
+                      subtitle={
+                        <>
+                          <Badge variant="outline" className={cn(
+                            "border-none shadow-sm shadow-black/20 text-[9px] px-1.5 h-4",
+                            student.paymentStatus === "pagado" ? "badge-status-pagado" : "badge-status-pendiente"
+                          )}>
+                            {student.paymentStatus === "pagado" ? "✓" : "⏳"} {student.paymentStatus === "pagado" ? "Pagado" : "Pendiente"}
+                          </Badge>
+                          {student.groupName && (
+                            <Badge className="badge-info-tag border-none shadow-sm shadow-black/20 text-[9px] px-1.5 h-4">
+                              {student.groupName}
                             </Badge>
-                            {student.groupName && (
-                              <Badge className="badge-info-tag border-none shadow-sm shadow-black/20">
-                                {student.groupName}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                      <Button
-                        variant="ghost" size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
-                        onClick={() => handleUnlink(student)}
-                        disabled={unlinking === student.user_id}
-                        title="Remover alumno"
-                      >
-                        {unlinking === student.user_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserMinus className="h-3.5 w-3.5" />}
-                      </Button>
-                    </div>
+                          )}
+                        </>
+                      }
+                      rightContent={
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors group/btn"
+                          onClick={() => handleUnlink(student)}
+                          disabled={unlinking === student.user_id}
+                          title="Remover alumno"
+                        >
+                          {unlinking === student.user_id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <UserMinus className="h-4 w-4 group-hover/btn:scale-110 transition-transform" />
+                          )}
+                        </Button>
+                      }
+                      className="mb-1"
+                    />
                   ))}
                 </div>
               )}
@@ -213,24 +208,24 @@ export default function StudentsPage() {
               ) : (
                 <div className="space-y-1">
                   {availableStudents.map((student) => (
-                    <div key={student.user_id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 border border-transparent">
-                      <Avatar className="h-9 w-9 border border-blue-400/20 flex-shrink-0">
-                        <AvatarImage src={student.avatar_url || undefined} />
-                        <AvatarFallback className="bg-blue-500/10 text-blue-500 font-bold text-xs">
-                          {student.avatar_initials || student.display_name.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <p className="text-sm font-medium truncate flex-1 min-w-0">{student.display_name}</p>
-                      <Button
-                        size="sm" variant="outline"
-                        className="gap-1 border-blue-400/30 text-blue-500 hover:bg-blue-500/10 flex-shrink-0 h-8 px-3"
-                        disabled={linking === student.user_id}
-                        onClick={() => handleLink(student.user_id)}
-                      >
-                        {linking === student.user_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                        Agregar
-                      </Button>
-                    </div>
+                    <StudentCard
+                      key={student.user_id}
+                      name={student.display_name}
+                      avatarUrl={student.avatar_url}
+                      avatarInitials={student.avatar_initials}
+                      rightContent={
+                        <Button
+                          size="sm" variant="outline"
+                          className="gap-1 border-blue-400/30 text-blue-500 hover:bg-blue-500/10 flex-shrink-0 h-8 px-3 rounded-lg"
+                          disabled={linking === student.user_id}
+                          onClick={() => handleLink(student.user_id)}
+                        >
+                          {linking === student.user_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                          Agregar
+                        </Button>
+                      }
+                      className="mb-1"
+                    />
                   ))}
                 </div>
               )}

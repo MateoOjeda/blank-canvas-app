@@ -32,6 +32,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, Dumbbell, Loader2, CalendarClock, Users, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { StudentCard } from "@/components/trainer/StudentCard";
 import { BODY_PARTS, EXERCISES_BY_BODY_PART, type BodyPart } from "@/lib/exercisesByBodyPart";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -393,14 +394,15 @@ export default function RoutinesPage() {
     <div className="container-responsive space-y-6">
       {/* Header section with back button */}
       <div className="flex items-center gap-4 group">
+      {(selectedStudent || isGroupMode) && (
         <Button 
           variant="ghost" size="icon" 
           onClick={handleBackToList}
           className="rounded-full hover:bg-accent/10 text-accent transition-all duration-300 hover:scale-110"
-          disabled={!selectedStudent && !isGroupMode}
         >
           <ArrowLeft className="h-6 w-6" />
         </Button>
+      )}
         <div className="flex flex-col gap-1.5 min-w-0">
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold tracking-tight neon-text uppercase leading-none truncate">
             {isGroupMode ? `Rutina de Grupo: ${groupName}` : "Crear Rutina"}
@@ -412,23 +414,17 @@ export default function RoutinesPage() {
       </div>
 
       {!isGroupMode && !selectedStudent ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {students.map((s) => (
-            <Card 
-              key={s.user_id} 
-              className="card-premium hover:border-primary/50 cursor-pointer group"
+            <StudentCard
+              key={s.user_id}
+              name={s.display_name}
+              avatarUrl={s.avatar_url}
+              avatarInitials={s.avatar_initials}
               onClick={() => setSelectedStudent(s.user_id)}
-            >
-              <CardContent className="p-6 flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold border border-primary/20 group-hover:border-primary transition-all">
-                  {s.display_name.slice(0, 2).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-lg group-hover:text-primary transition-colors truncate">{s.display_name}</p>
-                  <p className="text-xs text-muted-foreground">Click para gestionar rutina</p>
-                </div>
-              </CardContent>
-            </Card>
+              subtitle={<span className="text-[10px] text-muted-foreground uppercase tracking-tight">Gestionar rutina</span>}
+              className="border-border/40 hover:border-primary/30"
+            />
           ))}
         </div>
       ) : (

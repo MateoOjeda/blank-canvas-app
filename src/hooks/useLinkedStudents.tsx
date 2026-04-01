@@ -6,6 +6,7 @@ export interface LinkedStudentProfile {
   user_id: string;
   display_name: string;
   avatar_initials: string | null;
+  avatar_url: string | null;
   weight: number | null;
   age: number | null;
 }
@@ -31,7 +32,7 @@ export function useLinkedStudents() {
     const ids = links.map((l) => l.student_id);
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("user_id, display_name, avatar_initials, weight, age")
+      .select("user_id, display_name, avatar_initials, avatar_url, weight, age")
       .in("user_id", ids);
 
     setStudents(profiles || []);
