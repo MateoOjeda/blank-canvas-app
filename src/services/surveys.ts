@@ -198,3 +198,33 @@ export async function submitSurveyAnswers(assignmentId: string, answers: { quest
     
   if (asstError) throw asstError;
 }
+
+export async function fetchStudentSurveyResults(studentId: string) {
+  // Get all completed assignments for this student
+  const { data: assignments, error: aError } = await (supabase as any)
+    .from("survey_assignments" as any)
+    .select("id, survey_id, completed, completed_at, survey:custom_surveys(id, title, description, questions:survey_questions(*))")
+    .eq("student_id", studentId)
+    .eq("completed", true)
+    .order("completed_at", { ascending: false });
+
+  if (aError) throw aError;
+  if (!assignments || !assignments.length) return [];
+
+  const assignmentIds = assignments.map((a: any) => a.id);
+  const { data: answers, error: ansError } = await (supabase as any)
+    .from("survey_answers" as any)
+    .select("*")
+    .in("assignment_id", assignmentIds);
+
+  if (ansError) throw ansError;
+
+  return assignments.map((a: any) => ({
+    ...a,
+    answers: (answers || []).filter((ans: any) => ans.assignment_id === a.id),
+    survey: a.survey ? {
+      ...a.survey,
+      questions: a.survey.questions?.sort((x: any, y: any) => x.order_index - y.order_index)
+    } : null
+  }));
+}
