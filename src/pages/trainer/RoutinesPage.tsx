@@ -495,14 +495,16 @@ export default function RoutinesPage() {
               </CardHeader>
               <CardContent className="p-6">
                 <Tabs value={activeTab} onValueChange={(v) => setSearchParams({ tab: v })} className="space-y-6">
-                  <TabsList className="grid grid-cols-2 bg-secondary/50 max-w-md w-full rounded-xl p-1">
-                    <TabsTrigger value="entrenamiento" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                      <Dumbbell className="w-4 h-4 mr-2" />Entrenamiento
-                    </TabsTrigger>
-                    <TabsTrigger value="alimentacion" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                      <CalendarClock className="w-4 h-4 mr-2" />Alimentación
-                    </TabsTrigger>
-                  </TabsList>
+                  {!isGroupMode && (
+                    <TabsList className="grid grid-cols-2 bg-secondary/50 max-w-md w-full rounded-xl p-1">
+                      <TabsTrigger value="entrenamiento" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                        <Dumbbell className="w-4 h-4 mr-2" />Entrenamiento
+                      </TabsTrigger>
+                      <TabsTrigger value="alimentacion" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                        <CalendarClock className="w-4 h-4 mr-2" />Alimentación
+                      </TabsTrigger>
+                    </TabsList>
+                  )}
 
                   <TabsContent value="entrenamiento" className="space-y-8 mt-0">
                     {/* Day selector */}
@@ -859,16 +861,18 @@ export default function RoutinesPage() {
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="alimentacion" className="mt-0">
-                    {(selectedStudent || isGroupMode) ? (
-                      <MealsTab studentId={isGroupMode ? urlGroupId! : selectedStudent} nutritionLevel={nutritionLevel} />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 opacity-40">
-                        <Users className="h-16 w-16" />
-                        <p className="text-lg font-medium">Selecciona un alumno o grupo primero</p>
-                      </div>
-                    )}
-                  </TabsContent>
+                  {!isGroupMode && (
+                    <TabsContent value="alimentacion" className="mt-0">
+                      {selectedStudent ? (
+                        <MealsTab studentId={selectedStudent} nutritionLevel={nutritionLevel} />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 opacity-40">
+                          <Users className="h-16 w-16" />
+                          <p className="text-lg font-medium">Selecciona un alumno primero</p>
+                        </div>
+                      )}
+                    </TabsContent>
+                  )}
                 </Tabs>
               </CardContent>
             </Card>

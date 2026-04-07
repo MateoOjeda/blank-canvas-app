@@ -78,6 +78,11 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
 
+    match /routines/{routineId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
     // Routine Day Config
     match /routine_day_config/{configId} {
       allow read: if isAuthenticated();
