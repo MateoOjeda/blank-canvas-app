@@ -33,10 +33,16 @@ export default function PlansPage() {
   const loadPlans = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const data = await fetchGlobalPlans(user.id);
-    setGlobalPlans(data.plans);
-    setCambioFisico(data.cambioFisico);
-    setLoading(false);
+    try {
+      const data = await fetchGlobalPlans(user.uid);
+      setGlobalPlans(data.plans);
+      setCambioFisico(data.cambioFisico);
+    } catch (error) {
+      toast.error("Error cargando planes. Verificá tu permisos.");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => { loadPlans(); }, [loadPlans]);
