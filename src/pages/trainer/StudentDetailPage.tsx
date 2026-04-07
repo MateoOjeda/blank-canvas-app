@@ -3,7 +3,16 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { fetchStudentProfile, type StudentProfile } from "@/services/alumnos";
 import { updatePlanAssignment } from "@/services/planes";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  doc, 
+  getDoc, 
+  updateDoc 
+} from "firebase/firestore";
 import { fetchArchivedRoutines, fetchRoutineExercises, type Routine } from "@/services/routineManager";
 import { fetchStudentSurveyResults } from "@/services/surveys";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -53,58 +62,84 @@ export default function StudentDetailPage() {
   const [groupExercises, setGroupExercises] = useState<any[]>([]);
   const [selectedDayTab, setSelectedDayTab] = useState<string>(DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1]);
   const [surveyResults, setSurveyResults] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!user || !studentId) return;
     setLoading(true);
-    const [prof, exRes, plRes, tsRes, groupMemberships] = await Promise.all([
-      fetchStudentProfile(studentId),
-      supabase.from("exercises").select("id, name, sets, reps, weight, day, completed").eq("trainer_id", user.id).eq("student_id", studentId),
-      supabase.from("plan_levels").select("plan_type, level, unlocked").eq("trainer_id", user.id).eq("student_id", studentId),
-      supabase.from("trainer_students").select("id, payment_status, plan_entrenamiento, plan_alimentacion").eq("trainer_id", user.id).eq("student_id", studentId).maybeSingle(),
-      supabase.from("training_group_members").select("group_id").eq("student_id", studentId),
-    ]);
-    setProfile(prof);
-    setExercises(exRes.data || []);
 
-    const pls = plRes.data || [];
-    const activeE = pls.find((p: any) => p.plan_type === "entrenamiento" && p.unlocked);
-    const activeA = pls.find((p: any) => p.plan_type === "nutricion" && p.unlocked);
-    setSelectedEntrenamiento(activeE ? activeE.level : "none");
-    setSelectedAlimentacion(activeA ? activeA.level : "none");
+    try {
+      const qLink = query(collection(db, "trainer_students"), where("trainer_id", "==", user.uid), where("student_id", "==", studentId));
+      const qLevels = query(collection(db, "plan_levels"), where("trainer_id", "==", user.uid), where("student_id", "==", studentId));
+      const qGroupMembers = query(collection(db, "training_group_members"), where("student_id", "==", studentId));
+      
+      const [prof, snapLink, snapLevels, snapGroupMembers] = await Promise.all([
+        fetchStudentProfile(studentId),
+        getDocs(qLink),
+        getDocs(qLevels),
+        getDocs(qGroupMembers)
+      ]);
 
-    if (tsRes.data) {
-      setLinkId(tsRes.data.id);
-      setPaymentPaid(tsRes.data.payment_status === "pagado");
-    }
+      setProfile(prof);
 
-    if (groupMemberships.data && groupMemberships.data.length > 0) {
-      const groupId = groupMemberships.data[0].group_id;
-      const { data: grpExercises } = await supabase.from("group_exercises").select("*").eq("group_id", groupId);
-      if (grpExercises && grpExercises.length > 0) {
-        setGroupExercises(grpExercises);
-        setHasGroupRoutine(true);
+      // Handle Link/Payment
+      if (!snapLink.empty) {
+        const linkDoc = snapLink.docs[0];
+        setLinkId(linkDoc.id);
+        const linkData = linkDoc.data();
+        setPaymentPaid(linkData.payment_status === "pagado");
+      }
+
+      // Handle Levels
+      const pls = snapLevels.docs.map(d => d.data() as any);
+      const activeE = pls.find((p: any) => p.plan_type === "entrenamiento" && p.unlocked);
+      const activeA = pls.find((p: any) => p.plan_type === "nutricion" && p.unlocked);
+      setSelectedEntrenamiento(activeE ? activeE.level : "none");
+      setSelectedAlimentacion(activeA ? activeA.level : "none");
+
+      // Handle Group
+      if (!snapGroupMembers.empty) {
+        const groupId = snapGroupMembers.docs[0].data().group_id;
+        const qGroupExercises = query(collection(db, "group_exercises"), where("group_id", "==", groupId));
+        const snapGroupEx = await getDocs(qGroupExercises);
+        if (!snapGroupEx.empty) {
+          setGroupExercises(snapGroupEx.docs.map(d => ({ id: d.id, ...d.data() })));
+          setHasGroupRoutine(true);
+        } else {
+          setGroupExercises([]);
+          setHasGroupRoutine(false);
+        }
       } else {
         setGroupExercises([]);
         setHasGroupRoutine(false);
       }
-    } else {
-      setGroupExercises([]);
-      setHasGroupRoutine(false);
+    } catch (err) {
+      console.error("Error fetching core student data:", err);
+    } finally {
+      setLoading(false);
+      fetchBackgroundData();
     }
-    
-    setLoading(false);
+  }, [user, studentId]);
 
-    // Fetch archived routines and survey results
+  const fetchBackgroundData = async () => {
+    if (!user || !studentId) return;
+    setLoadingHistory(true);
     try {
-      const [archived, sResults] = await Promise.all([
-        fetchArchivedRoutines(user.id, studentId),
+      const qEx = query(collection(db, "exercises"), where("trainer_id", "==", user.uid), where("student_id", "==", studentId));
+      const [snapEx, archived, sResults] = await Promise.all([
+        getDocs(qEx),
+        fetchArchivedRoutines(user.uid, studentId),
         fetchStudentSurveyResults(studentId),
       ]);
+      setExercises(snapEx.docs.map(d => ({ id: d.id, ...d.data() } as Exercise)));
       setArchivedRoutines(archived);
       setSurveyResults(sResults);
-    } catch { }
-  }, [user, studentId]);
+    } catch (err) {
+      console.error("Error fetching background data:", err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -115,16 +150,27 @@ export default function StudentDetailPage() {
       return;
     }
     setExpandedRoutine(routineId);
-    const exs = await fetchRoutineExercises(routineId);
-    setRoutineExercises(exs);
+    try {
+      const exs = await fetchRoutineExercises(routineId);
+      setRoutineExercises(exs);
+    } catch (err) {
+      console.error("Error fetching routine exercises:", err);
+    }
   };
 
   const handlePaymentToggle = async (checked: boolean) => {
     if (!linkId) return;
     setPaymentPaid(checked);
-    const { error } = await supabase.from("trainer_students").update({ payment_status: checked ? "pagado" : "pendiente" }).eq("id", linkId);
-    if (error) { toast.error("No se pudo actualizar el estado de pago."); setPaymentPaid(!checked); }
-    else toast.success(checked ? "Marcado como pagado" : "Marcado como pendiente");
+    try {
+      await updateDoc(doc(db, "trainer_students", linkId), { 
+        payment_status: checked ? "pagado" : "pendiente",
+        updated_at: new Date().toISOString()
+      });
+      toast.success(checked ? "Marcado como pagado" : "Marcado como pendiente");
+    } catch (err) {
+      toast.error("No se pudo actualizar el estado de pago.");
+      setPaymentPaid(!checked);
+    }
   };
 
   const handlePlanChangeRequest = (planType: string, level: string) => {
@@ -136,10 +182,10 @@ export default function StudentDetailPage() {
     const { planType, level } = confirmDialog;
     setConfirmDialog(null);
     try {
-      await updatePlanAssignment(user.id, studentId, planType, level);
+      await updatePlanAssignment(user.uid, studentId, planType, level);
       if (planType === "entrenamiento") setSelectedEntrenamiento(level);
       else setSelectedAlimentacion(level);
-      toast.success(level === "none" ? "Plan desactivado" : `Plan actualizado a ${LEVEL_LABELS[level] || level}`);
+      toast.success(level === "none" ? "Plan desactivado" : `Plan actualizado to ${LEVEL_LABELS[level] || level}`);
       fetchData();
     } catch { toast.error("Error al actualizar el plan"); }
   };
@@ -326,7 +372,15 @@ export default function StudentDetailPage() {
 
         <TabsContent value="routine">
           <Card className="card-glass">
-            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Dumbbell className="h-5 w-5 text-primary" />Rutina Asignada</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Dumbbell className="h-5 w-5 text-primary" />
+                  Rutina Asignada
+                </div>
+                {loadingHistory && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              </CardTitle>
+            </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-7 gap-1">
                 {DAYS.map((day, i) => {
@@ -436,7 +490,9 @@ export default function StudentDetailPage() {
 
 
         <TabsContent value="surveys">
-          {surveyResults.length === 0 ? (
+          {loadingHistory ? (
+            <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          ) : surveyResults.length === 0 ? (
             <Card className="card-glass border-dashed text-center p-12">
               <ClipboardList className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
               <h3 className="text-lg font-medium">Sin respuestas de encuestas</h3>

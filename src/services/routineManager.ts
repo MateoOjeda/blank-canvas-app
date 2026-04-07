@@ -1,4 +1,19 @@
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  deleteDoc, 
+  updateDoc, 
+  addDoc,
+  writeBatch,
+  orderBy,
+  limit
+} from "firebase/firestore";
 
 export type TargetType = "ALUMNO" | "GRUPO";
 export type RoutineStatus = "ACTIVA" | "ARCHIVADA";
@@ -25,32 +40,33 @@ export async function getOrCreateActiveRoutine(
   targetId: string,
   routineType: RoutineType = "INDIVIDUAL"
 ): Promise<Routine> {
-  const { data: existing } = await supabase
-    .from("routines")
-    .select("*")
-    .eq("trainer_id", trainerId)
-    .eq("target_type", targetType)
-    .eq("target_id", targetId)
-    .eq("status", "ACTIVA")
-    .maybeSingle();
+  const q = query(
+    collection(db, "routines"),
+    where("trainer_id", "==", trainerId),
+    where("target_type", "==", targetType),
+    where("target_id", "==", targetId),
+    where("status", "==", "ACTIVA"),
+    limit(1)
+  );
+  
+  const snap = await getDocs(q);
+  if (!snap.empty) {
+    const d = snap.docs[0];
+    return { id: d.id, ...d.data() } as Routine;
+  }
 
-  if (existing) return existing as unknown as Routine;
+  const newDoc = {
+    trainer_id: trainerId,
+    target_type: targetType,
+    target_id: targetId,
+    status: "ACTIVA",
+    routine_type: routineType,
+    name: targetType === "GRUPO" ? "Rutina grupal" : "Rutina individual",
+    created_at: new Date().toISOString()
+  };
 
-  const { data: created, error } = await supabase
-    .from("routines")
-    .insert({
-      trainer_id: trainerId,
-      target_type: targetType,
-      target_id: targetId,
-      status: "ACTIVA",
-      routine_type: routineType,
-      name: targetType === "GRUPO" ? "Rutina grupal" : "Rutina individual",
-    } as any)
-    .select("*")
-    .single();
-
-  if (error) throw error;
-  return created as unknown as Routine;
+  const docRef = await addDoc(collection(db, "routines"), newDoc);
+  return { id: docRef.id, ...newDoc } as Routine;
 }
 
 /**
@@ -60,13 +76,20 @@ export async function archiveActiveRoutine(
   trainerId: string,
   studentId: string
 ): Promise<void> {
-  await supabase
-    .from("routines")
-    .update({ status: "ARCHIVADA" } as any)
-    .eq("trainer_id", trainerId)
-    .eq("target_type", "ALUMNO")
-    .eq("target_id", studentId)
-    .eq("status", "ACTIVA");
+  const q = query(
+    collection(db, "routines"),
+    where("trainer_id", "==", trainerId),
+    where("target_type", "==", "ALUMNO"),
+    where("target_id", "==", studentId),
+    where("status", "==", "ACTIVA")
+  );
+  
+  const snap = await getDocs(q);
+  if (snap.empty) return;
+
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => batch.update(d.ref, { status: "ARCHIVADA" }));
+  await batch.commit();
 }
 
 /**
@@ -76,15 +99,16 @@ export async function fetchStudentRoutines(
   trainerId: string,
   studentId: string
 ): Promise<Routine[]> {
-  const { data } = await supabase
-    .from("routines")
-    .select("*")
-    .eq("trainer_id", trainerId)
-    .eq("target_type", "ALUMNO")
-    .eq("target_id", studentId)
-    .order("created_at", { ascending: false });
+  const q = query(
+    collection(db, "routines"),
+    where("trainer_id", "==", trainerId),
+    where("target_type", "==", "ALUMNO"),
+    where("target_id", "==", studentId),
+    orderBy("created_at", "desc")
+  );
 
-  return (data as unknown as Routine[]) || [];
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Routine));
 }
 
 /**
@@ -94,27 +118,25 @@ export async function fetchArchivedRoutines(
   trainerId: string,
   studentId: string
 ): Promise<Routine[]> {
-  const { data } = await supabase
-    .from("routines")
-    .select("*")
-    .eq("trainer_id", trainerId)
-    .eq("target_id", studentId)
-    .eq("status", "ARCHIVADA")
-    .order("created_at", { ascending: false });
+  const q = query(
+    collection(db, "routines"),
+    where("trainer_id", "==", trainerId),
+    where("target_id", "==", studentId),
+    where("status", "==", "ARCHIVADA"),
+    orderBy("created_at", "desc")
+  );
 
-  return (data as unknown as Routine[]) || [];
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Routine));
 }
 
 /**
  * Fetch exercises belonging to a specific routine.
  */
 export async function fetchRoutineExercises(routineId: string) {
-  const { data } = await supabase
-    .from("exercises")
-    .select("*")
-    .eq("routine_id", routineId);
-
-  return data || [];
+  const q = query(collection(db, "exercises"), where("routine_id", "==", routineId));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 /**
@@ -127,43 +149,56 @@ export async function assignGroupRoutineToStudent(
   studentId: string,
   groupId: string
 ): Promise<void> {
-  // 1. Archive the student's current active routine (if any)
-  await archiveActiveRoutine(trainerId, studentId);
-
-  // Also unlink exercises from the old routine (they stay but routine_id nulled)
-  // The archived routine's exercises remain queryable via routine_id
+  // 1. Archive ANY current active routine for this student (be it individual or another group)
+  const qActive = query(
+    collection(db, "routines"),
+    where("trainer_id", "==", trainerId),
+    where("target_type", "==", "ALUMNO"),
+    where("target_id", "==", studentId),
+    where("status", "==", "ACTIVA")
+  );
+  const activeSnap = await getDocs(qActive);
+  if (!activeSnap.empty) {
+    const batchArch = writeBatch(db);
+    activeSnap.docs.forEach(d => batchArch.update(d.ref, { status: "ARCHIVADA" }));
+    await batchArch.commit();
+  }
 
   // 2. Fetch group exercises
-  const { data: groupExercises } = await supabase
-    .from("group_exercises")
-    .select("*")
-    .eq("group_id", groupId);
+  const q = query(collection(db, "group_exercises"), where("group_id", "==", groupId));
+  const snap = await getDocs(q);
+  const groupExercises = snap.docs.map(d => d.data());
 
-  if (!groupExercises || groupExercises.length === 0) return;
+  if (groupExercises.length === 0) return;
 
   // 3. Create a new GRUPAL routine for this student
   const routine = await getOrCreateActiveRoutine(trainerId, "ALUMNO", studentId, "GRUPAL");
 
   // 4. Copy group exercises to student's exercises
-  const inserts = groupExercises.map((ge: any) => ({
-    trainer_id: trainerId,
-    student_id: studentId,
-    name: ge.name,
-    sets: ge.sets,
-    reps: ge.reps,
-    weight: ge.weight || 0,
-    day: ge.day,
-    body_part: ge.body_part || "",
-    is_to_failure: ge.is_to_failure || false,
-    is_dropset: ge.is_dropset || false,
-    is_piramide: ge.is_piramide || false,
-    pyramid_reps: ge.pyramid_reps || null,
-    exercise_type: ge.exercise_type || "NORMAL",
-    routine_id: routine.id,
-  }));
+  const batch = writeBatch(db);
+  groupExercises.forEach((ge: any) => {
+    const newExRef = doc(collection(db, "exercises"));
+    batch.set(newExRef, {
+      trainer_id: trainerId,
+      student_id: studentId,
+      name: ge.name,
+      sets: ge.sets,
+      reps: ge.reps,
+      weight: ge.weight || 0,
+      day: ge.day,
+      body_part: ge.body_part || "",
+      is_to_failure: ge.is_to_failure || false,
+      is_dropset: ge.is_dropset || false,
+      is_piramide: ge.is_piramide || false,
+      pyramid_reps: ge.pyramid_reps || null,
+      exercise_type: ge.exercise_type || "NORMAL",
+      routine_id: routine.id,
+      created_at: new Date().toISOString(),
+      completed: false
+    });
+  });
 
-  const { error } = await supabase.from("exercises").insert(inserts as any);
-  if (error) throw error;
+  await batch.commit();
 }
 
 /**
@@ -174,10 +209,16 @@ export async function linkExercisesToRoutine(
   studentId: string,
   routineId: string
 ): Promise<void> {
-  await supabase
-    .from("exercises")
-    .update({ routine_id: routineId } as any)
-    .eq("trainer_id", trainerId)
-    .eq("student_id", studentId)
-    .is("routine_id", null);
+  const q = query(
+    collection(db, "exercises"),
+    where("trainer_id", "==", trainerId),
+    where("student_id", "==", studentId),
+    where("routine_id", "==", null)
+  );
+  
+  const snap = await getDocs(q);
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => batch.update(d.ref, { routine_id: routineId }));
+  await batch.commit();
 }
+

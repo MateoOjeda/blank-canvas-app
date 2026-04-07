@@ -1,0 +1,126 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getRole(userId) {
+      return get(/databases/$(database)/documents/user_roles/$(userId)).data.role;
+    }
+
+    // Profiles: Everyone authenticated can read (to search/link), only owner can write
+    match /profiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    // User Roles: Read by anyone authenticated, write restricted (only system/admin usually, but for now owner)
+    match /user_roles/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // Simplified for now to allow Trainer registration
+    }
+
+    // Trainer-Student Links
+    match /trainer_students/{linkId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.trainer_id || 
+        request.auth.uid == resource.data.student_id
+      );
+      allow write: if isAuthenticated(); // Simplified to allow Trainers to link/unlink
+    }
+
+    // Exercises
+    match /exercises/{exerciseId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.trainer_id || 
+        request.auth.uid == resource.data.student_id
+      );
+      allow write: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.trainer_id ||
+        request.auth.uid == resource.data.trainer_id
+      );
+    }
+
+    // Routines
+    match /routines/{routineId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.trainer_id || 
+        (resource.data.target_type == 'ALUMNO' && request.auth.uid == resource.data.target_id)
+      );
+      allow write: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.trainer_id ||
+        request.auth.uid == resource.data.trainer_id
+      );
+    }
+
+    // Training Groups
+    match /training_groups/{groupId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.trainer_id ||
+        request.auth.uid == resource.data.trainer_id
+      );
+    }
+
+    match /training_group_members/{memberId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    match /group_exercises/{exId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Routine Day Config
+    match /routine_day_config/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Global Plans
+    match /global_plans/{planId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (
+        request.auth.uid == resource.data.trainer_id ||
+        request.auth.uid == request.resource.data.trainer_id
+      );
+    }
+
+    // Plan Levels / Purchases
+    match /plan_levels/{levelId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.trainer_id ||
+        request.auth.uid == resource.data.student_id
+      );
+      allow write: if isAuthenticated();
+    }
+
+    // Surveys
+    match /surveys/{surveyId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    match /survey_assignments/{assignId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    match /survey_answers/{answerId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Default: Deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

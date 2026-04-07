@@ -20,8 +20,12 @@ import MyPlansPage from "@/pages/student/MyPlansPage";
 import ProgressPage from "@/pages/student/ProgressPage";
 import StudentFeedPage from "@/pages/student/StudentFeedPage";
 import StudentRoutinesPage from "@/pages/student/StudentRoutinesPage";
+import StudentDashboardPage from "@/pages/student/StudentDashboardPage";
 import PersonalChangePage from "@/pages/student/PersonalChangePage";
 import TransformationPage from "@/pages/student/TransformationPage";
+import StudentSurveysPage from "@/pages/student/StudentSurveysPage";
+import StudentMealsPage from "@/pages/student/StudentMealsPage";
+import PublicStudentView from "@/pages/PublicStudentView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,13 +34,13 @@ function RootRedirect() {
   const { user, role, loading } = useAuth();
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" /></div>;
   if (!user) return <Navigate to="/auth" replace />;
-  return <Navigate to={role === "trainer" ? "/trainer/students" : "/student/today"} replace />;
+  return <Navigate to={role === "trainer" ? "/trainer/students" : "/student/home"} replace />;
 }
 
 function AuthRedirect() {
   const { user, role, loading } = useAuth();
   if (loading) return null;
-  if (user) return <Navigate to={role === "trainer" ? "/trainer/students" : "/student/today"} replace />;
+  if (user) return <Navigate to={role === "trainer" ? "/trainer/students" : "/student/home"} replace />;
   return <AuthPage />;
 }
 
@@ -61,6 +65,7 @@ const App = () => (
               <Route path="/trainer/notifications" element={<ProtectedRoute requiredRole="trainer"><NotificationsPage /></ProtectedRoute>} />
               <Route path="/trainer/groups" element={<ProtectedRoute requiredRole="trainer"><TrainingGroupsPage /></ProtectedRoute>} />
               <Route path="/trainer/surveys" element={<ProtectedRoute requiredRole="trainer"><TrainerSurveysPage /></ProtectedRoute>} />
+              <Route path="/student/home" element={<ProtectedRoute requiredRole="student"><StudentDashboardPage /></ProtectedRoute>} />
               <Route path="/student/feed" element={<ProtectedRoute requiredRole="student"><StudentFeedPage /></ProtectedRoute>} />
               <Route path="/student/routines" element={<ProtectedRoute requiredRole="student"><StudentRoutinesPage /></ProtectedRoute>} />
               <Route path="/student/today" element={<ProtectedRoute requiredRole="student"><TodayRoutinePage /></ProtectedRoute>} />
@@ -68,7 +73,10 @@ const App = () => (
               <Route path="/student/progress" element={<ProtectedRoute requiredRole="student"><ProgressPage /></ProtectedRoute>} />
               <Route path="/student/personal-change" element={<ProtectedRoute requiredRole="student"><PersonalChangePage /></ProtectedRoute>} />
               <Route path="/student/transformation" element={<ProtectedRoute requiredRole="student"><TransformationPage /></ProtectedRoute>} />
+              <Route path="/student/surveys" element={<ProtectedRoute requiredRole="student"><StudentSurveysPage /></ProtectedRoute>} />
+              <Route path="/student/meals" element={<ProtectedRoute requiredRole="student"><StudentMealsPage /></ProtectedRoute>} />
             </Route>
+            <Route path="/view/:studentId" element={<PublicStudentView />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

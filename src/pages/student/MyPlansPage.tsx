@@ -1,6 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  doc, 
+  getDoc,
+  onSnapshot,
+  limit
+} from "firebase/firestore";
 import { Loader2, ClipboardList } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import PlanCard from "@/components/student/PlanCard";
@@ -41,45 +51,63 @@ export default function MyPlansPage() {
     if (!user) return;
     setLoading(true);
 
-    // Get student's linked trainer
-    const { data: links } = await supabase
-      .from("trainer_students")
-      .select("trainer_id")
-      .eq("student_id", user.id)
-      .limit(1);
+    try {
+      // Get student's linked trainer
+      const qLinks = query(collection(db, "trainer_students"), where("student_id", "==", user.uid), limit(1));
+      const snapLinks = await getDocs(qLinks);
 
-    if (!links || links.length === 0) {
+      if (snapLinks.empty) {
+        setLoading(false);
+        return;
+      }
+
+      const trainerId = snapLinks.docs[0].data().trainer_id;
+
+      // Fetch Global Plans
+      const qGlobal = query(collection(db, "global_plans"), where("trainer_id", "==", trainerId));
+      const snapGlobal = await getDocs(qGlobal);
+      setGlobalPlans(snapGlobal.docs.map(d => ({ id: d.id, ...d.data() } as GlobalPlan)));
+
+      // Fetch Plan Levels for student
+      const qLevels = query(
+        collection(db, "plan_levels"), 
+        where("student_id", "==", user.uid), 
+        where("trainer_id", "==", trainerId)
+      );
+      const snapLevels = await getDocs(qLevels);
+      setPlanLevels(snapLevels.docs.map(d => ({ id: d.id, ...d.data() } as PlanLevel)));
+
+      // Fetch Trainer Profile
+      const profSnap = await getDoc(doc(db, "profiles", trainerId));
+      if (profSnap.exists()) {
+        setTrainerInfo(profSnap.data() as TrainerInfo);
+      }
+    } catch (err) {
+      console.error("Error fetching plans data:", err);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const trainerId = links[0].trainer_id;
-
-    const [globalRes, levelsRes, profileRes] = await Promise.all([
-      supabase.from("global_plans").select("id, plan_type, level, price, content, active").eq("trainer_id", trainerId),
-      supabase.from("plan_levels").select("id, plan_type, level, unlocked").eq("student_id", user.id).eq("trainer_id", trainerId),
-      supabase.from("profiles").select("display_name, mercadopago_alias, whatsapp_number").eq("user_id", trainerId).maybeSingle(),
-    ]);
-
-    setGlobalPlans(globalRes.data || []);
-    setPlanLevels(levelsRes.data || []);
-    if (profileRes.data) setTrainerInfo(profileRes.data as TrainerInfo);
-    setLoading(false);
   }, [user]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Realtime: listen for global_plans changes
+  // Real-time updates with onSnapshot
   useEffect(() => {
     if (!user) return;
-    const channel = supabase
-      .channel("student-global-plans")
-      .on("postgres_changes", { event: "*", schema: "public", table: "global_plans" }, () => fetchData())
-      .on("postgres_changes", { event: "*", schema: "public", table: "plan_levels", filter: `student_id=eq.${user.id}` }, () => fetchData())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    
+    // Listen for global_plans (ideally scoped by trainer, but for now we listen and re-fetch)
+    const unsubGlobal = onSnapshot(collection(db, "global_plans"), () => fetchData());
+    const unsubLevels = onSnapshot(
+      query(collection(db, "plan_levels"), where("student_id", "==", user.uid)), 
+      () => fetchData()
+    );
+
+    return () => {
+      unsubGlobal();
+      unsubLevels();
+    };
   }, [user, fetchData]);
 
   if (loading) {
@@ -126,7 +154,6 @@ export default function MyPlansPage() {
   const activePlanType = PLAN_TYPES.find((pt) => pt.key === selectedPlan);
 
   if (activePlanType) {
-    // Build trainerPrices map from global plans
     const trainerPrices: Record<string, number> = {};
     globalPlans.forEach((gp) => {
       trainerPrices[`${gp.plan_type}-${gp.level}`] = gp.price;

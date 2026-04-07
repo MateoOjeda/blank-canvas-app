@@ -1,7 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  doc, 
+  updateDoc, 
+  setDoc, 
+  onSnapshot,
+  orderBy,
+  limit,
+  Timestamp
+} from "firebase/firestore";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -49,169 +62,176 @@ export default function TodayRoutinePage() {
   const [loading, setLoading] = useState(true);
   const [logExercise, setLogExercise] = useState<Exercise | null>(null);
   const [exerciseSets, setExerciseSets] = useState<Record<string, SetData[]>>({});
-  const [pendingSurveys, setPendingSurveys] = useState<any[]>([]);
-  const [activeSurvey, setActiveSurvey] = useState<any | null>(null);
   const [groupName, setGroupName] = useState<string | null>(null);
   const today = getTodayDay();
-
-  const fetchSurveys = useCallback(async () => {
-    if (!user) return;
-    try {
-      const data = await fetchStudentPendingSurveys(user.id);
-      setPendingSurveys(data);
-    } catch (e) {
-      console.error(e);
-    }
-  }, [user]);
-
-  useEffect(() => { fetchSurveys(); }, [fetchSurveys]);
 
   const fetchExercises = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const sb = supabase;
-
-    // Fetch individual exercises
-    const { data: individualData } = await supabase
-      .from("exercises")
-      .select("id, name, sets, reps, weight, day, completed, trainer_id, body_part, is_to_failure")
-      .eq("student_id", user.id)
-      .eq("day", today);
-    let allExercises = (individualData || []) as Exercise[];
-
-    // Fetch group exercises: find groups this student belongs to
-    const { data: memberships } = await sb
-      .from("training_group_members")
-      .select("group_id, training_groups(name)")
-      .eq("student_id", user.id);
-
-    if (memberships && memberships.length > 0) {
-      const firstMembership = memberships[0] as any;
-      if (firstMembership.training_groups?.name) {
-        setGroupName(firstMembership.training_groups.name);
-      }
-      
-      const groupIds = memberships.map((m: any) => m.group_id);
-      const { data: groupExData } = await sb
-        .from("group_exercises")
-        .select("id, name, sets, reps, weight, day, body_part, is_to_failure, trainer_id")
-        .in("group_id", groupIds)
-        .eq("day", today);
-
-      if (groupExData && groupExData.length > 0) {
-        const groupExercises: Exercise[] = groupExData.map((ge: any) => ({
-          ...ge,
-          completed: false,
-          trainer_id: ge.trainer_id || "",
-        }));
-        // Avoid duplicates by name+day
-        const existingNames = new Set(allExercises.map((e) => `${e.name}-${e.day}`));
-        const newGroupExs = groupExercises.filter((ge) => !existingNames.has(`${ge.name}-${ge.day}`));
-        allExercises = [...allExercises, ...newGroupExs];
-      }
-    }
-
-    setExercises(allExercises);
     
-    const todayDate = new Date().toISOString().split("T")[0];
-    const exerciseIds = allExercises.map((e: Exercise) => e.id);
-    let weights: Record<string, string> = {};
-    if (exerciseIds.length > 0) {
-      const { data: logs } = await supabase
-        .from("exercise_logs")
-        .select("exercise_id, actual_weight")
-        .eq("student_id", user.id)
-        .eq("log_date", todayDate)
-        .in("exercise_id", exerciseIds);
-      
-      logs?.forEach((log) => {
-        if (log.actual_weight !== null) {
-          weights[log.exercise_id] = String(log.actual_weight);
+    try {
+      const todayDate = new Date().toISOString().split("T")[0];
+      // Read blocked state from localStorage
+      const blockedStr = localStorage.getItem(`blocked_routines_${user.uid}`);
+      const blocked = blockedStr ? JSON.parse(blockedStr) : { personal: false, group: false };
+
+      // Fetch individual exercises (Personal Routine) IF NOT BLOCKED
+      let individualExercises: Exercise[] = [];
+      if (!blocked.personal) {
+        const qInd = query(
+          collection(db, "exercises"), 
+          where("student_id", "==", user.uid),
+          where("day", "==", today)
+        );
+        const snapInd = await getDocs(qInd);
+        individualExercises = snapInd.docs.map(d => ({ id: d.id, ...d.data() } as Exercise));
+      }
+
+      // Fetch group exercises IF NOT BLOCKED
+      let groupExercises: Exercise[] = [];
+      if (!blocked.group) {
+        const qMem = query(collection(db, "training_group_members"), where("student_id", "==", user.uid));
+        const snapMem = await getDocs(qMem);
+        
+        if (!snapMem.empty) {
+          const memberships = snapMem.docs.map(d => d.data());
+          const groupIds = memberships.map(m => m.group_id);
+          
+          // Get first group name for display
+          const groupDoc = await getDoc(doc(db, "training_groups", groupIds[0]));
+          if (groupDoc.exists()) {
+            setGroupName(groupDoc.data().name);
+          }
+
+          const qGrpEx = query(
+            collection(db, "group_exercises"),
+            where("day", "==", today),
+            where("group_id", "in", groupIds)
+          );
+          const snapGrpEx = await getDocs(qGrpEx);
+          groupExercises = snapGrpEx.docs.map(d => ({ 
+            id: d.id, 
+            ...d.data(),
+            completed: false,
+            trainer_id: d.data().trainer_id || ""
+          } as Exercise));
+        }
+      } else {
+        setGroupName(null);
+      }
+
+      const allExercises = [...individualExercises, ...groupExercises];
+      setExercises(allExercises);
+
+      // Fetch logs for today
+      let weights: Record<string, string> = {};
+      if (allExercises.length > 0) {
+        const qLogs = query(
+          collection(db, "exercise_logs"),
+          where("student_id", "==", user.uid),
+          where("log_date", "==", todayDate)
+        );
+        const snapLogs = await getDocs(qLogs);
+        snapLogs.forEach(d => {
+          const data = d.data();
+          if (data.actual_weight !== null) {
+            weights[data.exercise_id] = String(data.actual_weight);
+          }
+        });
+      }
+
+      // Load from localStorage if present
+      const savedStateStr = localStorage.getItem(`routine_sets_${user.uid}_${todayDate}`);
+      let savedState: Record<string, SetData[]> = {};
+      if (savedStateStr) {
+        try {
+          savedState = JSON.parse(savedStateStr);
+        } catch (e) {}
+      }
+
+      const newExerciseSets: Record<string, SetData[]> = {};
+      allExercises.forEach((ex) => {
+        if (savedState[ex.id]) {
+           if (ex.completed && !savedState[ex.id].every(s => s.completed)) {
+             newExerciseSets[ex.id] = savedState[ex.id].map(s => ({ ...s, completed: true }));
+           } else {
+             newExerciseSets[ex.id] = savedState[ex.id];
+           }
+        } else {
+           const setsCount = ex.sets || 1;
+           const defaultWeight = weights[ex.id] || ex.weight?.toString() || "";
+           const sets: SetData[] = [];
+           for (let i = 0; i < setsCount; i++) {
+             sets.push({
+               id: `${ex.id}-set-${i}`,
+               weight: defaultWeight,
+               reps: ex.reps?.toString() || "",
+               completed: ex.completed,
+             });
+           }
+           newExerciseSets[ex.id] = sets;
         }
       });
+
+      setExerciseSets(newExerciseSets);
+      localStorage.setItem(`routine_sets_${user.uid}_${todayDate}`, JSON.stringify(newExerciseSets));
+    } catch (err) {
+      console.error("Error fetching today exercises:", err);
+    } finally {
+      setLoading(false);
     }
-
-    // Load from localStorage if present
-    const savedStateStr = localStorage.getItem(`routine_sets_${user.id}_${todayDate}`);
-    let savedState: Record<string, SetData[]> = {};
-    if (savedStateStr) {
-      try {
-        savedState = JSON.parse(savedStateStr);
-      } catch (e) {}
-    }
-
-    const newExerciseSets: Record<string, SetData[]> = {};
-    allExercises.forEach((ex) => {
-      if (savedState[ex.id]) {
-         if (ex.completed && !savedState[ex.id].every(s => s.completed)) {
-           newExerciseSets[ex.id] = savedState[ex.id].map(s => ({ ...s, completed: true }));
-         } else {
-           newExerciseSets[ex.id] = savedState[ex.id];
-         }
-      } else {
-         const setsCount = ex.sets || 1;
-         const defaultWeight = weights[ex.id] || ex.weight?.toString() || "";
-         const sets: SetData[] = [];
-         for (let i = 0; i < setsCount; i++) {
-           sets.push({
-             id: `${ex.id}-set-${i}`,
-             weight: defaultWeight,
-             reps: ex.reps?.toString() || "",
-             completed: ex.completed,
-           });
-         }
-         newExerciseSets[ex.id] = sets;
-      }
-    });
-
-    setExerciseSets(newExerciseSets);
-    localStorage.setItem(`routine_sets_${user.id}_${todayDate}`, JSON.stringify(newExerciseSets));
-
-    setLoading(false);
   }, [user, today]);
 
   useEffect(() => { fetchExercises(); }, [fetchExercises]);
 
   useEffect(() => {
     if (!user) return;
-    const channel = supabase
-      .channel("student-exercises")
-      .on("postgres_changes", { event: "*", schema: "public", table: "exercises", filter: `student_id=eq.${user.id}` }, () => { fetchExercises(); })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    
+    // Real-time listener for exercises
+    const q = query(collection(db, "exercises"), where("student_id", "==", user.uid));
+    const unsubscribe = onSnapshot(q, () => {
+      fetchExercises();
+    });
+
+    window.addEventListener('storage', fetchExercises);
+    return () => { 
+      unsubscribe();
+      window.removeEventListener('storage', fetchExercises);
+    };
   }, [user, fetchExercises]);
 
   const saveExerciseProgress = async (exerciseId: string, sets: SetData[], markCompleted: boolean) => {
     const exercise = exercises.find(e => e.id === exerciseId);
     if (!exercise || !user) return;
 
-    const maxWeight = Math.max(...sets.map(s => parseFloat(s.weight) || 0), 0);
-    const currentSetsCount = sets.length;
-    const todayDate = new Date().toISOString().split("T")[0];
+    try {
+      const maxWeight = Math.max(...sets.map(s => parseFloat(s.weight) || 0), 0);
+      const currentSetsCount = sets.length;
+      const todayDate = new Date().toISOString().split("T")[0];
 
-    const { error: exError } = await supabase.from("exercises").update({ completed: markCompleted }).eq("id", exerciseId);
-    if (exError) {
-      toast.error("Error al actualizar la base de datos");
-      return;
-    }
-   
-    setExercises((prev) => prev.map((e) => (e.id === exerciseId ? { ...e, completed: markCompleted } : e)));
+      await updateDoc(doc(db, "exercises", exerciseId), { completed: markCompleted });
+     
+      setExercises((prev) => prev.map((e) => (e.id === exerciseId ? { ...e, completed: markCompleted } : e)));
 
-    if (markCompleted) {
-      const { error: logError } = await supabase.from("exercise_logs").upsert({
-        exercise_id: exercise.id,
-        student_id: user.id,
-        trainer_id: exercise.trainer_id,
-        log_date: todayDate,
-        completed: true,
-        actual_weight: maxWeight > 0 ? maxWeight : null,
-        actual_sets: currentSetsCount,
-        actual_reps: exercise.is_to_failure ? null : exercise.reps,
-      }, { onConflict: "exercise_id,log_date" });
+      if (markCompleted) {
+        const logId = `${exercise.id}_${todayDate}`;
+        await setDoc(doc(db, "exercise_logs", logId), {
+          exercise_id: exercise.id,
+          student_id: user.uid,
+          trainer_id: exercise.trainer_id,
+          log_date: todayDate,
+          completed: true,
+          actual_weight: maxWeight > 0 ? maxWeight : null,
+          actual_sets: currentSetsCount,
+          actual_reps: exercise.is_to_failure ? null : exercise.reps,
+          created_at: new Date().toISOString()
+        }, { merge: true });
 
-      if (!logError) {
         toast.success(`${exercise.name} completado`);
       }
+    } catch (err) {
+      console.error("Error saving exercise progress:", err);
+      toast.error("Error al actualizar la base de datos");
     }
   };
 
@@ -220,7 +240,7 @@ export default function TodayRoutinePage() {
       const next = { ...prev };
       next[exerciseId] = next[exerciseId].map(s => s.id === setId ? { ...s, completed } : s);
       const todayDate = new Date().toISOString().split("T")[0];
-      localStorage.setItem(`routine_sets_${user?.id}_${todayDate}`, JSON.stringify(next));
+      localStorage.setItem(`routine_sets_${user?.uid}_${todayDate}`, JSON.stringify(next));
       
       const allCompleted = next[exerciseId].every(s => s.completed);
       const exercise = exercises.find(e => e.id === exerciseId);
@@ -238,7 +258,7 @@ export default function TodayRoutinePage() {
       const next = { ...prev };
       next[exerciseId] = next[exerciseId].map(s => s.id === setId ? { ...s, [field]: value } : s);
       const todayDate = new Date().toISOString().split("T")[0];
-      localStorage.setItem(`routine_sets_${user?.id}_${todayDate}`, JSON.stringify(next));
+      localStorage.setItem(`routine_sets_${user?.uid}_${todayDate}`, JSON.stringify(next));
       return next;
     });
   };
@@ -255,9 +275,8 @@ export default function TodayRoutinePage() {
         completed: false
       }];
       const todayDate = new Date().toISOString().split("T")[0];
-      localStorage.setItem(`routine_sets_${user?.id}_${todayDate}`, JSON.stringify(next));
+      localStorage.setItem(`routine_sets_${user?.uid}_${todayDate}`, JSON.stringify(next));
       
-      // Since we added a new (incomplete) set, if exercise was complete, uncomplete it
       const exercise = exercises.find(e => e.id === exerciseId);
       if (exercise && exercise.completed) {
         saveExerciseProgress(exerciseId, next[exerciseId], false).catch(console.error);
@@ -271,16 +290,18 @@ export default function TodayRoutinePage() {
   const allDone = exercises.length > 0 && completedCount === exercises.length;
 
   if (loading) {
-    return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
   }
 
-  // Collect all unique body parts for the day header
   const allBodyParts = [...new Set(exercises.map((e) => e.body_part).filter(Boolean))];
   const dayHeader = allBodyParts.length > 0
     ? `${today.toUpperCase()} — ${allBodyParts.join(" · ").toUpperCase()}`
     : today.toUpperCase();
 
-  // Group by body part
   const grouped: Record<string, Exercise[]> = {};
   exercises.forEach((ex) => {
     const key = ex.body_part || "General";
@@ -289,63 +310,53 @@ export default function TodayRoutinePage() {
   });
 
   return (
-    <div className="container-responsive space-y-8 pb-24">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-display font-bold tracking-tight neon-text">Mi Rutina Hoy</h1>
-        <div className="flex items-center gap-3 flex-wrap">
-          <Badge variant="outline" className="badge-info-tag text-[10px] font-bold py-1 px-3">
-            {dayHeader}
-          </Badge>
-          <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
+    <div className="container max-w-4xl mx-auto p-4 sm:p-6 pb-32 animate-in fade-in duration-750">
+      {/* HEADER SECTION */}
+      <div className="mb-10 text-center sm:text-left relative">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3 mb-3 relative z-10">
+          <h1 className="text-4xl sm:text-5xl font-display font-black tracking-tighter uppercase italic leading-none">
+            Rutina <span className="text-primary italic-none tracking-normal">Hoy</span>
+          </h1>
+          <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full w-fit mx-auto sm:mx-0">
+            <Dumbbell className="h-3 w-3 text-primary" />
+            <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{dayHeader}</span>
+          </div>
+        </div>
+        
+        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-4">
+          <div className="flex items-center gap-2 px-4 py-1.5 bg-muted/40 rounded-full border border-border/40 shadow-sm">
             <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
               {completedCount}/{exercises.length} <span className="opacity-60">Ejercicios</span>
             </span>
           </div>
           {groupName && (
-            <Badge variant="outline" className="badge-accent-tag text-[10px]">
+            <Badge variant="outline" className="rounded-full text-[10px] font-black uppercase tracking-widest border-accent/20 text-accent bg-accent/5 px-4 py-1.5 shadow-sm">
               Grupo: {groupName}
             </Badge>
           )}
         </div>
       </div>
 
-      {pendingSurveys.length > 0 && (
-        <div className="space-y-4">
-          {pendingSurveys.map(asst => (
-            <Card key={asst.id} className="card-premium border-primary/30 bg-primary/5 hover:border-primary/60 cursor-pointer overflow-hidden group" onClick={() => setActiveSurvey(asst)}>
-              <CardContent className="p-5 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 bg-primary/20 rounded-2xl flex items-center justify-center shrink-0 border border-primary/20 group-hover:scale-110 transition-transform">
-                    <ClipboardList className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg leading-tight uppercase tracking-tight">{asst.survey?.title}</h3>
-                    <p className="text-xs text-muted-foreground mt-1">Encuesta pendiente de tu entrenador</p>
-                  </div>
-                </div>
-                <Button className="btn-premium-primary h-10 px-6 shadow-primary/20" onClick={(e) => { e.stopPropagation(); setActiveSurvey(asst); }}>
-                  Responder
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
       <RestTimer />
 
       {allDone && (
-        <Card className="card-premium border-primary/40 bg-primary/10 neon-glow py-8">
-          <CardContent className="p-0 text-center space-y-4">
+        <Card className="card-premium border-primary/20 bg-primary/5 rounded-[3rem] py-12 relative overflow-hidden shadow-2xl shadow-primary/10 mb-10">
+          <div className="absolute inset-0 bg-primary/5 animate-pulse" />
+          <CardContent className="p-0 text-center relative z-10 space-y-6">
             <div className="relative inline-block">
-              <div className="absolute inset-0 bg-primary blur-2xl opacity-20 animate-pulse" />
-              <Flame className="h-16 w-16 text-primary mx-auto relative animate-bounce" />
+              <div className="absolute inset-0 bg-primary blur-3xl opacity-20" />
+              <div className="h-20 w-20 bg-primary/20 rounded-[2.5rem] flex items-center justify-center mx-auto border-2 border-primary/30 shadow-2xl shadow-primary/20 animate-bounce">
+                <Flame className="h-10 w-10 text-primary" />
+              </div>
             </div>
             <div className="space-y-1">
-              <h2 className="text-2xl font-display font-bold neon-text uppercase tracking-tighter">¡Entrenamiento Finalizado!</h2>
-              <p className="text-sm text-primary/80 font-medium">Has superado todos los desafíos de hoy. ¡A seguir así! 🔥</p>
+              <h2 className="text-4xl font-display font-black tracking-tight uppercase leading-none italic">¡Entrenamiento Finalizado!</h2>
+              <p className="text-primary font-black text-[10px] uppercase tracking-[0.4em]">Felicidades por tu disciplina</p>
             </div>
+            <p className="text-sm text-muted-foreground max-w-[300px] mx-auto font-medium leading-relaxed italic">
+              Has superado todos los desafíos de hoy. Tu consistencia es la clave del éxito. ¡A seguir rompiéndola! 🔥
+            </p>
           </CardContent>
         </Card>
       )}
@@ -374,18 +385,18 @@ export default function TodayRoutinePage() {
                     <Card
                       key={exercise.id}
                       className={cn(
-                        "card-premium transition-all duration-300 overflow-hidden flex flex-col",
-                        exercise.completed ? "border-primary/40 opacity-80" : "hover:border-primary/30"
+                        "card-premium border-border/40 bg-card transition-all duration-500 rounded-[2.5rem] overflow-hidden flex flex-col hover:scale-[1.02] shadow-xl",
+                        exercise.completed ? "border-primary/40 bg-primary/5 opacity-90 shadow-primary/5" : "hover:border-primary/20 hover:bg-card/90"
                       )}
                       id={`ex-${exercise.id}`}
                     >
                       <CardContent className="p-0 flex flex-col h-full">
                         {/* Header */}
-                        <div className="bg-white/5 p-5 flex items-center justify-between border-b border-white/5">
+                        <div className="bg-muted/40 p-5 flex items-center justify-between border-b border-border/40">
                           <div className="flex items-center gap-4 min-w-0">
                             <div className={cn(
                               "h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 transition-colors",
-                              exercise.completed ? "bg-primary/20 text-primary" : "bg-white/5 text-muted-foreground"
+                              exercise.completed ? "bg-primary/20 text-primary" : "bg-muted/50 text-muted-foreground"
                             )}>
                               <Dumbbell className="h-5 w-5" />
                             </div>
@@ -439,14 +450,14 @@ export default function TodayRoutinePage() {
                                   "grid grid-cols-[40px_1fr_1fr_50px] items-center gap-3 p-1.5 rounded-2xl transition-all duration-300 border",
                                   set.completed 
                                     ? "bg-primary/5 border-primary/30" 
-                                    : "bg-white/5 border-white/5 hover:bg-white/10"
+                                    : "bg-muted/20 border-border/30 hover:bg-muted/40"
                                 )}
                               >
-                                <div className="text-xs font-black text-center text-muted-foreground/60">{idx + 1}</div>
+                                <div className="text-xs font-black text-center text-muted-foreground/80">{idx + 1}</div>
                                 <div>
                                   <Input 
                                     type="number" step="0.5" 
-                                    className="input-premium h-10 w-full text-center text-sm font-bold border-none bg-transparent hover:bg-white/5 focus:bg-white/10" 
+                                    className="input-premium h-10 w-full text-center text-sm font-bold border-none bg-transparent hover:bg-muted/40 focus:bg-muted/60" 
                                     value={set.weight} 
                                     onChange={(e) => handleSetChange(exercise.id, set.id, "weight", e.target.value)} 
                                     placeholder="-" 
@@ -455,7 +466,7 @@ export default function TodayRoutinePage() {
                                 <div>
                                   <Input 
                                     type="number" 
-                                    className="input-premium h-10 w-full text-center text-sm font-bold border-none bg-transparent hover:bg-white/5 focus:bg-white/10" 
+                                    className="input-premium h-10 w-full text-center text-sm font-bold border-none bg-transparent hover:bg-muted/40 focus:bg-muted/60" 
                                     value={set.reps} 
                                     onChange={(e) => handleSetChange(exercise.id, set.id, "reps", e.target.value)} 
                                     placeholder="-" 
@@ -496,23 +507,17 @@ export default function TodayRoutinePage() {
           open={!!logExercise}
           onClose={() => { setLogExercise(null); fetchExercises(); }}
           exercise={logExercise}
-          studentId={user.id}
+          studentId={user.uid}
           trainerId={logExercise.trainer_id}
         />
       )}
 
-      {activeSurvey && (
-        <TakeSurveyDialog
-          open={!!activeSurvey}
-          onOpenChange={(v) => !v && setActiveSurvey(null)}
-          surveyId={activeSurvey.survey_id}
-          assignmentId={activeSurvey.id}
-          onCompleted={() => {
-            setActiveSurvey(null);
-            fetchSurveys();
-          }}
-        />
-      )}
     </div>
   );
+}
+
+// Helper function to get doc
+async function getDoc(docRef: any) {
+  const { getDoc } = await import("firebase/firestore");
+  return getDoc(docRef);
 }

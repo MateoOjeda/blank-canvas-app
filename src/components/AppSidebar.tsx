@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Users, Dumbbell, ClipboardList, BarChart3, CalendarCheck, Trophy, User, Zap, LogOut, Bell, Sparkles, Camera, FileText } from "lucide-react";
+import { Users, Dumbbell, ClipboardList, BarChart3, CalendarCheck, Trophy, User, Zap, LogOut, Bell, Sparkles, Camera, FileText, Home, Utensils } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 import ProfilePhotoUpload from "@/components/ProfilePhotoUpload";
 import UserSettingsDialog from "@/components/UserSettingsDialog";
 import {
@@ -13,22 +14,25 @@ import {
 import { Button } from "@/components/ui/button";
 
 const trainerItems = [
-{ title: "Alumnos", url: "/trainer/students", icon: Users },
-{ title: "Rutinas", url: "/trainer/routines", icon: Dumbbell },
-{ title: "Planes", url: "/trainer/plans", icon: ClipboardList },
-{ title: "Seguimiento", url: "/trainer/tracking", icon: BarChart3 },
-{ title: "Grupos", url: "/trainer/groups", icon: Users },
-{ title: "Notificaciones", url: "/trainer/notifications", icon: Bell },
-{ title: "Encuestas", url: "/trainer/surveys", icon: FileText }];
+  { title: "Alumnos", url: "/trainer/students", icon: Users },
+  { title: "Rutinas", url: "/trainer/routines", icon: Dumbbell },
+  { title: "Planes", url: "/trainer/plans", icon: ClipboardList },
+  { title: "Seguimiento", url: "/trainer/tracking", icon: BarChart3 },
+  { title: "Grupos", url: "/trainer/groups", icon: Users },
+  { title: "Notificaciones", url: "/trainer/notifications", icon: Bell },
+  { title: "Encuestas", url: "/trainer/surveys", icon: FileText }
+];
 
 const studentItems = [
-{ title: "Novedades", url: "/student/feed", icon: Bell },
-{ title: "Rutinas", url: "/student/routines", icon: Dumbbell },
-{ title: "Mi Rutina Hoy", url: "/student/today", icon: CalendarCheck },
-{ title: "Mis Planes", url: "/student/plans", icon: Trophy },
-{ title: "Mi Progreso", url: "/student/progress", icon: Zap },
-{ title: "Cambio Personal", url: "/student/personal-change", icon: Sparkles },
-{ title: "Mi Transformación", url: "/student/transformation", icon: Camera }];
+  { title: "Inicio", url: "/student/home", icon: Home },
+  { title: "Rutina de Hoy", url: "/student/today", icon: CalendarCheck },
+  { title: "Rutinas", url: "/student/routines", icon: Dumbbell },
+  { title: "Comidas", url: "/student/meals", icon: Utensils },
+  { title: "Encuestas", url: "/student/surveys", icon: ClipboardList },
+  { title: "Mi Progreso", url: "/student/progress", icon: Zap },
+  { title: "Cambio Personal", url: "/student/personal-change", icon: Sparkles },
+  { title: "Mi Transformación", url: "/student/transformation", icon: Camera }
+];
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -43,10 +47,21 @@ export function AppSidebar() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("avatar_url").eq("user_id", user.id).maybeSingle().then(({ data, error }) => {
-      if (error) console.error("Error fetching avatar:", error.message);
-      if (data?.avatar_url) setAvatarUrl(data.avatar_url);
-    });
+    
+    async function fetchAvatar() {
+      try {
+        const docRef = doc(db, "profiles", user.uid);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.avatar_url) setAvatarUrl(data.avatar_url);
+        }
+      } catch (err) {
+        console.error("Error fetching avatar:", err);
+      }
+    }
+    
+    fetchAvatar();
   }, [user]);
 
   return (

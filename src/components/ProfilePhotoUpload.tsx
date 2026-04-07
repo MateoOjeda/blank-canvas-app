@@ -1,5 +1,7 @@
 import { useState, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { db, storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { doc, updateDoc } from "firebase/firestore";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -30,34 +32,28 @@ export default function ProfilePhotoUpload({ avatarUrl, initials, onUploaded, si
     }
 
     setUploading(true);
-    const ext = file.name.split(".").pop();
-    const path = `${user.id}/avatar.${ext}`;
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `profiles/${user.uid}/avatar.${ext}`;
+      const storageRef = ref(storage, path);
 
-    const { error: uploadError } = await supabase.storage
-      .from("avatars")
-      .upload(path, file, { upsert: true });
+      const uploadRes = await uploadBytes(storageRef, file);
+      const publicUrl = await getDownloadURL(uploadRes.ref);
+      const urlWithCacheBust = `${publicUrl}?t=${Date.now()}`;
 
-    if (uploadError) {
-      toast.error("Error al subir la imagen");
-      setUploading(false);
-      return;
-    }
+      await updateDoc(doc(db, "profiles", user.uid), { 
+        avatar_url: urlWithCacheBust,
+        updated_at: new Date().toISOString()
+      });
 
-    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
-    const urlWithCacheBust = `${publicUrl}?t=${Date.now()}`;
-
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({ avatar_url: urlWithCacheBust })
-      .eq("user_id", user.id);
-
-    if (updateError) {
-      toast.error("Error al actualizar perfil");
-    } else {
       toast.success("Foto actualizada");
       onUploaded(urlWithCacheBust);
+    } catch (err) {
+      console.error("Error uploading avatar:", err);
+      toast.error("Error al subir la imagen");
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
   return (

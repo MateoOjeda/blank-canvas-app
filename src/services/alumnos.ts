@@ -1,4 +1,17 @@
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  deleteDoc, 
+  updateDoc, 
+  addDoc,
+  writeBatch
+} from "firebase/firestore";
 
 export interface StudentProfile {
   user_id: string;
@@ -26,31 +39,44 @@ export interface AvailableStudent {
 }
 
 export async function fetchLinkedStudents(trainerId: string): Promise<LinkedStudent[]> {
-  const { data: links } = await supabase
-    .from("trainer_students")
-    .select("id, student_id, created_at, payment_status, plan_entrenamiento, plan_alimentacion")
-    .eq("trainer_id", trainerId);
+  const linksQuery = query(collection(db, "trainer_students"), where("trainer_id", "==", trainerId));
+  const linksSnap = await getDocs(linksQuery);
+  const links = linksSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
 
-  if (!links || links.length === 0) return [];
+  if (links.length === 0) return [];
 
   const studentIds = links.map((l) => l.student_id);
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("user_id, display_name, avatar_initials, avatar_url, weight, age")
-    .in("user_id", studentIds);
+  const profiles: any[] = [];
+  
+  // Firestore allows up to 30 values in an 'in' query
+  // For larger sets, we'd need to batch, but for a trainer's student list, this is usually enough.
+  for (let i = 0; i < studentIds.length; i += 30) {
+    const chunk = studentIds.slice(i, i + 30);
+    const q = query(collection(db, "profiles"), where("user_id", "in", chunk));
+    const snap = await getDocs(q);
+    profiles.push(...snap.docs.map(d => d.data()));
+  }
 
-  const { data: groupMembers } = await supabase
-    .from("training_group_members")
-    .select(`
-      student_id,
-      training_groups ( name )
-    `)
-    .in("student_id", studentIds);
+  // Fetch group memberships efficiently
+  const groupMembers: any[] = [];
+  for (let i = 0; i < studentIds.length; i += 30) {
+    const chunk = studentIds.slice(i, i + 30);
+    const q = query(collection(db, "training_group_members"), where("student_id", "in", chunk));
+    const snap = await getDocs(q);
+    groupMembers.push(...snap.docs.map(d => d.data()));
+  }
 
-  return (profiles || []).map((p: any) => {
+  // Group names mapping (cached or fetched once)
+  const groupsSnap = await getDocs(collection(db, "training_groups"));
+  const groups = groupsSnap.docs.reduce((acc, d) => {
+    acc[d.id] = d.data().name;
+    return acc;
+  }, {} as Record<string, string>);
+
+  return profiles.map((p: any) => {
     const link = links.find((l) => l.student_id === p.user_id);
-    const membership = groupMembers?.find((gm) => gm.student_id === p.user_id);
-    const groupData = membership?.training_groups as any;
+    const membership = groupMembers.find((gm) => gm.student_id === p.user_id);
+    const groupName = membership ? groups[membership.group_id] : null;
 
     return {
       ...p,
@@ -59,77 +85,83 @@ export async function fetchLinkedStudents(trainerId: string): Promise<LinkedStud
       planAlimentacion: link?.plan_alimentacion || "none",
       linkId: link?.id || "",
       paymentStatus: link?.payment_status || "pendiente",
-      groupName: groupData?.name || null,
+      groupName: groupName || null,
     };
   });
 }
 
 export async function fetchAvailableStudents(trainerId: string): Promise<AvailableStudent[]> {
-  const { data: links } = await supabase
-    .from("trainer_students")
-    .select("student_id")
-    .eq("trainer_id", trainerId);
-
-  const linkedIds = (links || []).map((l) => l.student_id);
+  const linksQuery = query(collection(db, "trainer_students"), where("trainer_id", "==", trainerId));
+  const linksSnap = await getDocs(linksQuery);
+  const linkedIds = linksSnap.docs.map(d => d.data().student_id);
+  
   const excludeIds = [...linkedIds, trainerId];
 
-  const { data: studentRoles } = await supabase
-    .from("user_roles")
-    .select("user_id")
-    .eq("role", "student");
-
-  const studentUserIds = (studentRoles || [])
-    .map((r) => r.user_id)
-    .filter((id) => !excludeIds.includes(id));
+  const rolesSnap = await getDocs(query(collection(db, "user_roles"), where("role", "==", "student")));
+  const studentUserIds = rolesSnap.docs
+    .map(d => d.data().user_id)
+    .filter(id => !excludeIds.includes(id));
 
   if (studentUserIds.length === 0) return [];
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("user_id, display_name, avatar_initials, avatar_url")
-    .in("user_id", studentUserIds);
+  // Fetch profiles in chunks of 30 to avoid Firestore limits
+  const profiles: AvailableStudent[] = [];
+  for (let i = 0; i < studentUserIds.length; i += 30) {
+    const chunk = studentUserIds.slice(i, i + 30);
+    const q = query(collection(db, "profiles"), where("user_id", "in", chunk));
+    const snap = await getDocs(q);
+    profiles.push(...snap.docs.map(d => d.data() as AvailableStudent));
+  }
 
-  return profiles || [];
+  return profiles;
 }
 
 export async function linkStudent(trainerId: string, studentId: string) {
-  const { error } = await supabase
-    .from("trainer_students")
-    .insert({ trainer_id: trainerId, student_id: studentId });
-  if (error) throw error;
+  await addDoc(collection(db, "trainer_students"), {
+    trainer_id: trainerId,
+    student_id: studentId,
+    created_at: new Date().toISOString(),
+    payment_status: "pendiente",
+    plan_entrenamiento: "none",
+    plan_alimentacion: "none"
+  });
 }
 
 export async function unlinkStudent(trainerId: string, studentId: string) {
-  const { error } = await supabase
-    .from("trainer_students")
-    .delete()
-    .eq("trainer_id", trainerId)
-    .eq("student_id", studentId);
-  if (error) throw error;
+  const q = query(
+    collection(db, "trainer_students"), 
+    where("trainer_id", "==", trainerId), 
+    where("student_id", "==", studentId)
+  );
+  const snap = await getDocs(q);
+  const batch = writeBatch(db);
+  snap.docs.forEach(doc => batch.delete(doc.ref));
+  await batch.commit();
 }
 
 export async function deleteStudentPermanently(trainerId: string, studentId: string) {
-  await Promise.all([
-    supabase.from("exercise_logs").delete().eq("student_id", studentId).eq("trainer_id", trainerId),
-    supabase.from("exercises").delete().eq("student_id", studentId).eq("trainer_id", trainerId),
-    supabase.from("plan_levels").delete().eq("student_id", studentId).eq("trainer_id", trainerId),
-    supabase.from("trainer_changes").delete().eq("student_id", studentId).eq("trainer_id", trainerId),
-    supabase.from("routine_day_config").delete().eq("student_id", studentId).eq("trainer_id", trainerId),
-  ]);
-  const { error } = await supabase
-    .from("trainer_students")
-    .delete()
-    .eq("trainer_id", trainerId)
-    .eq("student_id", studentId);
-  if (error) throw error;
+  const batch = writeBatch(db);
+  
+  const collections = [
+    "exercise_logs", 
+    "exercises", 
+    "plan_levels", 
+    "trainer_changes", 
+    "routine_day_config",
+    "trainer_students"
+  ];
+
+  for (const coll of collections) {
+    const q = query(collection(db, coll), where("student_id", "==", studentId), where("trainer_id", "==", trainerId));
+    const snap = await getDocs(q);
+    snap.docs.forEach(d => batch.delete(d.ref));
+  }
+
+  await batch.commit();
 }
 
 export async function updatePaymentStatus(linkId: string, status: "pagado" | "pendiente") {
-  const { error } = await supabase
-    .from("trainer_students")
-    .update({ payment_status: status })
-    .eq("id", linkId);
-  if (error) throw error;
+  await updateDoc(doc(db, "trainer_students", linkId), { payment_status: status });
 }
 
 export async function updatePlanLevel(
@@ -137,18 +169,52 @@ export async function updatePlanLevel(
   field: "plan_entrenamiento" | "plan_alimentacion",
   value: string
 ) {
-  const { error } = await supabase
-    .from("trainer_students")
-    .update({ [field]: value } as any)
-    .eq("id", linkId);
-  if (error) throw error;
+  await updateDoc(doc(db, "trainer_students", linkId), { [field]: value });
 }
 
 export async function fetchStudentProfile(studentId: string): Promise<StudentProfile | null> {
-  const { data } = await supabase
-    .from("profiles")
-    .select("user_id, display_name, avatar_initials, avatar_url, weight, age")
-    .eq("user_id", studentId)
-    .maybeSingle();
-  return data as StudentProfile | null;
+  const snap = await getDoc(doc(db, "profiles", studentId));
+  if (!snap.exists()) return null;
+  return snap.data() as StudentProfile;
 }
+
+export async function createStudentProfile(trainerId: string, data: { name: string; weight?: number; age?: number }) {
+  // Generate a random ID for a "shadow" user if they haven't registered yet
+  const studentId = `student_${Math.random().toString(36).substr(2, 9)}`;
+  
+  const batch = writeBatch(db);
+  
+  // 1. Profile
+  const profileRef = doc(db, "profiles", studentId);
+  batch.set(profileRef, {
+    user_id: studentId,
+    display_name: data.name,
+    weight: data.weight || null,
+    age: data.age || null,
+    avatar_url: null,
+    created_at: new Date().toISOString()
+  });
+  
+  // 2. Role
+  const roleRef = doc(collection(db, "user_roles"));
+  batch.set(roleRef, {
+    user_id: studentId,
+    role: "student",
+    created_at: new Date().toISOString()
+  });
+  
+  // 3. Link to trainer
+  const linkRef = doc(collection(db, "trainer_students"));
+  batch.set(linkRef, {
+    trainer_id: trainerId,
+    student_id: studentId,
+    created_at: new Date().toISOString(),
+    payment_status: "pendiente",
+    plan_entrenamiento: "none",
+    plan_alimentacion: "none"
+  });
+  
+  await batch.commit();
+  return studentId;
+}
+

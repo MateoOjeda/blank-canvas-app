@@ -3,7 +3,20 @@ import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useLinkedStudents } from "@/hooks/useLinkedStudents";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  doc, 
+  getDoc, 
+  updateDoc, 
+  addDoc, 
+  deleteDoc,
+  setDoc,
+  writeBatch
+} from "firebase/firestore";
 import {
   fetchRoutineData,
   saveDayConfig as saveDayConfigService,
@@ -58,6 +71,7 @@ export default function RoutinesPage() {
   const [selectedDay, setSelectedDay] = useState("Lunes");
   const [dayConfigs, setDayConfigs] = useState<Record<string, DayConfig>>({});
   const [routineNextChange, setRoutineNextChange] = useState<string | null>(null);
+  const [activeRoutineId, setActiveRoutineId] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "", sets: "", reps: "",
     isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "",
@@ -76,8 +90,8 @@ export default function RoutinesPage() {
   // In group mode, fetch group name
   useEffect(() => {
     if (isGroupMode && urlGroupId && user) {
-      supabase.from("training_groups").select("name").eq("id", urlGroupId).single()
-        .then(({ data }) => { if (data) setGroupName(data.name); });
+      getDoc(doc(db, "training_groups", urlGroupId))
+        .then((snap) => { if (snap.exists()) setGroupName(snap.data().name); });
     }
   }, [isGroupMode, urlGroupId, user]);
 
@@ -96,48 +110,65 @@ export default function RoutinesPage() {
     if (isGroupMode && urlGroupId) {
       // Group mode: fetch group_exercises
       setLoadingExercises(true);
-      const [exRes, dayRes] = await Promise.all([
-        supabase.from("group_exercises").select("*").eq("group_id", urlGroupId).eq("trainer_id", user.id),
-        supabase.from("routine_day_config").select("day, body_part_1, body_part_2").eq("trainer_id", user.id).eq("student_id", urlGroupId),
-      ]);
-      const groupExercises = (exRes.data || []).map((e: any) => ({
-        ...e,
-        student_id: urlGroupId,
-        completed: false,
-        parent_exercise_id: null,
-        exercise_type: e.exercise_type || "NORMAL",
-      })) as Exercise[];
-      setExercises(groupExercises);
-      const dc: Record<string, DayConfig> = {};
-      (dayRes.data || []).forEach((d: any) => {
-        dc[d.day] = { day: d.day, body_part_1: d.body_part_1 || "", body_part_2: d.body_part_2 || "" };
-      });
-      setDayConfigs(dc);
-      setRoutineNextChange(null);
-      setSelectedIds(new Set());
-      setLoadingExercises(false);
+      try {
+        const qEx = query(collection(db, "group_exercises"), where("group_id", "==", urlGroupId), where("trainer_id", "==", user.uid));
+        const qDay = query(collection(db, "routine_day_config"), where("trainer_id", "==", user.uid), where("student_id", "==", urlGroupId));
+        
+        const [exSnap, daySnap] = await Promise.all([
+          getDocs(qEx),
+          getDocs(qDay)
+        ]);
+
+        const groupExercises = exSnap.docs.map((d: any) => ({
+          id: d.id,
+          ...d.data(),
+          student_id: urlGroupId,
+          completed: false,
+          parent_exercise_id: null,
+          exercise_type: d.data().exercise_type || "NORMAL",
+        })) as Exercise[];
+        setExercises(groupExercises);
+
+        const dc: Record<string, DayConfig> = {};
+        daySnap.docs.forEach((d) => {
+          const data = d.data();
+          dc[data.day] = { day: data.day, body_part_1: data.body_part_1 || "", body_part_2: data.body_part_2 || "" };
+        });
+        setDayConfigs(dc);
+        setRoutineNextChange(null);
+        setSelectedIds(new Set());
+      } catch (err) {
+        console.error("Error fetching group data:", err);
+      } finally {
+        setLoadingExercises(false);
+      }
       return;
     }
 
     if (!selectedStudent) return;
     setLoadingExercises(true);
-    const data = await fetchRoutineData(user.id, selectedStudent);
-    
-    // Fetch nutrition level for the selected student
-    const { data: studentLink } = await supabase
-      .from("trainer_students")
-      .select("plan_alimentacion")
-      .eq("trainer_id", user.id)
-      .eq("student_id", selectedStudent)
-      .maybeSingle();
-    
-    setNutritionLevel(studentLink?.plan_alimentacion || "none");
+    try {
+      const data = await fetchRoutineData(user.uid, selectedStudent);
+      
+      const qLink = query(collection(db, "trainer_students"), where("trainer_id", "==", user.uid), where("student_id", "==", selectedStudent));
+      const linkSnap = await getDocs(qLink);
+      
+      if (!linkSnap.empty) {
+        setNutritionLevel(linkSnap.docs[0].data().plan_alimentacion || "none");
+      } else {
+        setNutritionLevel("none");
+      }
 
-    setExercises(data.exercises);
-    setDayConfigs(data.dayConfigs);
-    setRoutineNextChange(data.routineNextChange);
-    setSelectedIds(new Set());
-    setLoadingExercises(false);
+      setExercises(data.exercises);
+      setDayConfigs(data.dayConfigs);
+      setRoutineNextChange(data.routineNextChange);
+      setActiveRoutineId(data.routineId || null);
+      setSelectedIds(new Set());
+    } catch (err) {
+      console.error("Error fetching routine data:", err);
+    } finally {
+      setLoadingExercises(false);
+    }
   }, [user, selectedStudent, isGroupMode, urlGroupId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -157,7 +188,7 @@ export default function RoutinesPage() {
     if (!targetId) return;
     const updated = { ...currentDayConfig, [field]: value === "none" ? "" : value };
     setDayConfigs((prev) => ({ ...prev, [selectedDay]: updated }));
-    await saveDayConfigService(user.id, targetId, selectedDay, updated.body_part_1, updated.body_part_2);
+    await saveDayConfigService(user.uid, targetId, selectedDay, updated.body_part_1, updated.body_part_2);
   };
 
   const validatePyramidReps = (value: string): boolean => {
@@ -199,9 +230,9 @@ export default function RoutinesPage() {
       if (isGroupMode) {
         // Group mode: insert into group_exercises
         const exerciseType = form.isToFailure ? "AL_FALLO" : form.isDropset ? "DROP_SET" : form.isPiramide ? "PIRAMIDE" : "NORMAL";
-        const { data, error } = await supabase.from("group_exercises").insert({
+        await addDoc(collection(db, "group_exercises"), {
           group_id: urlGroupId!,
-          trainer_id: user.id,
+          trainer_id: user.uid,
           name: form.name,
           sets: parseInt(form.sets),
           reps: form.isToFailure || form.isPiramide ? 0 : parseInt(form.reps),
@@ -213,13 +244,13 @@ export default function RoutinesPage() {
           is_piramide: form.isPiramide,
           pyramid_reps: form.isPiramide ? form.pyramidReps.trim() : null,
           exercise_type: exerciseType,
-        }).select("id").single();
-        if (error) throw error;
+          created_at: new Date().toISOString()
+        });
       } else {
         // Student mode
         const exerciseType = form.isToFailure ? "AL_FALLO" : form.isDropset ? "DROP_SET" : form.isPiramide ? "PIRAMIDE" : "NORMAL";
         const newId = await addExerciseService({
-          trainer_id: user.id,
+          trainer_id: user.uid,
           student_id: selectedStudent,
           name: form.name,
           sets: parseInt(form.sets),
@@ -232,27 +263,30 @@ export default function RoutinesPage() {
           is_piramide: form.isPiramide,
           pyramid_reps: form.isPiramide ? form.pyramidReps.trim() : null,
           exercise_type: exerciseType,
+          routine_id: activeRoutineId || "default",
         });
 
         // Ensure routine exists and link
         try {
-          const routine = await getOrCreateActiveRoutine(user.id, "ALUMNO", selectedStudent);
+          const routine = await getOrCreateActiveRoutine(user.uid, "ALUMNO", selectedStudent);
           if (newId) {
-            await supabase.from("exercises").update({ routine_id: routine.id } as any).eq("id", newId);
+            await updateDoc(doc(db, "exercises", newId), { routine_id: routine.id });
           }
-        } catch {}
+        } catch (err) {
+          console.error("Error linking to routine:", err);
+        }
 
-        await logTrainerChange(user.id, selectedStudent, "exercise_added",
+        await logTrainerChange(user.uid, selectedStudent, "exercise_added",
           `Nuevo ejercicio: ${form.name} (${form.sets}×${repsDisplay} - ${selectedDay} - ${combinedBodyPart})`,
           newId || undefined
         );
 
         if (viSerieEnabled && newId) {
           await addExerciseService({
-            trainer_id: user.id,
+            trainer_id: user.uid,
             student_id: selectedStudent,
             name: viForm.name,
-            sets: parseInt(form.sets), // Linked to parent exercise sets
+            sets: parseInt(form.sets),
             reps: viForm.isToFailure ? 0 : parseInt(viForm.reps),
             weight: 0,
             day: selectedDay,
@@ -263,6 +297,7 @@ export default function RoutinesPage() {
             pyramid_reps: null,
             exercise_type: "VI_SERIE",
             parent_exercise_id: newId,
+            routine_id: activeRoutineId || "default",
           });
         }
       }
@@ -272,7 +307,9 @@ export default function RoutinesPage() {
       setViForm({ name: "", reps: "", isToFailure: false, isDropset: false });
       setViSerieEnabled(false);
       fetchData();
-    } catch { toast.error("Error al agregar ejercicio"); }
+    } catch (err) { 
+      toast.error("Error al agregar ejercicio"); 
+    }
   };
 
   const handleRemove = async (exerciseId: string) => {
@@ -280,17 +317,19 @@ export default function RoutinesPage() {
     const exercise = exercises.find((e) => e.id === exerciseId);
     try {
       if (isGroupMode) {
-        await supabase.from("group_exercises").delete().eq("id", exerciseId);
+        await deleteDoc(doc(db, "group_exercises", exerciseId));
       } else {
         await removeExerciseService(exerciseId);
         if (exercise) {
-          await logTrainerChange(user.id, selectedStudent, "exercise_removed",
+          await logTrainerChange(user.uid, selectedStudent, "exercise_removed",
             `Ejercicio eliminado: ${exercise.name} (${exercise.day})`, exerciseId
           );
         }
       }
       fetchData();
-    } catch { toast.error("Error al eliminar"); }
+    } catch (err) { 
+      toast.error("Error al eliminar"); 
+    }
   };
 
   const handleBulkDelete = async () => {
@@ -299,22 +338,23 @@ export default function RoutinesPage() {
     try {
       const ids = Array.from(selectedIds);
       if (isGroupMode) {
-        for (const id of ids) {
-          await supabase.from("group_exercises").delete().eq("id", id);
-        }
+        const batch = writeBatch(db);
+        ids.forEach(id => batch.delete(doc(db, "group_exercises", id)));
+        await batch.commit();
       } else {
         await bulkRemoveExercises(ids);
-        const changes = ids.map((id) => {
+        for (const id of ids) {
           const ex = exercises.find((e) => e.id === id);
-          return logTrainerChange(user.id, selectedStudent, "exercise_removed",
+          await logTrainerChange(user.uid, selectedStudent, "exercise_removed",
             `Ejercicio eliminado: ${ex?.name || "?"} (${ex?.day || "?"})`, id
           );
-        });
-        await Promise.all(changes);
+        }
       }
       toast.success(`${ids.length} ejercicio(s) eliminado(s)`);
       fetchData();
-    } catch { toast.error("Error al eliminar ejercicios"); }
+    } catch (err) { 
+      toast.error("Error al eliminar ejercicios"); 
+    }
     setDeleting(false);
     setShowDeleteConfirm(false);
   };
@@ -335,9 +375,13 @@ export default function RoutinesPage() {
 
   const handleSetNextChange = async (days: number) => {
     if (!user || !selectedStudent) return;
-    const dateStr = await setRoutineNextChangeDate(user.id, selectedStudent, days);
-    setRoutineNextChange(dateStr);
-    toast.success(`Cambio de rutina programado en ${days} días`);
+    try {
+      const dateStr = await setRoutineNextChangeDate(user.uid, selectedStudent, days);
+      setRoutineNextChange(dateStr);
+      toast.success(`Cambio de rutina programado en ${days} días`);
+    } catch (err) {
+      toast.error("Error al programar cambio de rutina");
+    }
   };
 
   const student = students.find((s) => s.user_id === selectedStudent);
@@ -355,7 +399,7 @@ export default function RoutinesPage() {
         await removeViSerieChild(ex.id);
         toast.success("VI Serie eliminada");
       } else {
-        await addViSerieChild(ex, user.id, selectedStudent);
+        await addViSerieChild(ex, user.uid, selectedStudent);
         toast.success("VI Serie agregada");
       }
       fetchData();
@@ -386,7 +430,7 @@ export default function RoutinesPage() {
   const handleBackToList = () => {
     setSelectedStudent("");
     if (urlStudentId) {
-      window.history.replaceState(null, "", "/trainer/routines");
+      navigate("/trainer/routines", { replace: true });
     }
   };
 
@@ -870,7 +914,6 @@ export default function RoutinesPage() {
                 <div className="space-y-3">
                   <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Log de Cambios</Label>
                   <div className="p-4 rounded-2xl bg-black/20 border border-white/5 max-h-[150px] overflow-y-auto text-[10px] font-mono leading-relaxed hide-scrollbar">
-                    {/* Log entries would go here */}
                     <p className="opacity-40 italic">Iniciando seguimiento de cambios...</p>
                   </div>
                 </div>

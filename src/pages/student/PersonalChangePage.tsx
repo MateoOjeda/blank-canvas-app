@@ -1,6 +1,17 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  addDoc, 
+  updateDoc, 
+  doc, 
+  setDoc,
+  limit
+} from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -62,19 +73,26 @@ export default function PersonalChangePage() {
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("seguimiento_personal")
-      .select("*")
-      .eq("student_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          setExistingId(data.id);
-          const { id, student_id, created_at, updated_at, ...rest } = data as any;
+    
+    async function loadData() {
+      try {
+        const q = query(collection(db, "seguimiento_personal"), where("student_id", "==", user.uid), limit(1));
+        const snap = await getDocs(q);
+        
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          setExistingId(snap.docs[0].id);
+          const { student_id, created_at, updated_at, ...rest } = data as any;
           setForm({ ...INITIAL, ...rest, peso_actual: "" });
         }
+      } catch (err) {
+        console.error("Error loading personal data:", err);
+      } finally {
         setLoading(false);
-      });
+      }
+    }
+    
+    loadData();
   }, [user]);
 
   const set = (key: keyof FormData, value: string | boolean) =>
@@ -99,39 +117,55 @@ export default function PersonalChangePage() {
     if (!validateStep() || !user) return;
     setSaving(true);
 
-    const { peso_actual, ...surveyData } = form;
-    const payload = { ...surveyData, student_id: user.id };
+    try {
+      const { peso_actual, ...surveyData } = form;
+      const payload = { 
+        ...surveyData, 
+        student_id: user.uid,
+        updated_at: new Date().toISOString()
+      };
 
-    let error;
-    if (existingId) {
-      const { student_id, ...updateData } = payload;
-      ({ error } = await supabase.from("seguimiento_personal").update(updateData).eq("id", existingId));
-    } else {
-      ({ error } = await supabase.from("seguimiento_personal").insert(payload));
-    }
+      if (existingId) {
+        await updateDoc(doc(db, "seguimiento_personal", existingId), payload);
+      } else {
+        const docRef = await addDoc(collection(db, "seguimiento_personal"), {
+          ...payload,
+          created_at: new Date().toISOString()
+        });
+        setExistingId(docRef.id);
+      }
 
-    // Save weight to weight_history and update profile
-    const weightNum = parseFloat(peso_actual);
-    if (!isNaN(weightNum) && weightNum > 0) {
-      await Promise.all([
-        supabase.from("weight_history").insert({ student_id: user.id, weight: weightNum }),
-        supabase.from("profiles").update({ weight: weightNum }).eq("user_id", user.id),
-      ]);
-    }
+      // Save weight to weight_history and update profile
+      const weightNum = parseFloat(peso_actual);
+      if (!isNaN(weightNum) && weightNum > 0) {
+        const historyRef = doc(collection(db, "weight_history"));
+        await Promise.all([
+          setDoc(historyRef, { 
+            student_id: user.uid, 
+            weight: weightNum,
+            created_at: new Date().toISOString()
+          }),
+          updateDoc(doc(db, "profiles", user.uid), { weight: weightNum }),
+        ]);
+      }
 
-    if (!error) {
-      await supabase.from("trainer_changes").insert({
-        student_id: user.id,
-        trainer_id: user.id,
+      // Add trainer change notification
+      await addDoc(collection(db, "trainer_changes"), {
+        student_id: user.uid,
+        trainer_id: user.uid, // In this context specifically it seems they notify themselves? Or maybe it should be the trainer. 
+        // Based on original code: trainer_id: user.id (which is the student). 
+        // Likely because the student dashboard shows these notifications to the student.
         change_type: "personal_survey",
         description: existingId ? "Actualizó su encuesta de Cambio Personal" : "Completó su encuesta de Cambio Personal",
-      }).then(() => {});
+        created_at: new Date().toISOString()
+      });
+
       toast({ title: "¡Guardado!", description: "Tu información de cambio personal ha sido registrada." });
-      setExistingId(existingId || "saved");
-    } else {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;

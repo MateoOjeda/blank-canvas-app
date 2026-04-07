@@ -1,4 +1,18 @@
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  deleteDoc, 
+  updateDoc, 
+  addDoc,
+  writeBatch,
+  orderBy
+} from "firebase/firestore";
 
 export interface SurveyQuestion {
   id: string;
@@ -35,14 +49,28 @@ export interface SurveyAnswer {
 }
 
 export async function fetchTrainerSurveys(trainerId: string): Promise<CustomSurvey[]> {
-  const { data, error } = await (supabase as any)
-    .from("custom_surveys" as any)
-    .select("*, questions:survey_questions(*)")
-    .eq("trainer_id", trainerId)
-    .order("created_at", { ascending: false });
+  const q = query(
+    collection(db, "custom_surveys"), 
+    where("trainer_id", "==", trainerId), 
+    orderBy("created_at", "desc")
+  );
+  const snap = await getDocs(q);
+  const surveys = snap.docs.map(d => ({ id: d.id, ...d.data() } as CustomSurvey));
 
-  if (error) throw error;
-  return data as any;
+  if (surveys.length === 0) return [];
+
+  // Fetch only questions for these surveys
+  const surveyIds = surveys.map(s => s.id);
+  const questionsQ = query(collection(db, "survey_questions"), where("survey_id", "in", surveyIds));
+  const questionsSnap = await getDocs(questionsQ);
+  const allQuestions = questionsSnap.docs.map(d => ({ id: d.id, ...d.data() } as SurveyQuestion));
+
+  return surveys.map(s => ({
+    ...s,
+    questions: allQuestions
+      .filter(q => q.survey_id === s.id)
+      .sort((a, b) => a.order_index - b.order_index)
+  }));
 }
 
 export async function createSurvey(
@@ -51,101 +79,107 @@ export async function createSurvey(
   description: string, 
   questions: Omit<SurveyQuestion, "id" | "survey_id" | "order_index">[]
 ) {
-  // 1. Create survey
-  const { data: survey, error: surveyError } = await (supabase as any)
-    .from("custom_surveys" as any)
-    .insert({ trainer_id: trainerId, title, description })
-    .select()
-    .single();
+  const batch = writeBatch(db);
+  const surveyRef = doc(collection(db, "custom_surveys"));
+  const now = new Date().toISOString();
 
-  if (surveyError || !survey) throw surveyError;
+  batch.set(surveyRef, {
+    trainer_id: trainerId,
+    title,
+    description,
+    created_at: now
+  });
 
-  // 2. Create questions
-  const qs = questions.map((q, idx) => ({
-    survey_id: survey.id,
-    question_text: q.question_text,
-    question_type: q.question_type,
-    options: q.options,
-    order_index: idx
-  }));
+  questions.forEach((q, idx) => {
+    const qRef = doc(collection(db, "survey_questions"));
+    batch.set(qRef, {
+      survey_id: surveyRef.id,
+      question_text: q.question_text,
+      question_type: q.question_type,
+      options: q.options,
+      order_index: idx
+    });
+  });
 
-  const { error: qError } = await (supabase as any)
-    .from("survey_questions" as any)
-    .insert(qs);
-
-  if (qError) throw qError;
-  return survey;
+  await batch.commit();
+  return { id: surveyRef.id, trainer_id: trainerId, title, description, created_at: now };
 }
 
 export async function fetchSurveyAssignments(surveyId: string): Promise<SurveyAssignment[]> {
-  const { data: assignments, error } = await (supabase as any)
-    .from("survey_assignments" as any)
-    .select("*")
-    .eq("survey_id", surveyId);
-    
-  if (error) throw error;
-  if (!assignments || !assignments.length) return [];
+  const q = query(collection(db, "survey_assignments"), where("survey_id", "==", surveyId));
+  const snap = await getDocs(q);
+  const assignments = snap.docs.map(d => ({ id: d.id, ...d.data() } as SurveyAssignment));
+
+  if (assignments.length === 0) return [];
   
-  const studentIds = assignments.map((a: any) => a.student_id);
-  const { data: profiles } = await (supabase as any)
-    .from("profiles")
-    .select("user_id, display_name, avatar_url")
-    .in("user_id", studentIds);
+  const studentIds = assignments.map((a) => a.student_id);
+  // Fetch profiles only for those specific students
+  const profilesQ = query(collection(db, "profiles"), where("user_id", "in", studentIds));
+  const profilesSnap = await getDocs(profilesQ);
+  const profiles = profilesSnap.docs.map(d => d.data() as any);
     
-  return assignments.map((a: any) => ({
+  return assignments.map((a) => ({
     ...a,
-    student: profiles?.find(p => p.user_id === a.student_id)
+    student: profiles.find(p => p.user_id === a.student_id)
   }));
 }
 
 export async function assignSurveyToStudents(surveyId: string, studentIds: string[]) {
   if (studentIds.length === 0) return;
-  const inserts = studentIds.map(id => ({
-    survey_id: surveyId,
-    student_id: id
-  }));
+  const batch = writeBatch(db);
+  studentIds.forEach(id => {
+    const docId = `${surveyId}_${id}`;
+    batch.set(doc(db, "survey_assignments", docId), {
+      survey_id: surveyId,
+      student_id: id,
+      completed: false,
+      completed_at: null,
+      created_at: new Date().toISOString()
+    }, { merge: true });
+  });
 
-  const { error } = await (supabase as any)
-    .from("survey_assignments" as any)
-    .upsert(inserts, { onConflict: "survey_id,student_id" });
-
-  if (error) throw error;
+  await batch.commit();
 }
 
 export async function removeSurveyAssignment(surveyId: string, studentId: string) {
-  const { error } = await (supabase as any)
-    .from("survey_assignments" as any)
-    .delete()
-    .eq("survey_id", surveyId)
-    .eq("student_id", studentId);
-  if (error) throw error;
+  const docId = `${surveyId}_${studentId}`;
+  await deleteDoc(doc(db, "survey_assignments", docId));
 }
 
 export async function deleteSurvey(surveyId: string) {
-  const { error } = await (supabase as any)
-    .from("custom_surveys" as any)
-    .delete()
-    .eq("id", surveyId);
-  if (error) throw error;
+  const batch = writeBatch(db);
+  
+  // Delete survey
+  batch.delete(doc(db, "custom_surveys", surveyId));
+  
+  // Delete associated questions
+  const qSnap = await getDocs(query(collection(db, "survey_questions"), where("survey_id", "==", surveyId)));
+  qSnap.docs.forEach(d => batch.delete(d.ref));
+  
+  // Delete associated assignments
+  const aSnap = await getDocs(query(collection(db, "survey_assignments"), where("survey_id", "==", surveyId)));
+  aSnap.docs.forEach(d => batch.delete(d.ref));
+
+  await batch.commit();
 }
 
 export async function fetchSurveyAnswers(surveyId: string) {
-  const { data: assignments, error: asError } = await (supabase as any)
-    .from("survey_assignments" as any)
-    .select("id, student_id")
-    .eq("survey_id", surveyId);
+  const q = query(collection(db, "survey_assignments"), where("survey_id", "==", surveyId));
+  const asSnap = await getDocs(q);
+  const assignments = asSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
     
-  if (asError || !assignments.length) return [];
+  if (assignments.length === 0) return [];
   
   const assignmentIds = assignments.map((a: any) => a.id);
-  const { data: answers, error: ansError } = await (supabase as any)
-    .from("survey_answers" as any)
-    .select("*")
-    .in("assignment_id", assignmentIds);
+  // Partition into chunks to avoid Firebase 'in' limit (30)
+  const answers: any[] = [];
+  for (let i = 0; i < assignmentIds.length; i += 10) {
+    const chunk = assignmentIds.slice(i, i + 10);
+    const ansQ = query(collection(db, "survey_answers"), where("assignment_id", "in", chunk));
+    const ansSnap = await getDocs(ansQ);
+    answers.push(...ansSnap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
+  }
     
-  if (ansError) throw ansError;
-  
-  // Attach student_id to each answer for easier mapping
   return answers.map((ans: any) => ({
     ...ans,
     student_id: assignments.find((a: any) => a.id === ans.assignment_id)?.student_id
@@ -153,78 +187,105 @@ export async function fetchSurveyAnswers(surveyId: string) {
 }
 
 export async function fetchStudentPendingSurveys(studentId: string) {
-  const { data, error } = await (supabase as any)
-    .from("survey_assignments" as any)
-    .select("id, survey_id, completed, survey:custom_surveys(*)")
-    .eq("student_id", studentId)
-    .eq("completed", false);
-    
-  if (error) throw error;
-  return data as any;
+  const q = query(
+    collection(db, "survey_assignments"), 
+    where("student_id", "==", studentId), 
+    where("completed", "==", false)
+  );
+  const snap = await getDocs(q);
+  const assignments = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+  
+  if (assignments.length === 0) return [];
+
+  const surveyIds = assignments.map(a => a.survey_id);
+  const surveysQ = query(collection(db, "custom_surveys"), where("__name__", "in", surveyIds));
+  const surveysSnap = await getDocs(surveysQ);
+  const allSurveys = surveysSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  return assignments.map(a => ({
+    ...a,
+    survey: allSurveys.find(s => s.id === a.survey_id)
+  }));
 }
 
 export async function fetchSurveyWithQuestions(surveyId: string) {
-  const { data, error } = await (supabase as any)
-    .from("custom_surveys" as any)
-    .select("*, questions:survey_questions(*)")
-    .eq("id", surveyId)
-    .single();
+  const sSnap = await getDoc(doc(db, "custom_surveys", surveyId));
+  if (!sSnap.exists()) throw new Error("Survey not found");
+  const data = sSnap.data() as any;
+  data.id = sSnap.id;
+
+  const qSnap = await getDocs(query(collection(db, "survey_questions"), where("survey_id", "==", surveyId)));
+  data.questions = qSnap.docs
+    .map(d => ({ id: d.id, ...d.data() } as any))
+    .sort((a, b) => a.order_index - b.order_index);
     
-  if (error) throw error;
-  // Sort questions by order_index
-  if (data.questions) {
-    data.questions.sort((a: any, b: any) => a.order_index - b.order_index);
-  }
-  return data as any;
+  return data;
 }
 
 export async function submitSurveyAnswers(assignmentId: string, answers: { question_id: string, answer_text: string }[]) {
-  const inserts = answers.map(a => ({
-    assignment_id: assignmentId,
-    question_id: a.question_id,
-    answer_text: a.answer_text
-  }));
+  const batch = writeBatch(db);
   
-  const { error: ansError } = await (supabase as any)
-    .from("survey_answers" as any)
-    .insert(inserts);
-    
-  if (ansError) throw ansError;
+  answers.forEach(a => {
+    const ansRef = doc(collection(db, "survey_answers"));
+    batch.set(ansRef, {
+      assignment_id: assignmentId,
+      question_id: a.question_id,
+      answer_text: a.answer_text,
+      created_at: new Date().toISOString()
+    });
+  });
   
-  const { error: asstError } = await (supabase as any)
-    .from("survey_assignments" as any)
-    .update({ completed: true, completed_at: new Date().toISOString() })
-    .eq("id", assignmentId);
+  batch.update(doc(db, "survey_assignments", assignmentId), { 
+    completed: true, 
+    completed_at: new Date().toISOString() 
+  });
     
-  if (asstError) throw asstError;
+  await batch.commit();
 }
 
 export async function fetchStudentSurveyResults(studentId: string) {
-  // Get all completed assignments for this student
-  const { data: assignments, error: aError } = await (supabase as any)
-    .from("survey_assignments" as any)
-    .select("id, survey_id, completed, completed_at, survey:custom_surveys(id, title, description, questions:survey_questions(*))")
-    .eq("student_id", studentId)
-    .eq("completed", true)
-    .order("completed_at", { ascending: false });
+  const q = query(
+    collection(db, "survey_assignments"), 
+    where("student_id", "==", studentId), 
+    where("completed", "==", true),
+    orderBy("completed_at", "desc")
+  );
+  const snap = await getDocs(q);
+  const assignments = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
 
-  if (aError) throw aError;
-  if (!assignments || !assignments.length) return [];
+  if (assignments.length === 0) return [];
 
-  const assignmentIds = assignments.map((a: any) => a.id);
-  const { data: answers, error: ansError } = await (supabase as any)
-    .from("survey_answers" as any)
-    .select("*")
-    .in("assignment_id", assignmentIds);
+  const surveyIds = assignments.map(a => a.survey_id);
+  const assignmentIds = assignments.map(a => a.id);
 
-  if (ansError) throw ansError;
+  // Fetch only needed surveys, questions and answers
+  // We use batching/parallelization for larger sets, but for 10 ids "in" works fine
+  const [surveysSnap, questionsSnap, answersSnap] = await Promise.all([
+    getDocs(query(collection(db, "custom_surveys"), where("__name__", "in", surveyIds.slice(0, 10)))),
+    getDocs(query(collection(db, "survey_questions"), where("survey_id", "in", surveyIds.slice(0, 10)))),
+    getDocs(query(collection(db, "survey_answers"), where("assignment_id", "in", assignmentIds.slice(0, 10))))
+  ]);
 
-  return assignments.map((a: any) => ({
-    ...a,
-    answers: (answers || []).filter((ans: any) => ans.assignment_id === a.id),
-    survey: a.survey ? {
-      ...a.survey,
-      questions: a.survey.questions?.sort((x: any, y: any) => x.order_index - y.order_index)
-    } : null
-  }));
+  const allSurveys = surveysSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+  const allQuestions = questionsSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+  const allAnswers = answersSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+
+  return assignments.map((a: any) => {
+    const survey = allSurveys.find((s: any) => s.id === a.survey_id);
+    if (!survey) return null;
+
+    const questions = allQuestions
+      .filter((q: any) => q.survey_id === survey.id)
+      .sort((x: any, y: any) => x.order_index - y.order_index);
+
+    return {
+      ...a,
+      answers: allAnswers.filter((ans: any) => ans.assignment_id === a.id),
+      survey: {
+        ...survey,
+        questions
+      }
+    };
+  }).filter(Boolean);
 }
+

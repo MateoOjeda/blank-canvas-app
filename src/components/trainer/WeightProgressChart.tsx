@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  orderBy 
+} from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, TrendingUp } from "lucide-react";
@@ -21,15 +28,24 @@ export default function WeightProgressChart({ studentId }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase
-      .from("weight_history")
-      .select("weight, recorded_at")
-      .eq("student_id", studentId)
-      .order("recorded_at", { ascending: true })
-      .then(({ data: d }) => {
-        setData(d || []);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const q = query(
+          collection(db, "weight_history"),
+          where("student_id", "==", studentId),
+          orderBy("recorded_at", "asc")
+        );
+        const snap = await getDocs(q);
+        const entries = snap.docs.map(d => ({ weight: d.data().weight, recorded_at: d.data().recorded_at }));
+        setData(entries);
+      } catch (err) {
+        console.error("Error fetching weight history:", err);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    fetchData();
   }, [studentId]);
 
   if (loading) {

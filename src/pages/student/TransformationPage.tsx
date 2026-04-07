@@ -1,6 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { db, storage } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  doc, 
+  updateDoc, 
+  addDoc, 
+  orderBy, 
+  limit,
+  Timestamp
+} from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,20 +44,27 @@ export default function TransformationPage() {
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("body_transformations")
-      .select("*")
-      .eq("student_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle() as any;
     
-    if (data) {
-      setTransformation(data);
-      if (data.before_weight) setBeforeWeight(String(data.before_weight));
-      if (data.after_weight) setAfterWeight(String(data.after_weight));
+    try {
+      const q = query(
+        collection(db, "body_transformations"),
+        where("student_id", "==", user.uid),
+        orderBy("created_at", "desc"),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      
+      if (!snap.empty) {
+        const data = { id: snap.docs[0].id, ...snap.docs[0].data() } as Transformation;
+        setTransformation(data);
+        if (data.before_weight) setBeforeWeight(String(data.before_weight));
+        if (data.after_weight) setAfterWeight(String(data.after_weight));
+      }
+    } catch (err) {
+      console.error("Error fetching transformation:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -53,60 +73,64 @@ export default function TransformationPage() {
     if (!user) return;
     setUploading(type);
 
-    const ext = file.name.split(".").pop();
-    const path = `${user.id}/${type}-${Date.now()}.${ext}`;
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `transformations/${user.uid}/${type}-${Date.now()}.${ext}`;
+      const storageRef = ref(storage, path);
+      
+      const uploadRes = await uploadBytes(storageRef, file);
+      const photoUrl = await getDownloadURL(uploadRes.ref);
+      
+      const weight = type === "before" ? parseFloat(beforeWeight) || null : parseFloat(afterWeight) || null;
+      const now = new Date().toISOString();
 
-    const { error: uploadError } = await supabase.storage
-      .from("transformations")
-      .upload(path, file, { upsert: true });
+      if (transformation) {
+        const updateData: any = {
+          [`${type}_photo_url`]: photoUrl,
+          [`${type}_weight`]: weight,
+          [`${type}_date`]: now,
+          updated_at: now
+        };
+        await updateDoc(doc(db, "body_transformations", transformation.id), updateData);
+      } else {
+        const insertData: any = {
+          student_id: user.uid,
+          [`${type}_photo_url`]: photoUrl,
+          [`${type}_weight`]: weight,
+          [`${type}_date`]: now,
+          created_at: now,
+          updated_at: now
+        };
+        await addDoc(collection(db, "body_transformations"), insertData);
+      }
 
-    if (uploadError) {
+      // Notify linked trainers
+      const qLinks = query(collection(db, "trainer_students"), where("student_id", "==", user.uid));
+      const snapLinks = await getDocs(qLinks);
+
+      if (!snapLinks.empty) {
+        for (const linkDoc of snapLinks.docs) {
+          const link = linkDoc.data();
+          await addDoc(collection(db, "notifications"), {
+            user_id: link.trainer_id,
+            type: "transformation",
+            title: "Foto de progreso actualizada",
+            message: `Un alumno ha subido su foto "${type === "before" ? "Antes" : "Después"}"`,
+            related_id: user.uid,
+            created_at: now,
+            read: false
+          });
+        }
+      }
+
+      toast.success("Foto guardada correctamente");
+      fetchData();
+    } catch (err) {
+      console.error("Error uploading photo:", err);
       toast.error("Error al subir la foto");
+    } finally {
       setUploading(null);
-      return;
     }
-
-    const { data: urlData } = supabase.storage.from("transformations").getPublicUrl(path);
-    const photoUrl = urlData.publicUrl;
-    const weight = type === "before" ? parseFloat(beforeWeight) || null : parseFloat(afterWeight) || null;
-
-    if (transformation) {
-      const updateData: any = {
-        [`${type}_photo_url`]: photoUrl,
-        [`${type}_weight`]: weight,
-        [`${type}_date`]: new Date().toISOString(),
-      };
-      await supabase.from("body_transformations").update(updateData).eq("id", transformation.id) as any;
-    } else {
-      const insertData: any = {
-        student_id: user.id,
-        [`${type}_photo_url`]: photoUrl,
-        [`${type}_weight`]: weight,
-        [`${type}_date`]: new Date().toISOString(),
-      };
-      await supabase.from("body_transformations").insert(insertData) as any;
-    }
-
-    // Notify linked trainers
-    const { data: links } = await supabase
-      .from("trainer_students")
-      .select("trainer_id")
-      .eq("student_id", user.id);
-
-    if (links && links.length > 0) {
-      const notifications = links.map((link) => ({
-        user_id: link.trainer_id,
-        type: "transformation",
-        title: "Foto de progreso actualizada",
-        message: `Un alumno ha subido su foto "${type === "before" ? "Antes" : "Después"}"`,
-        related_id: user.id,
-      }));
-      await supabase.from("notifications").insert(notifications) as any;
-    }
-
-    toast.success("Foto guardada correctamente");
-    setUploading(null);
-    fetchData();
   };
 
   const handleFileChange = (type: "before" | "after") => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,16 +146,27 @@ export default function TransformationPage() {
 
   const saveWeight = async (type: "before" | "after") => {
     if (!transformation) return;
-    const weight = type === "before" ? parseFloat(beforeWeight) : parseFloat(afterWeight);
-    if (!weight) return;
-    await supabase.from("body_transformations")
-      .update({ [`${type}_weight`]: weight } as any)
-      .eq("id", transformation.id);
-    toast.success("Peso actualizado");
+    try {
+      const weight = type === "before" ? parseFloat(beforeWeight) : parseFloat(afterWeight);
+      if (isNaN(weight)) return;
+      
+      await updateDoc(doc(db, "body_transformations", transformation.id), { 
+        [`${type}_weight`]: weight,
+        updated_at: new Date().toISOString()
+      });
+      toast.success("Peso actualizado");
+    } catch (err) {
+      console.error("Error saving weight:", err);
+      toast.error("Error al guardar el peso");
+    }
   };
 
   if (loading) {
-    return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
   }
 
   const formatDate = (d: string | null) => d ? format(new Date(d), "dd MMM yyyy", { locale: es }) : "—";
@@ -157,8 +192,8 @@ export default function TransformationPage() {
                 <img src={transformation.before_photo_url} alt="Antes" className="w-full h-full object-cover" />
               ) : (
                 <div className="text-center text-muted-foreground">
-                  <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                  <p className="text-xs">Sin foto</p>
+                   <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                   <p className="text-xs">Sin foto</p>
                 </div>
               )}
             </div>
@@ -166,31 +201,31 @@ export default function TransformationPage() {
               <div className="flex-1">
                 <Label className="text-xs text-muted-foreground">Peso (kg)</Label>
                 <div className="flex gap-1">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={beforeWeight}
-                    onChange={(e) => setBeforeWeight(e.target.value)}
-                    placeholder="Peso"
-                    className="bg-secondary/50 border-border h-8 text-sm"
-                  />
-                  {transformation && (
-                    <Button size="sm" variant="outline" className="h-8" onClick={() => saveWeight("before")}>
-                      OK
-                    </Button>
-                  )}
+                   <Input
+                     type="number"
+                     step="0.1"
+                     value={beforeWeight}
+                     onChange={(e) => setBeforeWeight(e.target.value)}
+                     placeholder="Peso"
+                     className="bg-secondary/50 border-border h-8 text-sm"
+                   />
+                   {transformation && (
+                     <Button size="sm" variant="outline" className="h-8" onClick={() => saveWeight("before")}>
+                       OK
+                     </Button>
+                   )}
                 </div>
               </div>
               <div className="text-xs text-muted-foreground text-right">
-                {formatDate(transformation?.before_date || null)}
+                 {formatDate(transformation?.before_date || null)}
               </div>
             </div>
             <label className="block">
               <input type="file" accept="image/*" className="hidden" onChange={handleFileChange("before")} />
               <Button variant="outline" className="w-full" asChild disabled={uploading === "before"}>
                 <span className="cursor-pointer">
-                  {uploading === "before" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Camera className="h-4 w-4 mr-2" />}
-                  {transformation?.before_photo_url ? "Cambiar foto" : "Subir foto Antes"}
+                   {uploading === "before" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Camera className="h-4 w-4 mr-2" />}
+                   {transformation?.before_photo_url ? "Cambiar foto" : "Subir foto Antes"}
                 </span>
               </Button>
             </label>
@@ -210,8 +245,8 @@ export default function TransformationPage() {
                 <img src={transformation.after_photo_url} alt="Después" className="w-full h-full object-cover" />
               ) : (
                 <div className="text-center text-muted-foreground">
-                  <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                  <p className="text-xs">Sin foto</p>
+                   <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                   <p className="text-xs">Sin foto</p>
                 </div>
               )}
             </div>
@@ -219,31 +254,31 @@ export default function TransformationPage() {
               <div className="flex-1">
                 <Label className="text-xs text-muted-foreground">Peso (kg)</Label>
                 <div className="flex gap-1">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={afterWeight}
-                    onChange={(e) => setAfterWeight(e.target.value)}
-                    placeholder="Peso"
-                    className="bg-secondary/50 border-border h-8 text-sm"
-                  />
-                  {transformation && (
-                    <Button size="sm" variant="outline" className="h-8" onClick={() => saveWeight("after")}>
-                      OK
-                    </Button>
-                  )}
+                   <Input
+                     type="number"
+                     step="0.1"
+                     value={afterWeight}
+                     onChange={(e) => setAfterWeight(e.target.value)}
+                     placeholder="Peso"
+                     className="bg-secondary/50 border-border h-8 text-sm"
+                   />
+                   {transformation && (
+                     <Button size="sm" variant="outline" className="h-8" onClick={() => saveWeight("after")}>
+                       OK
+                     </Button>
+                   )}
                 </div>
               </div>
               <div className="text-xs text-muted-foreground text-right">
-                {formatDate(transformation?.after_date || null)}
+                 {formatDate(transformation?.after_date || null)}
               </div>
             </div>
             <label className="block">
               <input type="file" accept="image/*" className="hidden" onChange={handleFileChange("after")} />
               <Button variant="outline" className="w-full" asChild disabled={uploading === "after"}>
                 <span className="cursor-pointer">
-                  {uploading === "after" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Camera className="h-4 w-4 mr-2" />}
-                  {transformation?.after_photo_url ? "Cambiar foto" : "Subir foto Después"}
+                   {uploading === "after" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Camera className="h-4 w-4 mr-2" />}
+                   {transformation?.after_photo_url ? "Cambiar foto" : "Subir foto Después"}
                 </span>
               </Button>
             </label>
@@ -256,20 +291,20 @@ export default function TransformationPage() {
           <CardContent className="p-6 text-center">
             <div className="flex items-center justify-center gap-4">
               <div className="text-right">
-                <p className="text-2xl font-bold">{transformation.before_weight || "—"} kg</p>
-                <p className="text-xs text-muted-foreground">{formatDate(transformation.before_date)}</p>
+                 <p className="text-2xl font-bold">{transformation.before_weight || "—"} kg</p>
+                 <p className="text-xs text-muted-foreground">{formatDate(transformation.before_date)}</p>
               </div>
               <ArrowRight className="h-6 w-6 text-primary" />
               <div className="text-left">
-                <p className="text-2xl font-bold text-primary">{transformation.after_weight || "—"} kg</p>
-                <p className="text-xs text-muted-foreground">{formatDate(transformation.after_date)}</p>
+                 <p className="text-2xl font-bold text-primary">{transformation.after_weight || "—"} kg</p>
+                 <p className="text-xs text-muted-foreground">{formatDate(transformation.after_date)}</p>
               </div>
             </div>
             {transformation.before_weight && transformation.after_weight && (
               <p className="text-sm text-muted-foreground mt-3">
-                Diferencia: <span className="font-bold text-primary">
-                  {(transformation.after_weight - transformation.before_weight).toFixed(1)} kg
-                </span>
+                 Diferencia: <span className="font-bold text-primary">
+                   {(transformation.after_weight - transformation.before_weight).toFixed(1)} kg
+                 </span>
               </p>
             )}
           </CardContent>

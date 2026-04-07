@@ -1,12 +1,24 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  orderBy, 
+  addDoc, 
+  deleteDoc,
+  doc
+} from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, UtensilsCrossed, Loader2 } from "lucide-react";
+import { Plus, Trash2, UtensilsCrossed, Loader2, Utensils } from "lucide-react";
 import { toast } from "sonner";
+import { MealCard } from "@/components/MealCard";
 
 interface Meal {
   id: string;
@@ -31,22 +43,40 @@ export default function MealsTab({ studentId, nutritionLevel = "principiante", r
   const [newOptions, setNewOptions] = useState<{name: string, description: string}[]>([{ name: "Opción 1", description: "" }]);
   const [adding, setAdding] = useState(false);
 
-  // Determine max options based on level
-  const maxOptions = nutritionLevel === "principiante" ? 4 :
-                     nutritionLevel === "intermedio" ? 2 :
-                     nutritionLevel === "avanzado" ? 1 : 1;
+  // Fixed: Allow up to 6 options regardless of level for trainer flexibility
+  const maxOptions = 6;
 
   const fetchMeals = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("student_meals")
-      .select("id, title, content, meal_type, created_at")
-      .eq("trainer_id", user.id)
-      .eq("student_id", studentId)
-      .order("created_at", { ascending: false });
-    if (!error) setMeals(data || []);
-    setLoading(false);
+    
+    try {
+      let q = query(
+        collection(db, "student_meals"),
+        where("student_id", "==", studentId),
+        orderBy("created_at", "desc")
+      );
+
+      // If a trainer is looking at a student (user.uid !== studentId), 
+      // we could filter by trainer_id if needed, but for now we follow the logic:
+      // If we are looking for our own meals (as a student), we don't filter by trainer_id
+      if (user.uid !== studentId) {
+        q = query(
+          collection(db, "student_meals"),
+          where("student_id", "==", studentId),
+          where("trainer_id", "==", user.uid),
+          orderBy("created_at", "desc")
+        );
+      }
+
+      const snap = await getDocs(q);
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Meal));
+      setMeals(data);
+    } catch (err) {
+      console.error("Error fetching meals:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [user, studentId]);
 
   useEffect(() => { fetchMeals(); }, [fetchMeals]);
@@ -60,65 +90,52 @@ export default function MealsTab({ studentId, nutritionLevel = "principiante", r
       options: newOptions.filter(o => o.name.trim() || o.description.trim())
     };
 
-    const { error } = await supabase.from("student_meals").insert({
-      trainer_id: user.id,
-      student_id: studentId,
-      title: newTitle.trim(),
-      content: JSON.stringify(mealData),
-      meal_type: "general",
-    });
-
-    if (error) {
-      toast.error("Error al guardar comida");
-    } else {
+    try {
+      await addDoc(collection(db, "student_meals"), {
+        trainer_id: user.uid,
+        student_id: studentId,
+        title: newTitle.trim(),
+        content: JSON.stringify(mealData),
+        meal_type: "general",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
       toast.success("Comida agregada");
       setNewTitle("");
       setNewIngredients("");
       setNewOptions([{ name: "Opción 1", description: "" }]);
       fetchMeals();
+    } catch (err) {
+      toast.error("Error al guardar comida");
+    } finally {
+      setAdding(false);
     }
-    setAdding(false);
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("student_meals").delete().eq("id", id);
-    setMeals((prev) => prev.filter((m) => m.id !== id));
-    toast.success("Comida eliminada");
+    try {
+      await deleteDoc(doc(db, "student_meals", id));
+      setMeals((prev) => prev.filter((m) => m.id !== id));
+      toast.success("Comida eliminada");
+    } catch (err) {
+      toast.error("Error al eliminar comida");
+    }
   };
 
-  const renderMealContent = (content: string) => {
+  const parseMealContent = (content: string) => {
     try {
       const data = JSON.parse(content);
-      if (data && typeof data === "object" && data.options) {
-        const displayOptions = (data.options as any[]).slice(0, maxOptions);
-        return (
-          <div className="space-y-3 mt-3">
-            {data.ingredients && (
-               <div>
-                  <p className="text-xs font-semibold text-primary mb-1">Ingredientes:</p>
-                  <p className="text-[11px] text-muted-foreground whitespace-pre-wrap">{data.ingredients}</p>
-               </div>
-            )}
-            {displayOptions.length > 0 && (
-               <div>
-                  <p className="text-xs font-semibold text-primary mb-2">Opciones:</p>
-                  <div className="space-y-3 pl-3 border-l-2 border-primary/20">
-                    {displayOptions.map((opt, i) => (
-                      <div key={i} className="space-y-1">
-                        <p className="text-xs font-bold text-foreground">{opt.name}</p>
-                        <p className="text-[11px] text-muted-foreground whitespace-pre-wrap">{opt.description}</p>
-                      </div>
-                    ))}
-                  </div>
-               </div>
-            )}
-          </div>
-        );
+      if (data && typeof data === "object") {
+        return {
+          ingredients: data.ingredients || "",
+          options: (data.options as any[] || []).slice(0, maxOptions)
+        };
       }
     } catch (e) {
-      // Not JSON, render as plain text for backward compatibility
+      // Not JSON, return as ingredients for backward compatibility
+      return { ingredients: content, options: [] };
     }
-    return <p className="text-xs text-muted-foreground whitespace-pre-wrap mt-2">{content}</p>;
+    return { ingredients: "", options: [] };
   };
 
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
@@ -148,7 +165,10 @@ export default function MealsTab({ studentId, nutritionLevel = "principiante", r
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Variantes (Máx: {maxOptions})</p>
                 {newOptions.length < maxOptions && (
-                  <Button variant="outline" size="sm" className="h-6 text-[10px] px-2 text-primary border-primary/30 bg-primary/10 hover:bg-primary/20" onClick={() => setNewOptions([...newOptions, { name: `Opción ${newOptions.length + 1}`, description: "" }])}>
+                  <Button variant="outline" size="sm" className="h-6 text-[10px] px-2 text-primary border-primary/30 bg-primary/10 hover:bg-primary/20" onClick={() => {
+                    const nextId = newOptions.length + 1;
+                    setNewOptions([...newOptions, { name: `Opción ${nextId}`, description: "" }]);
+                  }}>
                     <Plus className="h-3 w-3 mr-1" /> Añadir variante
                   </Button>
                 )}
@@ -188,41 +208,41 @@ export default function MealsTab({ studentId, nutritionLevel = "principiante", r
         </Card>
       )}
 
-      <Card className="card-glass">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <UtensilsCrossed className="h-5 w-5 text-primary" />
-            Listado de Comidas
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {meals.length === 0 ? (
-            <div className="text-center py-8">
-              <UtensilsCrossed className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">No hay comidas en el plan actual</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {meals.map((meal) => (
-                <div key={meal.id} className="p-4 rounded-xl bg-secondary/30 border border-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] transition-all hover:bg-secondary/40">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1 min-w-0 pr-4">
-                      <h4 className="font-bold text-foreground truncate">{meal.title}</h4>
-                      <p className="text-[10px] text-muted-foreground hidden sm:block">Añadida el {new Date(meal.created_at).toLocaleDateString()}</p>
-                    </div>
-                    {!readOnly && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => handleDelete(meal.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                  {renderMealContent(meal.content)}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div className={cn(
+        "space-y-6",
+        readOnly && "grid grid-cols-1 md:grid-cols-2 gap-6 space-y-0"
+      )}>
+        {meals.length === 0 ? (
+          <Card className="card-glass p-12 flex flex-col items-center justify-center text-center col-span-full">
+            <UtensilsCrossed className="h-12 w-12 text-muted-foreground/20 mb-4" />
+            <p className="text-muted-foreground font-medium uppercase tracking-widest text-xs">No hay comidas en el plan actual</p>
+          </Card>
+        ) : (
+          meals.map((meal) => {
+            const { ingredients, options } = parseMealContent(meal.content);
+            return (
+              <div key={meal.id} className="relative group">
+                <MealCard
+                  title={meal.title}
+                  ingredients={ingredients}
+                  options={options}
+                  date={new Date(meal.created_at).toLocaleDateString()}
+                />
+                {!readOnly && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity" 
+                    onClick={() => handleDelete(meal.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }

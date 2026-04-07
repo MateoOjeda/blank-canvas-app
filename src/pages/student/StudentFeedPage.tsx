@@ -1,7 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  doc, 
+  getDoc,
+  setDoc,
+  onSnapshot,
+  orderBy,
+  limit,
+  Timestamp
+} from "firebase/firestore";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,52 +63,65 @@ export default function StudentFeedPage() {
     if (!user) return;
     setLoading(true);
 
-    const [{ data: changesData }, { data: readingData }] = await Promise.all([
-      supabase
-        .from("trainer_changes")
-        .select("id, change_type, description, created_at, entity_id")
-        .eq("student_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50),
-      supabase
-        .from("change_readings")
-        .select("last_read_at")
-        .eq("student_id", user.id)
-        .maybeSingle(),
-    ]);
+    try {
+      // Fetch Changes
+      const qChanges = query(
+        collection(db, "trainer_changes"),
+        where("student_id", "==", user.uid),
+        orderBy("created_at", "desc"),
+        limit(50)
+      );
+      const snapChanges = await getDocs(qChanges);
+      const changesData = snapChanges.docs.map(d => ({ id: d.id, ...d.data() } as TrainerChange));
 
-    setChanges(changesData || []);
-    setLastReadAt(readingData?.last_read_at || null);
-    setLoading(false);
+      // Fetch Reading state
+      const readingSnap = await getDoc(doc(db, "change_readings", user.uid));
+      const readingData = readingSnap.exists() ? readingSnap.data() : null;
+
+      setChanges(changesData);
+      setLastReadAt(readingData?.last_read_at || null);
+    } catch (err) {
+      console.error("Error fetching changes:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {
     fetchChanges();
   }, [fetchChanges]);
 
-  // Realtime subscription
+  // Real-time subscription with onSnapshot
   useEffect(() => {
     if (!user) return;
-    const channel = supabase
-      .channel("student-changes")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "trainer_changes", filter: `student_id=eq.${user.id}` },
-        (payload) => {
-          setChanges((prev) => [payload.new as TrainerChange, ...prev]);
-        }
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    
+    const q = query(
+      collection(db, "trainer_changes"),
+      where("student_id", "==", user.uid),
+      orderBy("created_at", "desc"),
+      limit(50)
+    );
+
+    const unsubscribe = onSnapshot(q, (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as TrainerChange));
+      setChanges(data);
+    });
+
+    return () => unsubscribe();
   }, [user]);
 
   const markAllRead = async () => {
     if (!user) return;
     const now = new Date().toISOString();
-    await supabase
-      .from("change_readings")
-      .upsert({ student_id: user.id, last_read_at: now }, { onConflict: "student_id" });
-    setLastReadAt(now);
+    try {
+      await setDoc(doc(db, "change_readings", user.uid), { 
+        student_id: user.uid, 
+        last_read_at: now 
+      }, { merge: true });
+      setLastReadAt(now);
+    } catch (err) {
+      console.error("Error marking all read:", err);
+    }
   };
 
   const unreadCount = lastReadAt

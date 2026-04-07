@@ -44,6 +44,7 @@ export default function TrainerSurveysPage() {
   const [students, setStudents] = useState<LinkedStudent[]>([]);
   const [assignedStudentIds, setAssignedStudentIds] = useState<string[]>([]);
   const [assigning, setAssigning] = useState(false);
+  const [assigningStudentId, setAssigningStudentId] = useState<string | null>(null);
 
   // --- Results State ---
   const [assignments, setAssignments] = useState<any[]>([]);
@@ -55,7 +56,7 @@ export default function TrainerSurveysPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const data = await fetchTrainerSurveys(user.id);
+      const data = await fetchTrainerSurveys(user.uid);
       setSurveys(data);
     } catch {
       toast.error("Error al cargar encuestas");
@@ -90,7 +91,7 @@ export default function TrainerSurveysPage() {
     if (!user) return;
     setCreating(true);
     try {
-      await createSurvey(user.id, title, description, questions);
+      await createSurvey(user.uid, title, description, questions);
       toast.success("Encuesta creada correctamente");
       setCreateOpen(false);
       setTitle("");
@@ -121,7 +122,7 @@ export default function TrainerSurveysPage() {
     setAssignSurvey(survey);
     try {
       const [allLinked, surveyAssts] = await Promise.all([
-        fetchLinkedStudents(user.id),
+        fetchLinkedStudents(user.uid),
         fetchSurveyAssignments(survey.id),
       ]);
       setStudents(allLinked);
@@ -133,6 +134,7 @@ export default function TrainerSurveysPage() {
 
   const handleToggleAssign = async (studentId: string, isAssigned: boolean) => {
     if (!assignSurvey) return;
+    setAssigningStudentId(studentId);
     try {
       if (isAssigned) {
         await removeSurveyAssignment(assignSurvey.id, studentId);
@@ -145,6 +147,8 @@ export default function TrainerSurveysPage() {
       }
     } catch {
       toast.error("Error al actualizar asignación");
+    } finally {
+      setAssigningStudentId(null);
     }
   };
 
@@ -311,12 +315,21 @@ export default function TrainerSurveysPage() {
               <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
                 {students.map(student => {
                   const isAssigned = assignedStudentIds.includes(student.user_id);
+                  const isProcessing = assigningStudentId === student.user_id;
+
                   return (
-                    <div key={student.user_id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/20">
-                      <div className="flex-1 font-medium text-sm">{student.display_name}</div>
+                    <div key={student.user_id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/20 transition-opacity" style={{ opacity: isProcessing ? 0.6 : 1 }}>
+                      <div className="flex-1 font-medium text-sm flex items-center gap-2">
+                        {student.display_name}
+                        {isProcessing && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                      </div>
                       <div className="flex items-center gap-2">
-                        {isAssigned && <Badge variant="outline" className="text-[10px] border-green-500/30 text-green-500">Asignado</Badge>}
-                        <Switch checked={isAssigned} onCheckedChange={(c) => handleToggleAssign(student.user_id, isAssigned)} />
+                        {isAssigned && !isProcessing && <Badge variant="outline" className="text-[10px] border-green-500/30 text-green-500">Asignado</Badge>}
+                        <Switch 
+                          checked={isAssigned} 
+                          onCheckedChange={(c) => handleToggleAssign(student.user_id, isAssigned)} 
+                          disabled={isProcessing}
+                        />
                       </div>
                     </div>
                   );

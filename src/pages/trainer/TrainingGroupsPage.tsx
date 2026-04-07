@@ -1,7 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLinkedStudents } from "@/hooks/useLinkedStudents";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  addDoc, 
+  deleteDoc, 
+  doc, 
+  orderBy,
+  writeBatch,
+  Timestamp
+} from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,9 +60,19 @@ export default function TrainingGroupsPage() {
   const fetchGroups = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase.from("training_groups").select("*").eq("trainer_id", user.id).order("created_at", { ascending: false });
-    setGroups((data as TrainingGroup[]) || []);
-    setLoading(false);
+    try {
+      const q = query(
+        collection(db, "training_groups"), 
+        where("trainer_id", "==", user.uid), 
+        orderBy("created_at", "desc")
+      );
+      const snap = await getDocs(q);
+      setGroups(snap.docs.map(d => ({ id: d.id, ...d.data() } as TrainingGroup)));
+    } catch (err) {
+      console.error("Error fetching groups:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => { fetchGroups(); }, [fetchGroups]);
@@ -58,13 +80,22 @@ export default function TrainingGroupsPage() {
   const fetchGroupDetail = useCallback(async (groupId: string) => {
     if (!user) return;
     setLoadingDetail(true);
-    const [membersRes, exercisesRes] = await Promise.all([
-      supabase.from("training_group_members").select("*").eq("group_id", groupId),
-      supabase.from("group_exercises").select("*").eq("group_id", groupId).order("day"),
-    ]);
-    setMembers((membersRes.data as GroupMember[]) || []);
-    setExercises((exercisesRes.data as GroupExercise[]) || []);
-    setLoadingDetail(false);
+    try {
+      const qMembers = query(collection(db, "training_group_members"), where("group_id", "==", groupId));
+      const qExercises = query(collection(db, "group_exercises"), where("group_id", "==", groupId), orderBy("day"));
+      
+      const [membersSnap, exercisesSnap] = await Promise.all([
+        getDocs(qMembers),
+        getDocs(qExercises)
+      ]);
+      
+      setMembers(membersSnap.docs.map(d => ({ id: d.id, ...d.data() } as GroupMember)));
+      setExercises(exercisesSnap.docs.map(d => ({ id: d.id, ...d.data() } as GroupExercise)));
+    } catch (err) {
+      console.error("Error fetching group detail:", err);
+    } finally {
+      setLoadingDetail(false);
+    }
   }, [user]);
 
   useEffect(() => { if (selectedGroupId) fetchGroupDetail(selectedGroupId); }, [selectedGroupId, fetchGroupDetail]);
@@ -72,22 +103,52 @@ export default function TrainingGroupsPage() {
   const createGroup = async () => {
     if (!user || !newGroupName.trim()) return;
     setCreating(true);
-    const { error } = await supabase.from("training_groups").insert({ trainer_id: user.id, name: newGroupName.trim() });
-    if (error) toast.error("Error al crear grupo");
-    else { toast.success("Grupo creado"); setNewGroupName(""); fetchGroups(); }
-    setCreating(false);
+    try {
+      await addDoc(collection(db, "training_groups"), {
+        trainer_id: user.uid,
+        name: newGroupName.trim(),
+        created_at: new Date().toISOString()
+      });
+      toast.success("Grupo creado");
+      setNewGroupName("");
+      fetchGroups();
+    } catch (err) {
+      toast.error("Error al crear grupo");
+    } finally {
+      setCreating(false);
+    }
   };
 
   const deleteGroup = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
-    await supabase.from("group_exercises").delete().eq("group_id", deleteTarget.id);
-    await supabase.from("training_group_members").delete().eq("group_id", deleteTarget.id);
-    const { error } = await supabase.from("training_groups").delete().eq("id", deleteTarget.id);
-    if (error) toast.error("Error al eliminar grupo");
-    else { toast.success("Grupo eliminado"); if (selectedGroupId === deleteTarget.id) setSelectedGroupId(null); fetchGroups(); }
-    setDeleting(false);
-    setDeleteTarget(null);
+    try {
+      const batch = writeBatch(db);
+      
+      // Delete exercises
+      const qEx = query(collection(db, "group_exercises"), where("group_id", "==", deleteTarget.id));
+      const snapEx = await getDocs(qEx);
+      snapEx.docs.forEach(d => batch.delete(d.ref));
+      
+      // Delete members
+      const qMem = query(collection(db, "training_group_members"), where("group_id", "==", deleteTarget.id));
+      const snapMem = await getDocs(qMem);
+      snapMem.docs.forEach(d => batch.delete(d.ref));
+      
+      // Delete group
+      batch.delete(doc(db, "training_groups", deleteTarget.id));
+      
+      await batch.commit();
+      
+      toast.success("Grupo eliminado");
+      if (selectedGroupId === deleteTarget.id) setSelectedGroupId(null);
+      fetchGroups();
+    } catch (err) {
+      toast.error("Error al eliminar grupo");
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
   };
 
   const toggleStudentSelection = (id: string) => {
@@ -97,29 +158,43 @@ export default function TrainingGroupsPage() {
   const addMembers = async () => {
     if (!user || !selectedGroupId || selectedStudentIds.size === 0) return;
     const studentIds = Array.from(selectedStudentIds);
-    const inserts = studentIds.map((sid) => ({ group_id: selectedGroupId, student_id: sid }));
-    const { error } = await supabase.from("training_group_members").insert(inserts);
-    if (error) { toast.error("Error al agregar miembros"); return; }
+    
+    try {
+      setLoadingDetail(true);
+      const batch = writeBatch(db);
+      studentIds.forEach(sid => {
+        const ref = doc(collection(db, "training_group_members"));
+        batch.set(ref, { 
+          group_id: selectedGroupId, 
+          student_id: sid,
+          created_at: new Date().toISOString()
+        });
+      });
+      await batch.commit();
 
-    // Auto-archive individual routines and assign group routine
-    for (const sid of studentIds) {
-      try {
-        await assignGroupRoutineToStudent(user.id, sid, selectedGroupId);
-      } catch (e) {
-        console.error("Error assigning group routine to student", sid, e);
-      }
+      // Auto-archive individual routines and assign group routine
+      const promiseList = studentIds.map(sid => assignGroupRoutineToStudent(user.uid, sid, selectedGroupId));
+      await Promise.all(promiseList);
+
+      toast.success(`${studentIds.length} alumno(s) agregado(s). Rutinas grupales asignadas.`);
+      setSelectedStudentIds(new Set());
+      setShowAddMembers(false);
+      await fetchGroupDetail(selectedGroupId);
+    } catch (err) {
+      toast.error("Error al agregar miembros y asignar rutinas");
+    } finally {
+      setLoadingDetail(false);
     }
-
-    toast.success(`${inserts.length} alumno(s) agregado(s). Rutinas grupales asignadas.`);
-    setSelectedStudentIds(new Set());
-    setShowAddMembers(false);
-    fetchGroupDetail(selectedGroupId);
   };
 
   const removeMember = async (memberId: string) => {
-    await supabase.from("training_group_members").delete().eq("id", memberId);
-    setMembers((prev) => prev.filter((m) => m.id !== memberId));
-    toast.success("Miembro eliminado del grupo");
+    try {
+      await deleteDoc(doc(db, "training_group_members", memberId));
+      setMembers((prev) => prev.filter((m) => m.id !== memberId));
+      toast.success("Miembro eliminado del grupo");
+    } catch (err) {
+      toast.error("Error al eliminar miembro");
+    }
   };
 
   const bodyPart1 = exForm.bodyPart as BodyPart;
@@ -130,23 +205,14 @@ export default function TrainingGroupsPage() {
   ];
   const combinedBodyPart = [exForm.bodyPart, exForm.bodyPart2].filter(Boolean).join(" y ");
 
-  const addExercise = async () => {
-    if (!user || !selectedGroupId) return;
-    if (!exForm.name || !exForm.sets || !exForm.day || !exForm.bodyPart) { toast.error("Completa todos los campos obligatorios"); return; }
-    if (!exForm.isToFailure && !exForm.reps) { toast.error("Completa las repeticiones o activa 'Al Fallo'"); return; }
-    const { error } = await supabase.from("group_exercises").insert({
-      group_id: selectedGroupId, trainer_id: user.id, name: exForm.name,
-      sets: parseInt(exForm.sets), reps: exForm.isToFailure ? 0 : parseInt(exForm.reps),
-      weight: 0, day: exForm.day, body_part: combinedBodyPart || exForm.bodyPart, is_to_failure: exForm.isToFailure,
-    });
-    if (error) toast.error("Error al agregar ejercicio");
-    else { toast.success("Ejercicio agregado al grupo"); setExForm({ name: "", sets: "", reps: "", day: "", bodyPart: "", bodyPart2: "", isToFailure: false }); fetchGroupDetail(selectedGroupId); }
-  };
-
   const removeExercise = async (id: string) => {
-    await supabase.from("group_exercises").delete().eq("id", id);
-    setExercises((prev) => prev.filter((e) => e.id !== id));
-    toast.success("Ejercicio eliminado");
+    try {
+      await deleteDoc(doc(db, "group_exercises", id));
+      setExercises((prev) => prev.filter((e) => e.id !== id));
+      toast.success("Ejercicio eliminado");
+    } catch (err) {
+      toast.error("Error al eliminar ejercicio");
+    }
   };
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId);

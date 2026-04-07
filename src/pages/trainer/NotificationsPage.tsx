@@ -1,6 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  orderBy, 
+  limit, 
+  onSnapshot, 
+  writeBatch,
+  doc,
+  updateDoc
+} from "firebase/firestore";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,38 +39,43 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchNotifications = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    const { data } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    setNotifications(data || []);
-    setLoading(false);
-  }, [user]);
-
-  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
-
   useEffect(() => {
     if (!user) return;
-    const channel = supabase
-      .channel("trainer-notifications")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, (payload) => {
-        setNotifications((prev) => [payload.new as Notification, ...prev]);
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    setLoading(true);
+
+    const q = query(
+      collection(db, "notifications"),
+      where("user_id", "==", user.uid),
+      orderBy("created_at", "desc"),
+      limit(50)
+    );
+
+    const unsubscribe = onSnapshot(q, (snap) => {
+      const notifs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Notification));
+      setNotifications(notifs);
+      setLoading(false);
+    }, (err) => {
+      console.error("Error fetching notifications:", err);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [user]);
 
   const markAllRead = async () => {
     if (!user) return;
-    const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
-    if (unreadIds.length === 0) return;
-    await supabase.from("notifications").update({ read: true }).in("id", unreadIds);
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    const unread = notifications.filter((n) => !n.read);
+    if (unread.length === 0) return;
+    
+    try {
+      const batch = writeBatch(db);
+      unread.forEach((n) => {
+        batch.update(doc(db, "notifications", n.id), { read: true });
+      });
+      await batch.commit();
+    } catch (err) {
+      console.error("Error marking all as read:", err);
+    }
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;

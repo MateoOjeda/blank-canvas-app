@@ -1,5 +1,13 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  orderBy, 
+  limit 
+} from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Moon, Sun, Dumbbell, Briefcase, Sparkles, Loader2, Clock, AlertCircle } from "lucide-react";
@@ -57,18 +65,28 @@ export default function PersonalDiagnosticTab({ studentId }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase
-      .from("seguimiento_personal")
-      .select("*")
-      .eq("student_id", studentId)
-      .maybeSingle()
-      .then(({ data: d }) => {
-        if (d) {
-          const { id, student_id, created_at, ...rest } = d as any;
-          setData(rest);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const q = query(
+          collection(db, "seguimiento_personal"),
+          where("student_id", "==", studentId),
+          orderBy("created_at", "desc"),
+          limit(1)
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const d = snap.docs[0].data();
+          const { student_id, created_at, ...rest } = d as any;
+          setData(rest as SurveyData);
         }
+      } catch (err) {
+        console.error("Error fetching survey data:", err);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    fetchData();
   }, [studentId]);
 
   if (loading) {

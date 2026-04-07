@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  doc, 
+  setDoc,
+  updateDoc
+} from "firebase/firestore";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,10 +41,10 @@ export default function DailyLogDialog({ open, onClose, exercise, studentId, tra
   const handleSubmit = async () => {
     setSaving(true);
     const today = new Date().toISOString().split("T")[0];
+    const docId = `${exercise.id}_${today}`;
 
-    const { error } = await supabase
-      .from("exercise_logs")
-      .upsert({
+    try {
+      await setDoc(doc(db, "exercise_logs", docId), {
         exercise_id: exercise.id,
         student_id: studentId,
         trainer_id: trainerId,
@@ -45,14 +54,16 @@ export default function DailyLogDialog({ open, onClose, exercise, studentId, tra
         actual_reps: parseInt(actualReps) || null,
         actual_weight: parseFloat(actualWeight) || null,
         notes,
-      }, { onConflict: "exercise_id,log_date" });
+        updated_at: new Date().toISOString()
+      }, { merge: true });
 
-    setSaving(false);
-    if (error) {
-      toast.error("Error al guardar el registro");
-    } else {
       toast.success("Registro guardado");
       onClose();
+    } catch (err) {
+      console.error("Error saving log:", err);
+      toast.error("Error al guardar el registro");
+    } finally {
+      setSaving(false);
     }
   };
 

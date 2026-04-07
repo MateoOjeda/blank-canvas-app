@@ -1,4 +1,17 @@
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  deleteDoc, 
+  updateDoc, 
+  addDoc,
+  writeBatch
+} from "firebase/firestore";
 import { LEVELS, DEFAULT_PRICES } from "@/lib/planConstants";
 
 export interface GlobalPlan {
@@ -16,17 +29,14 @@ const PLAN_TYPES_CONFIG = [
 ] as const;
 
 export async function fetchGlobalPlans(trainerId: string): Promise<{ plans: GlobalPlan[]; cambioFisico: GlobalPlan | null }> {
-  const { data } = await supabase
-    .from("global_plans")
-    .select("id, plan_type, level, price, content, active")
-    .eq("trainer_id", trainerId);
-
-  let existing = data || [];
+  const q = query(collection(db, "global_plans"), where("trainer_id", "==", trainerId));
+  const snap = await getDocs(q);
+  let existing = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
 
   const missing: any[] = [];
   for (const pt of PLAN_TYPES_CONFIG) {
     for (const level of LEVELS) {
-      if (!existing.find((e) => e.plan_type === pt.key && e.level === level)) {
+      if (!existing.find((e: any) => e.plan_type === pt.key && e.level === level)) {
         missing.push({
           trainer_id: trainerId,
           plan_type: pt.key,
@@ -38,7 +48,7 @@ export async function fetchGlobalPlans(trainerId: string): Promise<{ plans: Glob
       }
     }
   }
-  if (!existing.find((e) => e.plan_type === "cambios_fisicos")) {
+  if (!existing.find((e: any) => e.plan_type === "cambios_fisicos")) {
     missing.push({
       trainer_id: trainerId,
       plan_type: "cambios_fisicos",
@@ -50,33 +60,33 @@ export async function fetchGlobalPlans(trainerId: string): Promise<{ plans: Glob
   }
 
   if (missing.length > 0) {
-    const { data: inserted } = await supabase
-      .from("global_plans")
-      .insert(missing)
-      .select("id, plan_type, level, price, content, active");
-    if (inserted) existing = [...existing, ...inserted];
+    const batch = writeBatch(db);
+    const newPlans: any[] = [];
+    missing.forEach(m => {
+      const newDocRef = doc(collection(db, "global_plans"));
+      batch.set(newDocRef, m);
+      newPlans.push({ id: newDocRef.id, ...m });
+    });
+    await batch.commit();
+    existing = [...existing, ...newPlans];
   }
 
   return {
-    plans: existing.filter((e) => e.plan_type !== "cambios_fisicos"),
-    cambioFisico: existing.find((e) => e.plan_type === "cambios_fisicos") || null,
+    plans: existing.filter((e: any) => e.plan_type !== "cambios_fisicos"),
+    cambioFisico: existing.find((e: any) => e.plan_type === "cambios_fisicos") || null,
   };
 }
 
 export async function saveGlobalPlan(plan: GlobalPlan) {
-  const { error } = await supabase
-    .from("global_plans")
-    .update({ price: plan.price, content: plan.content, active: plan.active })
-    .eq("id", plan.id);
-  if (error) throw error;
+  await updateDoc(doc(db, "global_plans", plan.id), { 
+    price: plan.price, 
+    content: plan.content, 
+    active: plan.active 
+  });
 }
 
 export async function toggleGlobalPlanActive(id: string, active: boolean) {
-  const { error } = await supabase
-    .from("global_plans")
-    .update({ active })
-    .eq("id", id);
-  if (error) throw error;
+  await updateDoc(doc(db, "global_plans", id), { active });
 }
 
 export async function updatePlanAssignment(
@@ -85,43 +95,49 @@ export async function updatePlanAssignment(
   planType: string,
   level: string
 ) {
-  // Deactivate all levels for this plan type
-  await supabase
-    .from("plan_levels")
-    .update({ unlocked: false })
-    .eq("trainer_id", trainerId)
-    .eq("student_id", studentId)
-    .eq("plan_type", planType);
+  const batch = writeBatch(db);
 
+  // 1. Deactivate all levels for this plan type
+  const q = query(
+    collection(db, "plan_levels"), 
+    where("trainer_id", "==", trainerId), 
+    where("student_id", "==", studentId),
+    where("plan_type", "==", planType)
+  );
+  const snap = await getDocs(q);
+  snap.docs.forEach(d => batch.update(d.ref, { unlocked: false }));
+
+  // 2. Unlock specifically the NEW level
   if (level !== "none") {
-    const { data: existing } = await supabase
-      .from("plan_levels")
-      .select("id")
-      .eq("trainer_id", trainerId)
-      .eq("student_id", studentId)
-      .eq("plan_type", planType)
-      .eq("level", level)
-      .maybeSingle();
-
+    const existing = snap.docs.find(d => d.data().level === level);
     if (existing) {
-      await supabase.from("plan_levels").update({ unlocked: true }).eq("id", existing.id);
+      batch.update(existing.ref, { unlocked: true });
     } else {
-      await supabase.from("plan_levels").insert({
+      const newDocRef = doc(collection(db, "plan_levels"));
+      batch.set(newDocRef, {
         trainer_id: trainerId,
         student_id: studentId,
         plan_type: planType,
         level,
         unlocked: true,
         content: "",
+        created_at: new Date().toISOString()
       });
     }
   }
 
-  // Update trainer_students shortcut fields
+  // 3. Update trainer_students shortcut field
   const updateField = planType === "entrenamiento" ? "plan_entrenamiento" : "plan_alimentacion";
-  await supabase
-    .from("trainer_students")
-    .update({ [updateField]: level === "none" ? null : level } as any)
-    .eq("trainer_id", trainerId)
-    .eq("student_id", studentId);
+  const linkQuery = query(
+    collection(db, "trainer_students"), 
+    where("trainer_id", "==", trainerId), 
+    where("student_id", "==", studentId)
+  );
+  const linkSnap = await getDocs(linkQuery);
+  if (!linkSnap.empty) {
+    batch.update(linkSnap.docs[0].ref, { [updateField]: level === "none" ? null : level });
+  }
+
+  await batch.commit();
 }
+

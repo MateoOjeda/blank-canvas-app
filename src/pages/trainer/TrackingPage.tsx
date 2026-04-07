@@ -1,7 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLinkedStudents } from "@/hooks/useLinkedStudents";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs 
+} from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -35,13 +41,31 @@ export default function TrackingPage() {
   const fetchData = useCallback(async () => {
     if (!user || !selectedStudent) return;
     setLoading(true);
-    const [exRes, plRes] = await Promise.all([
-      supabase.from("exercises").select("id, name, completed, day").eq("trainer_id", user.id).eq("student_id", selectedStudent),
-      supabase.from("plan_levels").select("plan_type, level, unlocked").eq("trainer_id", user.id).eq("student_id", selectedStudent),
-    ]);
-    setExercises(exRes.data || []);
-    setPlanLevels(plRes.data || []);
-    setLoading(false);
+
+    try {
+      const qEx = query(
+        collection(db, "exercises"), 
+        where("trainer_id", "==", user.uid), 
+        where("student_id", "==", selectedStudent)
+      );
+      const qLevels = query(
+        collection(db, "plan_levels"), 
+        where("trainer_id", "==", user.uid), 
+        where("student_id", "==", selectedStudent)
+      );
+
+      const [snapEx, snapLevels] = await Promise.all([
+        getDocs(qEx),
+        getDocs(qLevels)
+      ]);
+
+      setExercises(snapEx.docs.map(d => ({ id: d.id, ...d.data() } as Exercise)));
+      setPlanLevels(snapLevels.docs.map(d => d.data() as PlanLevel));
+    } catch (err) {
+      console.error("Error fetching tracking data:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [user, selectedStudent]);
 
   useEffect(() => {

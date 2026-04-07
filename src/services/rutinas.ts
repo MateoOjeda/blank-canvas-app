@@ -1,4 +1,17 @@
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  deleteDoc, 
+  updateDoc, 
+  addDoc,
+  writeBatch
+} from "firebase/firestore";
 
 export type ExerciseType = "NORMAL" | "DROP_SET" | "PIRAMIDE" | "AL_FALLO" | "VI_SERIE";
 
@@ -25,6 +38,7 @@ export interface Exercise {
   pyramid_reps: string | null;
   exercise_type: ExerciseType;
   parent_exercise_id: string | null;
+  routine_id: string;
 }
 
 export interface DayConfig {
@@ -47,25 +61,54 @@ export interface NewExercise {
   is_piramide: boolean;
   pyramid_reps: string | null;
   exercise_type: ExerciseType;
+  routine_id: string;
 }
 
 export async function fetchRoutineData(trainerId: string, studentId: string) {
-  const [exRes, dayRes, tsRes] = await Promise.all([
-    supabase.from("exercises").select("*").eq("trainer_id", trainerId).eq("student_id", studentId),
-    supabase.from("routine_day_config").select("day, body_part_1, body_part_2").eq("trainer_id", trainerId).eq("student_id", studentId),
-    supabase.from("trainer_students").select("routine_next_change_date").eq("trainer_id", trainerId).eq("student_id", studentId).maybeSingle(),
+  // 1. Get or create active routine first
+  const { getOrCreateActiveRoutine } = await import("./routineManager");
+  const routine = await getOrCreateActiveRoutine(trainerId, "ALUMNO", studentId);
+
+  // 2. Fetch exercises for THIS routine
+  const exercisesQuery = query(
+    collection(db, "exercises"), 
+    where("routine_id", "==", routine.id)
+  );
+  
+  // 3. Day configs are still per student/trainer/day for now
+  const dayConfigQuery = query(
+    collection(db, "routine_day_config"), 
+    where("trainer_id", "==", trainerId), 
+    where("student_id", "==", studentId)
+  );
+
+  const [exSnap, daySnap] = await Promise.all([
+    getDocs(exercisesQuery),
+    getDocs(dayConfigQuery)
   ]);
 
-  const exercises = (exRes.data as Exercise[]) || [];
+  const exercises = exSnap.docs.map(d => ({ id: d.id, ...d.data() } as Exercise));
 
   const dayConfigs: Record<string, DayConfig> = {};
-  (dayRes.data || []).forEach((d: any) => {
-    dayConfigs[d.day] = { day: d.day, body_part_1: d.body_part_1 || "", body_part_2: d.body_part_2 || "" };
+  daySnap.docs.forEach((d) => {
+    const data = d.data();
+    dayConfigs[data.day] = { 
+      day: data.day, 
+      body_part_1: data.body_part_1 || "", 
+      body_part_2: data.body_part_2 || "" 
+    };
   });
 
-  const routineNextChange = tsRes.data?.routine_next_change_date || null;
+  // Fetch routine next change date from trainer_students link
+  const linkQuery = query(
+    collection(db, "trainer_students"), 
+    where("trainer_id", "==", trainerId), 
+    where("student_id", "==", studentId)
+  );
+  const linkSnap = await getDocs(linkQuery);
+  const routineNextChange = linkSnap.docs.length > 0 ? linkSnap.docs[0].data().routine_next_change_date : null;
 
-  return { exercises, dayConfigs, routineNextChange };
+  return { exercises, dayConfigs, routineNextChange, routineId: routine.id };
 }
 
 export async function saveDayConfig(
@@ -75,31 +118,40 @@ export async function saveDayConfig(
   body_part_1: string,
   body_part_2: string
 ) {
-  await supabase.from("routine_day_config").upsert(
-    { trainer_id: trainerId, student_id: studentId, day, body_part_1, body_part_2 } as any,
-    { onConflict: "trainer_id,student_id,day" }
-  );
+  // Use a composite ID for uniqueness
+  const docId = `${trainerId}_${studentId}_${day}`;
+  await setDoc(doc(db, "routine_day_config", docId), {
+    trainer_id: trainerId,
+    student_id: studentId,
+    day,
+    body_part_1,
+    body_part_2,
+    updated_at: new Date().toISOString()
+  });
 }
 
-export async function addExercise(exercise: NewExercise & { parent_exercise_id?: string | null }): Promise<string | null> {
-  const { data, error } = await supabase
-    .from("exercises")
-    .insert(exercise as any)
-    .select("id")
-    .single();
-
-  if (error) throw error;
-  return data?.id || null;
+export async function addExercise(exercise: NewExercise) {
+  if (!exercise.trainer_id || !exercise.student_id || !exercise.routine_id) {
+    console.error("Missing required IDs for exercise", exercise);
+    return null;
+  }
+  
+  const docRef = await addDoc(collection(db, "exercises"), {
+    ...exercise,
+    created_at: new Date().toISOString(),
+    completed: false
+  });
+  return docRef.id;
 }
 
 export async function removeExercise(exerciseId: string) {
-  const { error } = await supabase.from("exercises").delete().eq("id", exerciseId);
-  if (error) throw error;
+  await deleteDoc(doc(db, "exercises", exerciseId));
 }
 
 export async function bulkRemoveExercises(ids: string[]) {
-  const { error } = await supabase.from("exercises").delete().in("id", ids);
-  if (error) throw error;
+  const batch = writeBatch(db);
+  ids.forEach(id => batch.delete(doc(db, "exercises", id)));
+  await batch.commit();
 }
 
 export async function addViSerieChild(
@@ -107,36 +159,34 @@ export async function addViSerieChild(
   trainerId: string,
   studentId: string
 ): Promise<string | null> {
-  const { data, error } = await supabase
-    .from("exercises")
-    .insert({
-      trainer_id: trainerId,
-      student_id: studentId,
-      name: `${parentExercise.name} (VI Serie)`,
-      sets: parentExercise.sets,
-      reps: parentExercise.reps,
-      weight: 0,
-      day: parentExercise.day,
-      body_part: parentExercise.body_part,
-      is_to_failure: false,
-      is_dropset: false,
-      is_piramide: false,
-      pyramid_reps: null,
-      exercise_type: "VI_SERIE",
-      parent_exercise_id: parentExercise.id,
-    } as any)
-    .select("id")
-    .single();
-  if (error) throw error;
-  return data?.id || null;
+  const docRef = await addDoc(collection(db, "exercises"), {
+    trainer_id: trainerId,
+    student_id: studentId,
+    name: `${parentExercise.name} (VI Serie)`,
+    sets: parentExercise.sets,
+    reps: parentExercise.reps,
+    weight: 0,
+    day: parentExercise.day,
+    body_part: parentExercise.body_part,
+    is_to_failure: false,
+    is_dropset: false,
+    is_piramide: false,
+    pyramid_reps: null,
+    exercise_type: "VI_SERIE",
+    parent_exercise_id: parentExercise.id,
+    routine_id: parentExercise.routine_id,
+    created_at: new Date().toISOString(),
+    completed: false
+  });
+  return docRef.id;
 }
 
 export async function removeViSerieChild(parentId: string) {
-  const { error } = await supabase
-    .from("exercises")
-    .delete()
-    .eq("parent_exercise_id", parentId);
-  if (error) throw error;
+  const q = query(collection(db, "exercises"), where("parent_exercise_id", "==", parentId));
+  const snap = await getDocs(q);
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => batch.delete(d.ref));
+  await batch.commit();
 }
 
 export async function logTrainerChange(
@@ -146,12 +196,13 @@ export async function logTrainerChange(
   description: string,
   entityId?: string
 ) {
-  await supabase.from("trainer_changes").insert({
+  await addDoc(collection(db, "trainer_changes"), {
     trainer_id: trainerId,
     student_id: studentId,
     change_type: changeType,
     description,
     entity_id: entityId || null,
+    created_at: new Date().toISOString()
   });
 }
 
@@ -159,10 +210,18 @@ export async function setRoutineNextChangeDate(trainerId: string, studentId: str
   const date = new Date();
   date.setDate(date.getDate() + days);
   const dateStr = date.toISOString().split("T")[0];
-  await supabase
-    .from("trainer_students")
-    .update({ routine_next_change_date: dateStr } as any)
-    .eq("trainer_id", trainerId)
-    .eq("student_id", studentId);
+  
+  const q = query(
+    collection(db, "trainer_students"), 
+    where("trainer_id", "==", trainerId), 
+    where("student_id", "==", studentId)
+  );
+  const snap = await getDocs(q);
+  
+  if (snap.docs.length > 0) {
+    await updateDoc(snap.docs[0].ref, { routine_next_change_date: dateStr });
+  }
+  
   return dateStr;
 }
+

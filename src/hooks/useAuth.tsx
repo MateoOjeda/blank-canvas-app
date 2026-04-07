@@ -1,51 +1,48 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { User, Session } from "@supabase/supabase-js";
+import { auth, db, googleProvider } from "@/lib/firebase";
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut as firebaseSignOut,
+  signInWithPopup,
+  sendPasswordResetEmail,
+  User 
+} from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 type AppRole = "trainer" | "student";
 
 interface AuthContextType {
   user: User | null;
-  session: Session | null;
   role: AppRole | null;
   loading: boolean;
   displayName: string;
   signUp: (email: string, password: string, name: string, role: AppRole) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signInWithGoogle: (role?: AppRole) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState("");
 
   const fetchUserData = async (userId: string) => {
     try {
-      const { data: roleData, error: roleError } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .maybeSingle();
+      // Fetch role
+      const roleDoc = await getDoc(doc(db, "user_roles", userId));
+      const roleData = roleDoc.data();
+      setRole((roleData?.role as AppRole) ?? null);
 
-      if (roleError) {
-        console.error("Error fetching role:", roleError.message);
-      }
-      setRole(roleData?.role ?? null);
-
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("display_name")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error("Error fetching profile:", profileError.message);
-      }
+      // Fetch profile
+      const profileDoc = await getDoc(doc(db, "profiles", userId));
+      const profileData = profileDoc.data();
       setDisplayName(profileData?.display_name ?? "");
     } catch (err) {
       console.error("Error fetching user data:", err);
@@ -55,12 +52,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-
-      if (session?.user) {
-        setTimeout(() => fetchUserData(session.user.id), 0);
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      if (firebaseUser) {
+        fetchUserData(firebaseUser.uid);
       } else {
         setRole(null);
         setDisplayName("");
@@ -68,23 +63,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, []);
 
   const signUp = async (email: string, password: string, name: string, role: AppRole) => {
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { display_name: name, role },
-        },
-      });
-      return { error: error as Error | null };
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const newUser = userCredential.user;
+
+      // Create role and profile in Firestore
+      await Promise.all([
+        setDoc(doc(db, "user_roles", newUser.uid), { role, user_id: newUser.uid }),
+        setDoc(doc(db, "profiles", newUser.uid), { 
+          display_name: name, 
+          user_id: newUser.uid,
+          created_at: new Date().toISOString()
+        })
+      ]);
+
+      return { error: null };
     } catch (err) {
       return { error: err as Error };
     }
@@ -92,23 +89,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      return { error: error as Error | null };
+      await signInWithEmailAndPassword(auth, email, password);
+      return { error: null };
+    } catch (err) {
+      return { error: err as Error };
+    }
+  };
+
+  const signInWithGoogle = async (preferredRole: AppRole = "student") => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      // Check if user already has a role
+      const roleDoc = await getDoc(doc(db, "user_roles", user.uid));
+      if (!roleDoc.exists()) {
+        // New user from Google, assign preferred role
+        await Promise.all([
+          setDoc(doc(db, "user_roles", user.uid), { role: preferredRole, user_id: user.uid }),
+          setDoc(doc(db, "profiles", user.uid), { 
+            display_name: user.displayName || "Usuario", 
+            user_id: user.uid,
+            avatar_url: user.photoURL,
+            created_at: new Date().toISOString()
+          })
+        ]);
+      }
+      return { error: null };
     } catch (err) {
       return { error: err as Error };
     }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await firebaseSignOut(auth);
     setUser(null);
-    setSession(null);
     setRole(null);
     setDisplayName("");
   };
 
+  const resetPassword = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return { error: null };
+    } catch (err) {
+      return { error: err as Error };
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, role, loading, displayName, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, role, loading, displayName, signUp, signIn, signInWithGoogle, signOut, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );
@@ -119,3 +149,4 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
+

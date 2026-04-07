@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,31 +26,41 @@ export default function UserSettingsDialog() {
 
   useEffect(() => {
     if (!user || !open) return;
-    supabase
-      .from("profiles")
-      .select("mercadopago_alias, whatsapp_number, avatar_url, display_name")
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) {
+
+    async function loadProfile() {
+      try {
+        const docRef = doc(db, "profiles", user.uid);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const data = snap.data();
           setMercadopagoAlias(data.mercadopago_alias || "");
           setWhatsappNumber(data.whatsapp_number || "");
-          setAvatarUrl(data.avatar_url || "");
+          setAvatarUrl(data.avatar_url || null);
           setDisplayName(data.display_name || "");
         }
-      });
+      } catch (err) {
+        console.error("Error loading profile:", err);
+      }
+    }
+
+    loadProfile();
   }, [user, open]);
 
   const handleSaveBilling = async () => {
     if (!user) return;
     setSaving(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ mercadopago_alias: mercadopagoAlias.trim(), whatsapp_number: whatsappNumber.trim() })
-      .eq("user_id", user.id);
-    setSaving(false);
-    if (error) toast.error("Error al guardar");
-    else { toast.success("Configuración guardada"); }
+    try {
+      await updateDoc(doc(db, "profiles", user.uid), { 
+        mercadopago_alias: mercadopagoAlias.trim(), 
+        whatsapp_number: whatsappNumber.trim() 
+      });
+      toast.success("Configuración guardada");
+    } catch (err) {
+      console.error("Error saving billing:", err);
+      toast.error("Error al guardar");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

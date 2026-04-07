@@ -9,6 +9,7 @@ import {
   unlinkStudent as unlinkStudentService,
   deleteStudentPermanently,
   updatePaymentStatus,
+  createStudentProfile,
   type LinkedStudent,
   type AvailableStudent,
 } from "@/services/alumnos";
@@ -22,6 +23,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { 
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger 
+} from "@/components/ui/dialog";
+import { Input as UiInput } from "@/components/ui/input";
 import { Users, Loader2, Trash2, Dumbbell, Apple, Eye, Pencil, Plus, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import { StudentCard } from "@/components/trainer/StudentCard";
@@ -47,12 +52,15 @@ export default function StudentsPage() {
   const [deleteTarget, setDeleteTarget] = useState<LinkedStudent | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newStudentData, setNewStudentData] = useState({ name: "", weight: "", age: "" });
+  const [creating, setCreating] = useState(false);
 
   const refreshAll = useCallback(async () => {
     if (!user) return;
     const [linked, available] = await Promise.all([
-      fetchLinkedStudentsService(user.id),
-      fetchAvailableStudentsService(user.id),
+      fetchLinkedStudentsService(user.uid),
+      fetchAvailableStudentsService(user.uid),
     ]);
     setLinkedStudents(linked);
     setAvailableStudents(available);
@@ -66,7 +74,7 @@ export default function StudentsPage() {
     if (!user) return;
     setLinking(studentId);
     try {
-      await linkStudentService(user.id, studentId);
+      await linkStudentService(user.uid, studentId);
       toast.success("Alumno vinculado correctamente");
       await refreshAll();
     } catch { toast.error("Error al vincular alumno"); }
@@ -77,7 +85,7 @@ export default function StudentsPage() {
     if (!user) return;
     setUnlinking(student.user_id);
     try {
-      await unlinkStudentService(user.id, student.user_id);
+      await unlinkStudentService(user.uid, student.user_id);
       toast.success("Alumno removido correctamente");
       if (selectedStudentId === student.user_id) setSelectedStudentId(null);
       await refreshAll();
@@ -100,13 +108,33 @@ export default function StudentsPage() {
     if (!user || !deleteTarget) return;
     setDeleting(true);
     try {
-      await deleteStudentPermanently(user.id, deleteTarget.user_id);
+      await deleteStudentPermanently(user.uid, deleteTarget.user_id);
       toast.success("Alumno eliminado permanentemente");
       if (selectedStudentId === deleteTarget.user_id) setSelectedStudentId(null);
       await refreshAll();
     } catch { toast.error("Error al eliminar alumno"); }
     setDeleting(false);
     setDeleteTarget(null);
+  };
+
+  const handleCreateStudent = async () => {
+    if (!user || !newStudentData.name.trim()) return;
+    setCreating(true);
+    try {
+      await createStudentProfile(user.uid, {
+        name: newStudentData.name.trim(),
+        weight: newStudentData.weight ? parseFloat(newStudentData.weight) : undefined,
+        age: newStudentData.age ? parseInt(newStudentData.age) : undefined,
+      });
+      toast.success("Alumno creado y vinculado correctamente");
+      setShowCreateDialog(false);
+      setNewStudentData({ name: "", weight: "", age: "" });
+      await refreshAll();
+    } catch {
+      toast.error("Error al crear alumno");
+    } finally {
+      setCreating(false);
+    }
   };
 
   const selectedStudent = linkedStudents.find((s) => s.user_id === selectedStudentId) || null;
@@ -130,6 +158,9 @@ export default function StudentsPage() {
                 </div>
                 <CardTitle className="text-base text-accent">Alumnos vinculados ({linkedStudents.length})</CardTitle>
               </div>
+              <Button size="sm" variant="ghost" className="h-8 px-2 text-accent hover:bg-accent/10" onClick={() => setShowCreateDialog(true)}>
+                <Plus className="h-4 w-4 mr-1" /> Nuevo
+              </Button>
             </CardHeader>
             <CardContent className="p-3 overflow-y-auto max-h-[45vh] hide-scrollbar">
               {loading ? (
@@ -396,6 +427,60 @@ export default function StudentsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create Student Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Registrar Nuevo Alumno</DialogTitle>
+            <DialogDescription>
+              Crea un perfil para un alumno que aún no se ha registrado en la plataforma.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Nombre Completo</Label>
+              <UiInput
+                id="name"
+                placeholder="Ej: Juan Pérez"
+                value={newStudentData.name}
+                onChange={(e) => setNewStudentData({ ...newStudentData, name: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="age">Edad (Opcional)</Label>
+                <UiInput
+                  id="age"
+                  type="number"
+                  placeholder="25"
+                  value={newStudentData.age}
+                  onChange={(e) => setNewStudentData({ ...newStudentData, age: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="weight">Peso kg (Opcional)</Label>
+                <UiInput
+                  id="weight"
+                  type="number"
+                  placeholder="75.5"
+                  value={newStudentData.weight}
+                  onChange={(e) => setNewStudentData({ ...newStudentData, weight: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)} disabled={creating}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateStudent} disabled={creating || !newStudentData.name.trim()}>
+              {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+              Crear Alumno
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
