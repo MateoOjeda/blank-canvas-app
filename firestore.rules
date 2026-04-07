@@ -118,6 +118,27 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
 
+    // Tracking Changes
+    match /trainer_changes/{docId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.trainer_id ||
+        request.auth.uid == resource.data.student_id
+      );
+      allow write: if isAuthenticated();
+    }
+
+    // Exercise Logs
+    match /exercise_logs/{logId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Student Meals
+    match /student_meals/{mealId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
     // Default: Deny all
     match /{document=**} {
       allow read, write: if false;

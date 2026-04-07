@@ -62,6 +62,7 @@ export interface NewExercise {
   pyramid_reps: string | null;
   exercise_type: ExerciseType;
   routine_id: string;
+  parent_exercise_id?: string | null;
 }
 
 export async function fetchRoutineData(trainerId: string, studentId: string) {

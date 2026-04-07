@@ -307,8 +307,9 @@ export default function RoutinesPage() {
       setViForm({ name: "", reps: "", isToFailure: false, isDropset: false });
       setViSerieEnabled(false);
       fetchData();
-    } catch (err) { 
-      toast.error("Error al agregar ejercicio"); 
+    } catch (err: any) { 
+      console.error("DEBUG ERROR ADDING EXERCISE:", err);
+      toast.error("Error: " + (err.message || "al agregar ejercicio")); 
     }
   };
 
