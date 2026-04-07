@@ -100,7 +100,7 @@ export default function TodayRoutinePage() {
           // Get first group name for display
           const groupDoc = await getDoc(doc(db, "training_groups", groupIds[0]));
           if (groupDoc.exists()) {
-            setGroupName(groupDoc.data().name);
+            setGroupName((groupDoc.data() as any).name);
           }
 
           const qGrpEx = query(
@@ -112,9 +112,10 @@ export default function TodayRoutinePage() {
           groupExercises = snapGrpEx.docs.map(d => ({ 
             id: d.id, 
             ...d.data(),
-            completed: false,
-            trainer_id: d.data().trainer_id || ""
-          } as Exercise));
+            completed: false, // Group exercises start uncompleted for the day
+            trainer_id: d.data().trainer_id || "",
+            isGroup: true
+          } as Exercise & { isGroup: boolean }));
         }
       } else {
         setGroupName(null);
@@ -125,6 +126,7 @@ export default function TodayRoutinePage() {
 
       // Fetch logs for today
       let weights: Record<string, string> = {};
+      const completedLogIds = new Set<string>();
       if (allExercises.length > 0) {
         const qLogs = query(
           collection(db, "exercise_logs"),
@@ -137,8 +139,19 @@ export default function TodayRoutinePage() {
           if (data.actual_weight !== null) {
             weights[data.exercise_id] = String(data.actual_weight);
           }
+          if (data.completed) {
+            completedLogIds.add(data.exercise_id);
+          }
         });
       }
+
+      // Mark exercises as completed if there's a log for today
+      allExercises.forEach(ex => {
+        if (completedLogIds.has(ex.id)) {
+          ex.completed = true;
+        }
+      });
+
 
       // Load from localStorage if present
       const savedStateStr = localStorage.getItem(`routine_sets_${user.uid}_${todayDate}`);
@@ -209,7 +222,11 @@ export default function TodayRoutinePage() {
       const currentSetsCount = sets.length;
       const todayDate = new Date().toISOString().split("T")[0];
 
-      await updateDoc(doc(db, "exercises", exerciseId), { completed: markCompleted });
+      const isGroup = (exercise as any).isGroup;
+      
+      if (!isGroup) {
+        await updateDoc(doc(db, "exercises", exerciseId), { completed: markCompleted });
+      }
      
       setExercises((prev) => prev.map((e) => (e.id === exerciseId ? { ...e, completed: markCompleted } : e)));
 

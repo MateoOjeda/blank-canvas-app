@@ -128,37 +128,102 @@ export async function linkStudent(trainerId: string, studentId: string) {
 }
 
 export async function unlinkStudent(trainerId: string, studentId: string) {
-  const q = query(
+  const batch = writeBatch(db);
+
+  // 1. Unlink from trainer
+  const qLink = query(
     collection(db, "trainer_students"), 
     where("trainer_id", "==", trainerId), 
     where("student_id", "==", studentId)
   );
-  const snap = await getDocs(q);
-  const batch = writeBatch(db);
-  snap.docs.forEach(doc => batch.delete(doc.ref));
+  const snapLink = await getDocs(qLink);
+  snapLink.docs.forEach(doc => batch.delete(doc.ref));
+
+  // 2. Remove group memberships tied to this trainer
+  // Since training_group_members doesn't have trainer_id directly, we assume unlinking
+  // removes ALL group memberships for this student (in this app architecture, 1 trainer per student).
+  const qMem = query(collection(db, "training_group_members"), where("student_id", "==", studentId));
+  const snapMem = await getDocs(qMem);
+  snapMem.docs.forEach(d => batch.delete(d.ref));
+
+  // 3. Mark routines as archived instead of deleting them entirely?
+  // Since unlinking means they leave the trainer, we should archive active routines.
+  const qRout = query(
+    collection(db, "routines"), 
+    where("trainer_id", "==", trainerId), 
+    where("target_type", "==", "ALUMNO"),
+    where("target_id", "==", studentId),
+    where("status", "==", "ACTIVA")
+  );
+  const snapRout = await getDocs(qRout);
+  snapRout.docs.forEach(d => batch.update(d.ref, { status: "ARCHIVADA" }));
+
   await batch.commit();
 }
 
 export async function deleteStudentPermanently(trainerId: string, studentId: string) {
-  const batch = writeBatch(db);
+  // To avoid exceeding the 500 write limit in a single batch, we might execute multiple batches.
+  // But for standard student data, one batch is usually enough. Let's use an array of promises for chunked batching.
+  const deleteQueue: any[] = [];
   
+  // 1. Collections directly tied to student_id
   const collections = [
     "exercise_logs", 
     "exercises", 
     "plan_levels", 
     "trainer_changes", 
     "routine_day_config",
-    "trainer_students"
+    "trainer_students",
+    "student_meals",
+    "training_group_members",
+    "routines"
   ];
 
   for (const coll of collections) {
-    const q = query(collection(db, coll), where("student_id", "==", studentId), where("trainer_id", "==", trainerId));
+    // If collection naturally has trainer_id, filter by it. Otherwise just student_id.
+    let q;
+    if (["exercise_logs", "exercises", "plan_levels", "trainer_changes", "routine_day_config", "trainer_students", "routines"].includes(coll)) {
+       q = query(collection(db, coll), where("student_id", "==", studentId), where("trainer_id", "==", trainerId));
+    } else {
+       q = query(collection(db, coll), where("student_id", "==", studentId));
+    }
     const snap = await getDocs(q);
-    snap.docs.forEach(d => batch.delete(d.ref));
+    snap.docs.forEach(d => deleteQueue.push(d.ref));
   }
 
-  await batch.commit();
+  // 2. Survey Assignments and Answers
+  const qAssignments = query(collection(db, "survey_assignments"), where("student_id", "==", studentId));
+  const snapAssignments = await getDocs(qAssignments);
+  
+  if (!snapAssignments.empty) {
+    snapAssignments.docs.forEach(d => deleteQueue.push(d.ref));
+    
+    // Get answers for these assignments
+    const assignmentIds = snapAssignments.docs.map(d => d.id);
+    for (let i = 0; i < assignmentIds.length; i += 30) {
+      const chunk = assignmentIds.slice(i, i + 30);
+      const qAnswers = query(collection(db, "survey_answers"), where("assignment_id", "in", chunk));
+      const snapAnswers = await getDocs(qAnswers);
+      snapAnswers.docs.forEach(d => deleteQueue.push(d.ref));
+    }
+  }
+
+  // 3. User Role & Profile
+  deleteQueue.push(doc(db, "profiles", studentId));
+  
+  const qRole = query(collection(db, "user_roles"), where("user_id", "==", studentId));
+  const snapRole = await getDocs(qRole);
+  snapRole.docs.forEach(d => deleteQueue.push(d.ref));
+
+  // Commit deletes in batches of 500
+  for (let i = 0; i < deleteQueue.length; i += 500) {
+    const batch = writeBatch(db);
+    const chunk = deleteQueue.slice(i, i + 500);
+    chunk.forEach(ref => batch.delete(ref));
+    await batch.commit();
+  }
 }
+
 
 export async function updatePaymentStatus(linkId: string, status: "pagado" | "pendiente") {
   await updateDoc(doc(db, "trainer_students", linkId), { payment_status: status });

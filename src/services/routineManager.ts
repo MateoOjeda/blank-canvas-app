@@ -139,17 +139,16 @@ export async function fetchRoutineExercises(routineId: string) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-/**
- * When a student joins a group that has exercises:
- * 1. Archive the student's active individual routine
- * 2. Copy group exercises to the student's exercises with a new GRUPAL routine
- */
 export async function assignGroupRoutineToStudent(
   trainerId: string,
   studentId: string,
-  groupId: string
+  groupId: string // Not used for copying anymore, kept for backwards compatibility in function signature
 ): Promise<void> {
-  // 1. Archive ANY current active routine for this student (be it individual or another group)
+  // 1. Archive ANY current active individual routine for this student
+  // We no longer copy exercises. The student UI dynamically fetches group_exercises
+  // based on their training_group_members record. This prevents data duplication
+  // and keeps the student exactly in sync with the group routine dynamically.
+  
   const qActive = query(
     collection(db, "routines"),
     where("trainer_id", "==", trainerId),
@@ -158,47 +157,12 @@ export async function assignGroupRoutineToStudent(
     where("status", "==", "ACTIVA")
   );
   const activeSnap = await getDocs(qActive);
+  
   if (!activeSnap.empty) {
     const batchArch = writeBatch(db);
     activeSnap.docs.forEach(d => batchArch.update(d.ref, { status: "ARCHIVADA" }));
     await batchArch.commit();
   }
-
-  // 2. Fetch group exercises
-  const q = query(collection(db, "group_exercises"), where("group_id", "==", groupId));
-  const snap = await getDocs(q);
-  const groupExercises = snap.docs.map(d => d.data());
-
-  if (groupExercises.length === 0) return;
-
-  // 3. Create a new GRUPAL routine for this student
-  const routine = await getOrCreateActiveRoutine(trainerId, "ALUMNO", studentId, "GRUPAL");
-
-  // 4. Copy group exercises to student's exercises
-  const batch = writeBatch(db);
-  groupExercises.forEach((ge: any) => {
-    const newExRef = doc(collection(db, "exercises"));
-    batch.set(newExRef, {
-      trainer_id: trainerId,
-      student_id: studentId,
-      name: ge.name,
-      sets: ge.sets,
-      reps: ge.reps,
-      weight: ge.weight || 0,
-      day: ge.day,
-      body_part: ge.body_part || "",
-      is_to_failure: ge.is_to_failure || false,
-      is_dropset: ge.is_dropset || false,
-      is_piramide: ge.is_piramide || false,
-      pyramid_reps: ge.pyramid_reps || null,
-      exercise_type: ge.exercise_type || "NORMAL",
-      routine_id: routine.id,
-      created_at: new Date().toISOString(),
-      completed: false
-    });
-  });
-
-  await batch.commit();
 }
 
 /**
