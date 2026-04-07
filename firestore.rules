@@ -103,7 +103,17 @@ service cloud.firestore {
     }
 
     // Surveys
-    match /surveys/{surveyId} {
+    match /custom_surveys/{surveyId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    match /survey_questions/{questionId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    match /seguimiento_personal/{docId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated();
     }

@@ -118,7 +118,31 @@ export default function MyPlansPage() {
     );
   }
 
-  if (globalPlans.length === 0) {
+  // Build merged plan levels
+  const mergedLevels = globalPlans.length > 0 
+    ? globalPlans.map((gp) => {
+        const studentLevel = planLevels.find((pl) => pl.plan_type === gp.plan_type && pl.level === gp.level);
+        return {
+          id: gp.id,
+          plan_type: gp.plan_type,
+          level: gp.level,
+          content: gp.content,
+          unlocked: studentLevel?.unlocked ?? false,
+          price: gp.price,
+          active: gp.active,
+        };
+      })
+    : planLevels.map((pl) => ({
+        id: pl.id,
+        plan_type: pl.plan_type,
+        level: pl.level,
+        content: "Contenido del plan disponible de manera predeterminada.",
+        unlocked: pl.unlocked,
+        price: 0,
+        active: true,
+      }));
+
+  if (mergedLevels.length === 0) {
     return (
       <div className="space-y-6">
         <div>
@@ -136,20 +160,6 @@ export default function MyPlansPage() {
       </div>
     );
   }
-
-  // Build merged plan levels with global plan data
-  const mergedLevels = globalPlans.map((gp) => {
-    const studentLevel = planLevels.find((pl) => pl.plan_type === gp.plan_type && pl.level === gp.level);
-    return {
-      id: gp.id,
-      plan_type: gp.plan_type,
-      level: gp.level,
-      content: gp.content,
-      unlocked: studentLevel?.unlocked ?? false,
-      price: gp.price,
-      active: gp.active,
-    };
-  });
 
   const activePlanType = PLAN_TYPES.find((pt) => pt.key === selectedPlan);
 

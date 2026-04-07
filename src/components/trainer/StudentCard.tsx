@@ -51,7 +51,7 @@ export function StudentCard({
           "bg-accent/5 text-accent font-bold",
           isSmall ? "text-[10px]" : isLarge ? "text-sm" : "text-xs"
         )}>
-          {avatarInitials || name.slice(0, 2).toUpperCase()}
+          {avatarInitials || (name || "??").slice(0, 2).toUpperCase()}
         </AvatarFallback>
       </Avatar>
       

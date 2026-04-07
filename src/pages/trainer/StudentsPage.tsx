@@ -284,7 +284,7 @@ export default function StudentsPage() {
                   <Avatar className="h-20 w-20 border-2 border-accent/30">
                     <AvatarImage src={selectedStudent.avatar_url || undefined} />
                     <AvatarFallback className="bg-accent/10 text-accent font-bold text-2xl">
-                      {selectedStudent.avatar_initials || selectedStudent.display_name.slice(0, 2).toUpperCase()}
+                      {selectedStudent.avatar_initials || (selectedStudent.display_name || "??").slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                 </div>

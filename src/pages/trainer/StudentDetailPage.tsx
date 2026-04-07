@@ -221,7 +221,7 @@ export default function StudentDetailPage() {
         <Avatar className="h-14 w-14 border-2 border-primary/30">
           <AvatarImage src={profile.avatar_url || undefined} />
           <AvatarFallback className="bg-primary/10 text-primary font-bold text-lg">
-            {profile.avatar_initials || profile.display_name.slice(0, 2).toUpperCase()}
+            {profile.avatar_initials || (profile.display_name || "??").slice(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
         <div className="flex-1">
