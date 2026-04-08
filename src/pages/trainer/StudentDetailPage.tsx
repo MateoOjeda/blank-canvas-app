@@ -11,15 +11,17 @@ import {
   getDocs, 
   doc, 
   getDoc, 
-  updateDoc 
+  updateDoc,
+  orderBy,
+  limit
 } from "firebase/firestore";
 import { fetchArchivedRoutines, fetchRoutineExercises, type Routine } from "@/services/routineManager";
-import { fetchStudentSurveyResults } from "@/services/surveys";
+import { fetchStudentSurveyResults, fetchStudentPendingSurveys } from "@/services/surveys";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Dumbbell, CheckCircle, Apple, Loader2, Sparkles, Pencil, Archive, Users, ClipboardList } from "lucide-react";
+import { ArrowLeft, Dumbbell, CheckCircle, Apple, Loader2, Sparkles, Pencil, Archive, Users, ClipboardList, ChevronRight, AlertCircle, Clock } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -62,6 +64,9 @@ export default function StudentDetailPage() {
   const [groupExercises, setGroupExercises] = useState<any[]>([]);
   const [selectedDayTab, setSelectedDayTab] = useState<string>(DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1]);
   const [surveyResults, setSurveyResults] = useState<any[]>([]);
+  const [pendingSurveys, setPendingSurveys] = useState<any[]>([]);
+  const [diagnosticStatus, setDiagnosticStatus] = useState<{ completed: boolean, date: string | null }>({ completed: false, date: null });
+  const [viewingSurvey, setViewingSurvey] = useState<{ type: 'custom' | 'diagnostic', id?: string, data?: any } | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -126,14 +131,29 @@ export default function StudentDetailPage() {
     setLoadingHistory(true);
     try {
       const qEx = query(collection(db, "exercises"), where("trainer_id", "==", user.uid), where("student_id", "==", studentId));
-      const [snapEx, archived, sResults] = await Promise.all([
+      const qDiag = query(collection(db, "seguimiento_personal"), where("student_id", "==", studentId), orderBy("created_at", "desc"), limit(1));
+      
+      const [snapEx, archived, sResults, pSurveys, diagSnap] = await Promise.all([
         getDocs(qEx),
         fetchArchivedRoutines(user.uid, studentId),
         fetchStudentSurveyResults(studentId),
+        fetchStudentPendingSurveys(studentId),
+        getDocs(qDiag)
       ]);
+
       setExercises(snapEx.docs.map(d => ({ id: d.id, ...d.data() } as Exercise)));
       setArchivedRoutines(archived);
       setSurveyResults(sResults);
+      setPendingSurveys(pSurveys);
+      
+      if (!diagSnap.empty) {
+        setDiagnosticStatus({ 
+          completed: true, 
+          date: diagSnap.docs[0].data().updated_at || diagSnap.docs[0].data().created_at 
+        });
+      } else {
+        setDiagnosticStatus({ completed: false, date: null });
+      }
     } catch (err) {
       console.error("Error fetching background data:", err);
     } finally {
@@ -230,21 +250,19 @@ export default function StudentDetailPage() {
             {paymentPaid ? "✓ Pagado" : "✗ No pagado"}
           </Badge>
         </div>
+        <div className="flex flex-col items-end gap-1 bg-secondary/20 p-2 rounded-xl border border-border/50">
+          <Switch 
+            id="payment-switch-header" 
+            checked={paymentPaid} 
+            onCheckedChange={handlePaymentToggle}
+            className="data-[state=checked]:bg-green-500" 
+          />
+          <Label htmlFor="payment-switch-header" className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">
+            {paymentPaid ? "Pagado" : "Pendiente"}
+          </Label>
+        </div>
       </div>
 
-      {/* Payment toggle */}
-      <Card className="card-glass">
-        <CardContent className="p-4 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold">Estado de pago del mes</p>
-            <p className="text-xs text-muted-foreground">{paymentPaid ? "Pagado ✓" : "Pendiente"}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="payment-switch" className="text-xs text-muted-foreground">{paymentPaid ? "Pagado" : "Pendiente"}</Label>
-            <Switch id="payment-switch" checked={paymentPaid} onCheckedChange={handlePaymentToggle} />
-          </div>
-        </CardContent>
-      </Card>
 
 
       {/* Plan Assignment with edit lock */}
@@ -258,11 +276,7 @@ export default function StudentDetailPage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!editingPlans && selectedEntrenamiento === "none" && selectedAlimentacion === "none" ? (
-             <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-center">
-               <p className="text-sm font-semibold text-destructive">Este alumno no tiene planes asignados</p>
-             </div>
-          ) : (
+          {(
             [
               { type: "entrenamiento", icon: Dumbbell, label: "Entrenamiento", selected: selectedEntrenamiento },
               { type: "nutricion", icon: Apple, label: "Alimentación", selected: selectedAlimentacion },
@@ -298,12 +312,6 @@ export default function StudentDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Quick Actions */}
-      <div className="flex gap-2 flex-wrap">
-        <Button variant="outline" size="sm" className="gap-2" onClick={() => setActiveTab("diagnostic")}>
-          <Sparkles className="h-4 w-4" /> Ver Encuesta
-        </Button>
-      </div>
 
       {/* Quick Stats */}
       <div className="grid grid-cols-3 gap-4">
@@ -331,31 +339,35 @@ export default function StudentDetailPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="w-full flex h-14 bg-secondary/50 overflow-x-auto hide-scrollbar p-1">
-          {[
+        {(() => {
+          const tabs = [
             { value: "weight", icon: "📈", label: "Peso" },
             { value: "meals", icon: "🍽️", label: "Comidas" },
             { value: "routine", icon: "🏋️", label: "Rutina" },
             ...(hasGroupRoutine ? [{ value: "group_routine", icon: "👥", label: "Grupo" }] : []),
             { value: "surveys", icon: <ClipboardList className="h-4 w-4" />, label: "Seguimiento" },
-            { value: "diagnostic", icon: <Sparkles className="h-4 w-4" />, label: "Encuesta" }
-          ].map((tab) => (
-            <TabsTrigger 
-              key={tab.value} 
-              value={tab.value} 
-              className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1 transition-all shadow-none data-[state=active]:shadow-sm ${
-                activeTab === tab.value ? "min-w-[80px]" : "min-w-[48px]"
-              }`}
+          ];
+          
+          return (
+            <TabsList 
+              className={`grid w-full bg-secondary/30 p-1 h-auto min-h-[56px]`}
+              style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
             >
-              <div className="text-lg flex items-center justify-center">{tab.icon}</div>
-              {activeTab === tab.value && (
-                <span className="text-[10px] truncate w-full text-center animate-in fade-in slide-in-from-bottom-1">
-                  {tab.label}
-                </span>
-              )}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+              {tabs.map((tab) => (
+                <TabsTrigger 
+                  key={tab.value} 
+                  value={tab.value} 
+                  className="flex flex-col items-center justify-center gap-0.5 py-1.5 px-0.5 transition-all shadow-none data-[state=active]:bg-background/50 data-[state=active]:shadow-sm min-w-0"
+                >
+                  <div className="text-base sm:text-lg h-5 flex items-center justify-center">{tab.icon}</div>
+                  <span className={`text-[9px] sm:text-[10px] truncate w-full text-center ${activeTab === tab.value ? "font-bold text-primary" : "text-muted-foreground"}`}>
+                    {tab.label}
+                  </span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          );
+        })()}
 
         <TabsContent value="weight">
           {studentId && (
@@ -492,51 +504,141 @@ export default function StudentDetailPage() {
         <TabsContent value="surveys">
           {loadingHistory ? (
             <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-          ) : surveyResults.length === 0 ? (
-            <Card className="card-glass border-dashed text-center p-12">
-              <ClipboardList className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-medium">Sin respuestas de encuestas</h3>
-              <p className="text-sm text-muted-foreground mt-1">Este alumno aún no ha completado ninguna encuesta personalizada.</p>
-            </Card>
-          ) : (
+          ) : viewingSurvey ? (
             <div className="space-y-4">
-              {surveyResults.map((result: any) => (
-                <Card key={result.id} className="card-glass">
+              <Button variant="ghost" size="sm" className="gap-2 -ml-2 mb-2" onClick={() => setViewingSurvey(null)}>
+                <ArrowLeft className="h-4 w-4" /> Volver a la lista
+              </Button>
+              
+              {viewingSurvey.type === 'diagnostic' ? (
+                <PersonalDiagnosticTab studentId={studentId} />
+              ) : (
+                <Card className="card-glass">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">{result.survey?.title || "Encuesta"}</CardTitle>
+                      <CardTitle className="text-base">{viewingSurvey.data.survey?.title || "Encuesta"}</CardTitle>
                       <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
-                        {result.completed_at ? new Date(result.completed_at).toLocaleDateString() : "Completada"}
+                        {viewingSurvey.data.completed_at ? new Date(viewingSurvey.data.completed_at).toLocaleDateString() : "En progreso"}
                       </Badge>
                     </div>
-                    {result.survey?.description && (
-                      <p className="text-xs text-muted-foreground">{result.survey.description}</p>
+                    {viewingSurvey.data.survey?.description && (
+                      <p className="text-xs text-muted-foreground">{viewingSurvey.data.survey.description}</p>
                     )}
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {result.survey?.questions?.map((q: any, i: number) => {
-                      const answer = result.answers?.find((a: any) => a.question_id === q.id);
-                      return (
-                        <div key={q.id} className="p-3 rounded-lg bg-secondary/20 border border-border/50 space-y-1.5">
-                          <p className="text-sm font-medium">
-                            <span className="text-primary font-bold mr-1.5">{i + 1}.</span>
-                            {q.question_text}
-                          </p>
-                          <p className="text-sm text-foreground/80 pl-4">
-                            {answer?.answer_text || <span className="text-muted-foreground italic">Sin respuesta</span>}
-                          </p>
-                        </div>
-                      );
-                    })}
+                    {viewingSurvey.data.survey?.questions?.length > 0 ? (
+                      viewingSurvey.data.survey.questions.map((q: any, i: number) => {
+                        const answer = viewingSurvey.data.answers?.find((a: any) => a.question_id === q.id);
+                        return (
+                          <div key={q.id} className="p-3 rounded-lg bg-secondary/20 border border-border/50 space-y-1.5">
+                            <p className="text-sm font-medium">
+                              <span className="text-primary font-bold mr-1.5">{i + 1}.</span>
+                              {q.question_text}
+                            </p>
+                            <p className="text-sm text-foreground/80 pl-4">
+                              {answer?.answer_text || <span className="text-muted-foreground italic">Sin respuesta</span>}
+                            </p>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic text-center py-4">No hay respuestas detalladas para esta encuesta o se encuentra pendiente.</p>
+                    )}
                   </CardContent>
                 </Card>
-              ))}
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold mb-1 px-1">Seguimiento y Encuestas</h3>
+              
+              {/* Diagnóstico Inicial */}
+              <div 
+                className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 border border-border/50 cursor-pointer hover:bg-secondary/40 transition-colors"
+                onClick={() => setViewingSurvey({ type: 'diagnostic' })}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-sm font-semibold">Diagnóstico de Cambio Personal</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {diagnosticStatus.completed && diagnosticStatus.date ? `Completada el ${new Date(diagnosticStatus.date).toLocaleDateString()}` : "Evaluación inicial de hábitos"}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Badge variant={diagnosticStatus.completed ? "outline" : "secondary"} className={diagnosticStatus.completed ? "bg-green-500/10 text-green-500 border-green-500/20 text-[10px]" : "bg-orange-500/10 text-orange-500 border-orange-500/20 text-[10px]"}>
+                    {diagnosticStatus.completed ? "Completada" : "Pendiente"}
+                  </Badge>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </div>
+
+              {/* Encuestas Personalizadas */}
+              {[...pendingSurveys, ...surveyResults].length === 0 ? (
+                <div className="py-8 text-center border rounded-xl border-dashed">
+                  <ClipboardList className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                  <p className="text-sm text-muted-foreground italic">No hay encuestas personalizadas asignadas.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* Pending Surveys */}
+                  {pendingSurveys.map((item: any) => (
+                    <div 
+                      key={item.id}
+                      className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 border border-border/50 cursor-pointer hover:bg-secondary/40 transition-colors"
+                      onClick={() => setViewingSurvey({ type: 'custom', id: item.id, data: item })}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                          <ClipboardList className="h-5 w-5 text-orange-500" />
+                        </div>
+                        <div className="flex flex-col text-left">
+                          <span className="text-sm font-semibold">{item.survey?.title || "Encuesta Personalizada"}</span>
+                          <span className="text-[10px] text-muted-foreground">Asignada recientemente</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge variant="secondary" className="bg-orange-500/10 text-orange-500 border-orange-500/20 text-[10px]">
+                          Pendiente
+                        </Badge>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Completed Surveys */}
+                  {surveyResults.map((item: any) => (
+                    <div 
+                      key={item.id}
+                      className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 border border-border/50 cursor-pointer hover:bg-secondary/40 transition-colors"
+                      onClick={() => setViewingSurvey({ type: 'custom', id: item.id, data: item })}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                          <ClipboardList className="h-5 w-5 text-green-500" />
+                        </div>
+                        <div className="flex flex-col text-left">
+                          <span className="text-sm font-semibold">{item.survey?.title || "Encuesta Personalizada"}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            Completada el {item.completed_at ? new Date(item.completed_at).toLocaleDateString() : "Recientemente"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20 text-[10px]">
+                          Completada
+                        </Badge>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
-        </TabsContent>
-
-        <TabsContent value="diagnostic">
-          {studentId && <PersonalDiagnosticTab studentId={studentId} />}
         </TabsContent>
       </Tabs>
 

@@ -39,6 +39,7 @@ export default function TrainerSurveysPage() {
   const [description, setDescription] = useState("");
   const [questions, setQuestions] = useState<any[]>([]);
   const [creating, setCreating] = useState(false);
+  const [isGlobal, setIsGlobal] = useState(false);
 
   // --- Assign Survey State ---
   const [students, setStudents] = useState<LinkedStudent[]>([]);
@@ -91,12 +92,31 @@ export default function TrainerSurveysPage() {
     if (!user) return;
     setCreating(true);
     try {
-      await createSurvey(user.uid, title, description, questions);
-      toast.success("Encuesta creada correctamente");
+      const newSurvey = await createSurvey(user.uid, title, description, questions, isGlobal);
+      
+      if (isGlobal) {
+        // Fetch all linked students if not already loaded, then assign
+        let allStudents = students;
+        if (allStudents.length === 0) {
+          allStudents = await fetchLinkedStudents(user.uid);
+          setStudents(allStudents);
+        }
+        
+        if (allStudents.length > 0) {
+          await assignSurveyToStudents(newSurvey.id, allStudents.map(s => s.user_id));
+          toast.success(`Encuesta global creada y asignada a ${allStudents.length} alumnos`);
+        } else {
+          toast.success("Encuesta global creada (sin alumnos vinculados aún)");
+        }
+      } else {
+        toast.success("Encuesta creada correctamente");
+      }
+      
       setCreateOpen(false);
       setTitle("");
       setDescription("");
       setQuestions([]);
+      setIsGlobal(false);
       loadSurveys();
     } catch (err: any) {
       console.error(err);
@@ -152,6 +172,32 @@ export default function TrainerSurveysPage() {
     }
   };
 
+  const handleAssignToAll = async (assign: boolean) => {
+    if (!assignSurvey || !user) return;
+    setAssigning(true);
+    try {
+      if (assign) {
+        const studentIds = students.map(s => s.user_id);
+        await assignSurveyToStudents(assignSurvey.id, studentIds);
+        setAssignedStudentIds(studentIds);
+        toast.success("Asignado a todos los alumnos");
+      } else {
+        // For unassign all, we have to loop or use a service function if available.
+        // Currently removeSurveyAssignment is per-student.
+        // Let's use a batch approach if possible or just loop since assignSurveyToStudents is batch.
+        for (const student of students) {
+          await removeSurveyAssignment(assignSurvey.id, student.user_id);
+        }
+        setAssignedStudentIds([]);
+        toast.info("Asignaciones removidas para todos");
+      }
+    } catch {
+      toast.error("Error al actualizar asignaciones masivas");
+    } finally {
+      setAssigning(false);
+    }
+  };
+
   // --- Results Modal Handlers ---
   const openResultsModal = async (survey: CustomSurvey) => {
     setResultsSurvey(survey);
@@ -201,10 +247,15 @@ export default function TrainerSurveysPage() {
                 <CardDescription className="line-clamp-2 min-h-[40px]">{survey.description || "Sin descripción"}</CardDescription>
               </CardHeader>
               <CardContent className="flex-1 pb-2">
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <Badge className="bg-primary/20 text-primary hover:bg-primary/20">
                     {survey.questions?.length || 0} Preguntas
                   </Badge>
+                  {survey.is_global && (
+                    <Badge variant="secondary" className="bg-orange-500/20 text-orange-500 border-orange-500/20">
+                      Global
+                    </Badge>
+                  )}
                 </div>
               </CardContent>
               <CardFooter className="pt-2 flex justify-between gap-2 flex-wrap">
@@ -237,6 +288,14 @@ export default function TrainerSurveysPage() {
             <div className="space-y-2">
               <Label>Descripción (Opcional)</Label>
               <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Instrucciones para tus alumnos..." className="resize-none" />
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-lg border border-primary/20 bg-primary/5">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">Encuesta Global</Label>
+                <p className="text-[10px] text-muted-foreground">Se asignará automáticamente a todos tus alumnos registrados.</p>
+              </div>
+              <Switch checked={isGlobal} onCheckedChange={setIsGlobal} />
             </div>
             
             <div className="space-y-4 mt-6">
@@ -308,7 +367,18 @@ export default function TrainerSurveysPage() {
           <DialogHeader>
             <DialogTitle>Asignar: {assignSurvey?.title}</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 space-y-4">
+            {students.length > 0 && (
+              <div className="flex items-center justify-between p-2 mb-2 rounded-lg bg-primary/10 border border-primary/20">
+                <div className="text-xs font-semibold uppercase text-primary">Asignar a todos</div>
+                <Switch 
+                  checked={assignedStudentIds.length === students.length && students.length > 0} 
+                  onCheckedChange={handleAssignToAll}
+                  disabled={assigning}
+                />
+              </div>
+            )}
+            
             {students.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center">No tienes alumnos vinculados.</p>
             ) : (

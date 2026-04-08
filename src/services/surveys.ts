@@ -29,6 +29,7 @@ export interface CustomSurvey {
   title: string;
   description: string | null;
   created_at: string;
+  is_global?: boolean;
   questions?: SurveyQuestion[];
 }
 
@@ -77,7 +78,8 @@ export async function createSurvey(
   trainerId: string, 
   title: string, 
   description: string, 
-  questions: Omit<SurveyQuestion, "id" | "survey_id" | "order_index">[]
+  questions: Omit<SurveyQuestion, "id" | "survey_id" | "order_index">[],
+  isGlobal: boolean = false
 ) {
   const batch = writeBatch(db);
   const surveyRef = doc(collection(db, "custom_surveys"));
@@ -87,6 +89,7 @@ export async function createSurvey(
     trainer_id: trainerId,
     title,
     description,
+    is_global: isGlobal,
     created_at: now
   });
 
@@ -102,7 +105,7 @@ export async function createSurvey(
   });
 
   await batch.commit();
-  return { id: surveyRef.id, trainer_id: trainerId, title, description, created_at: now };
+  return { id: surveyRef.id, trainer_id: trainerId, title, description, is_global: isGlobal, created_at: now };
 }
 
 export async function fetchSurveyAssignments(surveyId: string): Promise<SurveyAssignment[]> {

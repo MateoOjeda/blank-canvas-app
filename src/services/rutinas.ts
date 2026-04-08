@@ -108,8 +108,9 @@ export async function fetchRoutineData(trainerId: string, studentId: string) {
   );
   const linkSnap = await getDocs(linkQuery);
   const routineNextChange = linkSnap.docs.length > 0 ? linkSnap.docs[0].data().routine_next_change_date : null;
+  const routineAssignmentDate = linkSnap.docs.length > 0 ? linkSnap.docs[0].data().routine_assignment_date : null;
 
-  return { exercises, dayConfigs, routineNextChange, routineId: routine.id };
+  return { exercises, dayConfigs, routineNextChange, routineAssignmentDate, routineId: routine.id };
 }
 
 export async function saveDayConfig(
@@ -224,5 +225,26 @@ export async function setRoutineNextChangeDate(trainerId: string, studentId: str
   }
   
   return dateStr;
+}
+
+export async function setRoutineCycleDates(
+  trainerId: string, 
+  studentId: string, 
+  assignmentDate: string, 
+  nextChangeDate: string
+) {
+  const q = query(
+    collection(db, "trainer_students"), 
+    where("trainer_id", "==", trainerId), 
+    where("student_id", "==", studentId)
+  );
+  const snap = await getDocs(q);
+  
+  if (snap.docs.length > 0) {
+    await updateDoc(snap.docs[0].ref, { 
+      routine_assignment_date: assignmentDate,
+      routine_next_change_date: nextChangeDate 
+    });
+  }
 }
 

@@ -25,6 +25,7 @@ import {
   bulkRemoveExercises,
   logTrainerChange,
   setRoutineNextChangeDate,
+  setRoutineCycleDates,
   addViSerieChild,
   removeViSerieChild,
   EXERCISE_TYPES,
@@ -43,7 +44,7 @@ import MealsTab from "@/components/trainer/MealsTab";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Dumbbell, Loader2, CalendarClock, Users, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, Dumbbell, Loader2, CalendarClock, Clock, Users, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { StudentCard } from "@/components/trainer/StudentCard";
 import { BODY_PARTS, EXERCISES_BY_BODY_PART, type BodyPart } from "@/lib/exercisesByBodyPart";
@@ -71,6 +72,7 @@ export default function RoutinesPage() {
   const [selectedDay, setSelectedDay] = useState("Lunes");
   const [dayConfigs, setDayConfigs] = useState<Record<string, DayConfig>>({});
   const [routineNextChange, setRoutineNextChange] = useState<string | null>(null);
+  const [routineAssignmentDate, setRoutineAssignmentDate] = useState<string | null>(null);
   const [activeRoutineId, setActiveRoutineId] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "", sets: "", reps: "",
@@ -162,6 +164,7 @@ export default function RoutinesPage() {
       setExercises(data.exercises);
       setDayConfigs(data.dayConfigs);
       setRoutineNextChange(data.routineNextChange);
+      setRoutineAssignmentDate(data.routineAssignmentDate);
       setActiveRoutineId(data.routineId || null);
       setSelectedIds(new Set());
     } catch (err) {
@@ -891,22 +894,66 @@ export default function RoutinesPage() {
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 {!isGroupMode && (
-                  <div className="space-y-4">
-                    <p className="text-xs uppercase tracking-widest text-muted-foreground font-bold flex items-center gap-2">
-                       Próxima Actualización
-                    </p>
-                    {daysUntilChange !== null ? (
-                      <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20 text-center">
-                        <p className="text-3xl font-display font-bold text-primary">{daysUntilChange}</p>
-                        <p className="text-[10px] uppercase font-bold text-primary/70 mt-1">Días Restantes</p>
+                  <div className="space-y-6">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold flex items-center gap-2">
+                          <CalendarClock className="h-3 w-3 text-primary/60" />
+                          Fecha de Asignación
+                        </Label>
+                        <Input 
+                          type="date"
+                          value={routineAssignmentDate || ""}
+                          onChange={async (e) => {
+                            const val = e.target.value;
+                            setRoutineAssignmentDate(val);
+                            if (user && selectedStudent) {
+                              await setRoutineCycleDates(user.uid, selectedStudent, val, routineNextChange || "");
+                            }
+                          }}
+                          className="input-premium h-11 border-primary/10 bg-black/20 focus:border-primary/40"
+                        />
                       </div>
-                    ) : (
+
+                      <div className="space-y-2">
+                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold flex items-center gap-2">
+                          <Clock className="h-3 w-3 text-primary/60" />
+                          Próximo Cambio
+                        </Label>
+                        <Input 
+                          type="date"
+                          value={routineNextChange || ""}
+                          onChange={async (e) => {
+                            const val = e.target.value;
+                            setRoutineNextChange(val);
+                            if (user && selectedStudent) {
+                              await setRoutineCycleDates(user.uid, selectedStudent, routineAssignmentDate || "", val);
+                            }
+                          }}
+                          className="input-premium h-11 border-primary/10 bg-black/20 focus:border-primary/40"
+                        />
+                      </div>
+                    </div>
+
+                    {daysUntilChange !== null && daysUntilChange <= 7 && (
+                      <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center animate-in zoom-in-95 duration-300">
+                        <p className="text-3xl font-display font-bold text-amber-500">{daysUntilChange}</p>
+                        <p className="text-[10px] uppercase font-bold text-amber-500/70 mt-1">
+                          {daysUntilChange === 1 ? "Día Restante" : "Días Restantes"}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {daysUntilChange === null && (
                       <div className="grid grid-cols-4 gap-2">
                         {[7, 14, 21, 30].map((d) => (
                           <Button 
                             key={d} size="sm" variant="outline" 
                             className="h-10 rounded-lg text-xs font-bold border-primary/20 hover:bg-primary hover:text-white transition-all" 
-                            onClick={() => handleSetNextChange(d)}
+                            onClick={async () => {
+                              const newDate = await setRoutineNextChangeDate(user!.uid, selectedStudent, d);
+                              setRoutineNextChange(newDate);
+                            }}
                           >
                             {d}D
                           </Button>

@@ -169,6 +169,30 @@ export default function StudentDashboardPage() {
           </div>
         </div>
       </div>
+      
+      {/* ROUTINE CHANGE ALERT */}
+      {studentData?.routine_next_change_date && daysRemaining <= 7 && (
+        <div className="animate-in slide-in-from-top-4 duration-500">
+          <Card className="bg-amber-500/10 border-amber-500/20 shadow-lg shadow-amber-500/5 rounded-3xl">
+            <CardContent className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
+                  <Clock className="h-5 w-5 animate-pulse" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black uppercase tracking-tight text-amber-500 leading-none mb-1">Cambio de Rutina Próximo</h4>
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">
+                    Tu entrenador renovará tu plan en {daysRemaining} {daysRemaining === 1 ? 'día' : 'días'}
+                  </p>
+                </div>
+              </div>
+              <Badge className="bg-amber-500 text-black border-none font-black text-[10px] px-3 h-7 flex items-center">
+                {daysRemaining <= 1 ? "PRONTO" : `${daysRemaining} DÍAS`}
+              </Badge>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* PLAN & PAYMENT SECTION */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
