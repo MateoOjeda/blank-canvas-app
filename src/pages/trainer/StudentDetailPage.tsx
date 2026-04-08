@@ -27,11 +27,15 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
 import PersonalDiagnosticTab from "@/components/trainer/PersonalDiagnosticTab";
+
 import WeightProgressChart from "@/components/trainer/WeightProgressChart";
 import ExerciseHistoryTab from "@/components/trainer/ExerciseHistoryTab";
 import MealsTab from "@/components/trainer/MealsTab";
+import { fetchRoutineData, setRoutineCycleDates } from "@/services/rutinas";
 import { toast } from "sonner";
+
 
 interface Exercise {
   id: string; name: string; sets: number; reps: number; weight: number; day: string; completed: boolean;
@@ -57,7 +61,10 @@ export default function StudentDetailPage() {
   const [selectedAlimentacion, setSelectedAlimentacion] = useState<string>("none");
   const [editingPlans, setEditingPlans] = useState(false);
   const [linkId, setLinkId] = useState<string>("");
+  const [routineNextChange, setRoutineNextChange] = useState<string | null>(null);
+  const [routineAssignmentDate, setRoutineAssignmentDate] = useState<string | null>(null);
   const [archivedRoutines, setArchivedRoutines] = useState<Routine[]>([]);
+
   const [expandedRoutine, setExpandedRoutine] = useState<string | null>(null);
   const [routineExercises, setRoutineExercises] = useState<any[]>([]);
   const [hasGroupRoutine, setHasGroupRoutine] = useState(false);
@@ -154,7 +161,15 @@ export default function StudentDetailPage() {
       } else {
         setDiagnosticStatus({ completed: false, date: null });
       }
+
+      // Fetch Routine Cycle Dates
+      const routineData = await fetchRoutineData(user.uid, studentId);
+      if (routineData) {
+        setRoutineNextChange(routineData.routineNextChange);
+        setRoutineAssignmentDate(routineData.routineAssignmentDate || null);
+      }
     } catch (err) {
+
       console.error("Error fetching background data:", err);
     } finally {
       setLoadingHistory(false);
@@ -209,6 +224,19 @@ export default function StudentDetailPage() {
       fetchData();
     } catch { toast.error("Error al actualizar el plan"); }
   };
+
+  const handleUpdateCycleDates = async (start: string | null, end: string | null) => {
+    if (!user || !studentId) return;
+    try {
+      await setRoutineCycleDates(user.uid, studentId, start, end);
+      setRoutineAssignmentDate(start);
+      setRoutineNextChange(end);
+      toast.success("Ciclo de rutina actualizado");
+    } catch (err) {
+      toast.error("Error al actualizar las fechas del ciclo");
+    }
+  };
+
 
   if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
@@ -311,6 +339,62 @@ export default function StudentDetailPage() {
           )}
         </CardContent>
       </Card>
+
+
+      {/* Control de Ciclo */}
+      <Card className="card-glass border-primary/20 bg-primary/5">
+        <CardHeader className="pb-3 px-6 pt-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                <Clock className="h-4 w-4 text-primary" />
+              </div>
+              <CardTitle className="text-lg font-black uppercase tracking-tight">Control de Ciclo</CardTitle>
+            </div>
+            {routineNextChange && (
+              <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 font-black text-[10px] px-3">
+                {(() => {
+                  const diffTime = new Date(routineNextChange).getTime() - new Date().getTime();
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                  return diffDays > 0 ? `FALTAN ${diffDays} DÍAS` : "CICLO VENCIDO";
+                })()}
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="px-6 pb-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Fecha de Asignación</Label>
+              <Input
+                type="date"
+                value={routineAssignmentDate || ""}
+                onChange={(e) => handleUpdateCycleDates(e.target.value, routineNextChange)}
+                className="bg-background/50 border-white/10 h-10 text-sm font-medium focus:ring-primary/30 transition-all"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Próximo Cambio</Label>
+              <Input
+                type="date"
+                value={routineNextChange || ""}
+                onChange={(e) => handleUpdateCycleDates(routineAssignmentDate, e.target.value)}
+                className="bg-background/50 border-white/10 h-10 text-sm font-medium focus:ring-primary/30 transition-all"
+              />
+            </div>
+          </div>
+          
+          {routineNextChange && (
+            <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center gap-3">
+              <AlertCircle className="h-4 w-4 text-primary/70" />
+              <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tight leading-relaxed">
+                El alumno recibirá una notificación en su dashboard cuando falten 7 días o menos para el cambio.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
 
 
       {/* Quick Stats */}
