@@ -35,8 +35,24 @@ import { assignGroupRoutineToStudent } from "@/services/routineManager";
 const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
 interface TrainingGroup { id: string; name: string; trainer_id: string; created_at: string; }
-interface GroupMember { id: string; group_id: string; student_id: string; }
-interface GroupExercise { id: string; group_id: string; name: string; sets: number; reps: number; weight: number; day: string; body_part: string; is_to_failure: boolean; }
+interface GroupMember { id: string; group_id: string; student_id: string; created_at?: string; }
+interface GroupExercise { 
+  id: string; 
+  group_id: string; 
+  trainer_id: string;
+  name: string; 
+  sets: number; 
+  reps: number; 
+  weight: number; 
+  day: string; 
+  body_part?: string; 
+  is_to_failure: boolean; 
+  is_dropset?: boolean;
+  is_piramide?: boolean;
+  pyramid_reps?: string | null;
+  exercise_type?: string;
+  created_at?: string;
+}
 
 export default function TrainingGroupsPage() {
   const { user } = useAuth();
@@ -80,19 +96,44 @@ export default function TrainingGroupsPage() {
   const fetchGroupDetail = useCallback(async (groupId: string) => {
     if (!user) return;
     setLoadingDetail(true);
+    
+    // Using independent queries instead of Promise.all to prevent one failure from blocking both
     try {
+      // 1. Fetch Members
       const qMembers = query(collection(db, "training_group_members"), where("group_id", "==", groupId));
-      const qExercises = query(collection(db, "group_exercises"), where("group_id", "==", groupId), orderBy("day"));
-      
-      const [membersSnap, exercisesSnap] = await Promise.all([
-        getDocs(qMembers),
-        getDocs(qExercises)
-      ]);
-      
+      const membersSnap = await getDocs(qMembers).catch(err => {
+        console.error("Error fetching group members:", err);
+        return { docs: [] };
+      });
       setMembers(membersSnap.docs.map(d => ({ id: d.id, ...d.data() } as GroupMember)));
-      setExercises(exercisesSnap.docs.map(d => ({ id: d.id, ...d.data() } as GroupExercise)));
+
+      // 2. Fetch Exercises (Removed orderBy("day") to avoid index requirement and incorrect alphabetical sort)
+      const qExercises = query(collection(db, "group_exercises"), where("group_id", "==", groupId));
+      const exercisesSnap = await getDocs(qExercises).catch(err => {
+        console.error("Error fetching group exercises:", err);
+        return { docs: [] };
+      });
+
+      // Manual sorting by day of week using the DAYS constant, with secondary sort by creation date
+      const rawExercises = exercisesSnap.docs.map(d => ({ id: d.id, ...d.data() } as GroupExercise));
+      const sortedExercises = [...rawExercises].sort((a, b) => {
+        const indexA = DAYS.indexOf(a.day);
+        const indexB = DAYS.indexOf(b.day);
+        
+        if (indexA !== indexB) {
+          return indexA - indexB;
+        }
+        
+        // Secondary sort by created_at (most recent last for display order within day)
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = (b as any).created_at ? new Date((b as any).created_at).getTime() : 0;
+        return dateA - dateB;
+      });
+
+      setExercises(sortedExercises);
     } catch (err) {
-      console.error("Error fetching group detail:", err);
+      console.error("Critical error in fetchGroupDetail:", err);
+      toast.error("Error al cargar detalles del grupo");
     } finally {
       setLoadingDetail(false);
     }
