@@ -13,14 +13,14 @@ import {
   writeBatch
 } from "firebase/firestore";
 
-export type ExerciseType = "NORMAL" | "DROP_SET" | "PIRAMIDE" | "AL_FALLO" | "VI_SERIE";
+export type ExerciseType = "NORMAL" | "DROP_SET" | "PIRAMIDE" | "AL_FALLO" | "BI_SERIE";
 
 export const EXERCISE_TYPES: { value: ExerciseType; label: string }[] = [
   { value: "NORMAL", label: "Normal" },
   { value: "DROP_SET", label: "Drop Set" },
   { value: "PIRAMIDE", label: "Pirámide" },
   { value: "AL_FALLO", label: "Al Fallo" },
-  { value: "VI_SERIE", label: "VI Serie" },
+  { value: "BI_SERIE", label: "Bi Serie" },
 ];
 
 export interface Exercise {
@@ -156,7 +156,7 @@ export async function bulkRemoveExercises(ids: string[]) {
   await batch.commit();
 }
 
-export async function addViSerieChild(
+export async function addBiSerieChild(
   parentExercise: Exercise,
   trainerId: string,
   studentId: string
@@ -164,7 +164,7 @@ export async function addViSerieChild(
   const docRef = await addDoc(collection(db, "exercises"), {
     trainer_id: trainerId,
     student_id: studentId,
-    name: `${parentExercise.name} (VI Serie)`,
+    name: `${parentExercise.name} (Bi Serie)`,
     sets: parentExercise.sets,
     reps: parentExercise.reps,
     weight: 0,
@@ -174,7 +174,7 @@ export async function addViSerieChild(
     is_dropset: false,
     is_piramide: false,
     pyramid_reps: null,
-    exercise_type: "VI_SERIE",
+    exercise_type: "BI_SERIE",
     parent_exercise_id: parentExercise.id,
     routine_id: parentExercise.routine_id,
     created_at: new Date().toISOString(),
@@ -183,7 +183,7 @@ export async function addViSerieChild(
   return docRef.id;
 }
 
-export async function removeViSerieChild(parentId: string) {
+export async function removeBiSerieChild(parentId: string) {
   const q = query(collection(db, "exercises"), where("parent_exercise_id", "==", parentId));
   const snap = await getDocs(q);
   const batch = writeBatch(db);

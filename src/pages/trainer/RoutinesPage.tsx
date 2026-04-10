@@ -26,8 +26,8 @@ import {
   logTrainerChange,
   setRoutineNextChangeDate,
   setRoutineCycleDates,
-  addViSerieChild,
-  removeViSerieChild,
+  addBiSerieChild,
+  removeBiSerieChild,
   EXERCISE_TYPES,
   type Exercise,
   type DayConfig,
@@ -79,8 +79,8 @@ export default function RoutinesPage() {
     isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "",
     exerciseType: "NORMAL" as ExerciseType,
   });
-  const [viSerieEnabled, setViSerieEnabled] = useState(false);
-  const [viForm, setViForm] = useState({
+  const [biSerieEnabled, setBiSerieEnabled] = useState(false);
+  const [biForm, setBiForm] = useState({
     name: "", reps: "",
     isToFailure: false, isDropset: false,
   });
@@ -216,13 +216,13 @@ export default function RoutinesPage() {
       toast.error("Completa las repeticiones o activa 'Al Fallo'");
       return;
     }
-    if (viSerieEnabled) {
-      if (!viForm.name) {
-        toast.error("Selecciona el ejercicio para la VI Serie");
+    if (biSerieEnabled) {
+      if (!biForm.name) {
+        toast.error("Selecciona el ejercicio para la Bi Serie");
         return;
       }
-      if (!viForm.isToFailure && !viForm.reps) {
-        toast.error("Completa las repeticiones de VI Serie o activa 'Al Fallo'");
+      if (!biForm.isToFailure && !biForm.reps) {
+        toast.error("Completa las repeticiones de Bi Serie o activa 'Al Fallo'");
         return;
       }
     }
@@ -284,31 +284,31 @@ export default function RoutinesPage() {
           newId || undefined
         );
 
-        if (viSerieEnabled && newId) {
+        if (biSerieEnabled && newId) {
           await addExerciseService({
             trainer_id: user.uid,
             student_id: selectedStudent,
-            name: viForm.name,
+            name: biForm.name,
             sets: parseInt(form.sets),
-            reps: viForm.isToFailure ? 0 : parseInt(viForm.reps),
+            reps: biForm.isToFailure ? 0 : parseInt(biForm.reps),
             weight: 0,
             day: selectedDay,
             body_part: combinedBodyPart || currentDayConfig.body_part_1,
-            is_to_failure: viForm.isToFailure,
-            is_dropset: viForm.isDropset,
+            is_to_failure: biForm.isToFailure,
+            is_dropset: biForm.isDropset,
             is_piramide: false,
             pyramid_reps: null,
-            exercise_type: "VI_SERIE",
+            exercise_type: "BI_SERIE",
             parent_exercise_id: newId,
             routine_id: activeRoutineId || "default",
           });
         }
       }
 
-      toast.success(viSerieEnabled ? "Ejercicio + VI Serie agregados" : "Ejercicio agregado");
+      toast.success(biSerieEnabled ? "Ejercicio + Bi Serie agregados" : "Ejercicio agregado");
       setForm({ name: "", sets: "", reps: "", isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "", exerciseType: "NORMAL" });
-      setViForm({ name: "", reps: "", isToFailure: false, isDropset: false });
-      setViSerieEnabled(false);
+      setBiForm({ name: "", reps: "", isToFailure: false, isDropset: false });
+      setBiSerieEnabled(false);
       fetchData();
     } catch (err: any) { 
       console.error("DEBUG ERROR ADDING EXERCISE:", err);
@@ -394,20 +394,20 @@ export default function RoutinesPage() {
   const childByParent = new Map<string, Exercise>();
   childExercises.forEach((c) => { if (c.parent_exercise_id) childByParent.set(c.parent_exercise_id, c); });
 
-  const handleToggleViSerie = async (ex: Exercise) => {
+  const handleToggleBiSerie = async (ex: Exercise) => {
     if (!user || isGroupMode) return;
     if (!selectedStudent) return;
     const hasChild = childByParent.has(ex.id);
     try {
       if (hasChild) {
-        await removeViSerieChild(ex.id);
-        toast.success("VI Serie eliminada");
+        await removeBiSerieChild(ex.id);
+        toast.success("Bi Serie eliminada");
       } else {
-        await addViSerieChild(ex, user.uid, selectedStudent);
-        toast.success("VI Serie agregada");
+        await addBiSerieChild(ex, user.uid, selectedStudent);
+        toast.success("Bi Serie agregada");
       }
       fetchData();
-    } catch { toast.error("Error al modificar VI Serie"); }
+    } catch { toast.error("Error al modificar Bi Serie"); }
   };
 
   if (loadingStudents && !isGroupMode) {
@@ -689,48 +689,48 @@ export default function RoutinesPage() {
                               )}
                             </div>
 
-                            {/* VI SERIE Section */}
+                            {/* BI SERIE Section */}
                             {!isGroupMode && (
                               <div className="p-4 rounded-2xl bg-accent/5 border border-accent/20 space-y-4">
                                 <div className="flex items-center justify-between p-2">
                                   <div className="flex flex-col">
-                                    <span className="text-sm font-bold text-accent tracking-tight">VI SERIE</span>
+                                    <span className="text-sm font-bold text-accent tracking-tight">BI SERIE</span>
                                     <span className="text-[10px] text-muted-foreground">Bi-serie vinculada</span>
                                   </div>
-                                  <Switch checked={viSerieEnabled} onCheckedChange={(checked) => {
-                                    setViSerieEnabled(checked);
-                                    if (!checked) setViForm({ name: "", reps: "", isToFailure: false, isDropset: false });
+                                  <Switch checked={biSerieEnabled} onCheckedChange={(checked) => {
+                                    setBiSerieEnabled(checked);
+                                    if (!checked) setBiForm({ name: "", reps: "", isToFailure: false, isDropset: false });
                                   }} />
                                 </div>
 
-                                {viSerieEnabled && (
+                                {biSerieEnabled && (
                                   <div className="space-y-4 pl-3 border-l-2 border-accent/30 animate-in slide-in-from-left-2">
                                     <div className="space-y-1">
                                       <Label className="text-[10px] uppercase text-muted-foreground">Ejercicio Complementario</Label>
                                       {availableExercises.length > 0 ? (
-                                        <Select value={viForm.name} onValueChange={(v) => setViForm({ ...viForm, name: v })}>
+                                        <Select value={biForm.name} onValueChange={(v) => setBiForm({ ...biForm, name: v })}>
                                           <SelectTrigger className="input-premium h-10 border-accent/20"><SelectValue placeholder="Ejercicio..." /></SelectTrigger>
                                           <SelectContent>
                                             {availableExercises.map((ex) => <SelectItem key={ex} value={ex}>{ex}</SelectItem>)}
                                           </SelectContent>
                                         </Select>
                                       ) : (
-                                        <Input placeholder="Escribir..." value={viForm.name} onChange={(e) => setViForm({ ...viForm, name: e.target.value })} className="input-premium h-10 border-accent/20" />
+                                        <Input placeholder="Escribir..." value={biForm.name} onChange={(e) => setBiForm({ ...biForm, name: e.target.value })} className="input-premium h-10 border-accent/20" />
                                       )}
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                       <div className="space-y-1">
                                         <Label className="text-[10px] uppercase text-muted-foreground">Reps</Label>
-                                        <Input type="number" value={viForm.reps} onChange={(e) => setViForm({ ...viForm, reps: e.target.value })} className="input-premium h-10 border-accent/20" disabled={viForm.isToFailure} />
+                                        <Input type="number" value={biForm.reps} onChange={(e) => setBiForm({ ...biForm, reps: e.target.value })} className="input-premium h-10 border-accent/20" disabled={biForm.isToFailure} />
                                       </div>
                                       <div className="flex flex-col gap-1.5 justify-end pb-1 px-1">
                                         <div className="flex items-center justify-between">
                                           <span className="text-[11px] font-medium">Al Fallo</span>
-                                          <Switch checked={viForm.isToFailure} onCheckedChange={(checked) => setViForm({ ...viForm, isToFailure: checked, reps: checked ? "" : viForm.reps })} className="scale-75 origin-right" />
+                                          <Switch checked={biForm.isToFailure} onCheckedChange={(checked) => setBiForm({ ...biForm, isToFailure: checked, reps: checked ? "" : biForm.reps })} className="scale-75 origin-right" />
                                         </div>
                                         <div className="flex items-center justify-between">
                                           <span className="text-[11px] font-medium">Drop Set</span>
-                                          <Switch checked={viForm.isDropset} onCheckedChange={(checked) => setViForm({ ...viForm, isDropset: checked })} className="scale-75 origin-right" />
+                                          <Switch checked={biForm.isDropset} onCheckedChange={(checked) => setBiForm({ ...biForm, isDropset: checked })} className="scale-75 origin-right" />
                                         </div>
                                       </div>
                                     </div>
