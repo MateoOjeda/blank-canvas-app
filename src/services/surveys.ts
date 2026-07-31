@@ -18,6 +18,10 @@ import { chunkArray, ChunkedBatch } from "@/lib/chunking";
 const surveyCache = new Map<string, any>();
 const questionsCache = new Map<string, any[]>();
 
+/** Sentinel value stored in survey_questions.options[] to mark a free-text answer slot.
+ *  Detected by TakeSurveyDialog to render a Textarea instead of a radio button. */
+export const FREE_TEXT_OPTION_SENTINEL = "__free_text__";
+
 async function getDocsInChunks(collectionName: string, field: string, values: any[]) {
   if (values.length === 0) return { docs: [] };
   const uniqueValues = Array.from(new Set(values));
@@ -283,7 +287,7 @@ export async function fetchSurveyWithQuestions(surveyId: string) {
   return data;
 }
 
-export async function submitSurveyAnswers(assignmentId: string, answers: { question_id: string, answer_text: string }[]) {
+export async function submitSurveyAnswers(assignmentId: string, answers: { question_id: string, answer_text: string }[], trainerId: string) {
   const studentId = auth.currentUser?.uid;
   if (!studentId) throw new Error("No authenticated user");
   
@@ -294,6 +298,7 @@ export async function submitSurveyAnswers(assignmentId: string, answers: { quest
     batch.set(ansRef, {
       assignment_id: assignmentId,
       student_id: studentId,
+      trainer_id: trainerId,
       question_id: a.question_id,
       answer_text: a.answer_text,
       created_at: new Date().toISOString()

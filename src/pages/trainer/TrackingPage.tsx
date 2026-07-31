@@ -1,68 +1,103 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useLinkedStudents } from "@/hooks/useLinkedStudents";
 import { useStudentTracking } from "@/hooks/useStudentTracking";
+import { useStudentRecovery } from "@/hooks/useStudentRecovery";
+import { usePhotoSessions } from "@/hooks/usePhotoSessions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import {
-  BarChart3, Loader2, ArrowLeft, Dumbbell, TrendingUp,
-  ClipboardList, AlertTriangle, Target, StickyNote,
-  CalendarDays, Bell, Activity
+  Activity, AlertTriangle, ArrowLeft, BarChart3, Camera,
+  Clock, Dumbbell, HeartPulse, Loader2, TrendingUp, Utensils
 } from "lucide-react";
 import { StudentCard } from "@/components/trainer/StudentCard";
-import { cn } from "@/lib/utils";
-
-// Lazy imports (but rendered in TabsContent so they only mount when visible)
-import TrackingTrainingTab from "@/components/trainer/tracking/TrackingTrainingTab";
-import TrackingProgressTab from "@/components/trainer/tracking/TrackingProgressTab";
-import TrackingAssessmentTab from "@/components/trainer/tracking/TrackingAssessmentTab";
-import TrackingInjuriesTab from "@/components/trainer/tracking/TrackingInjuriesTab";
-import TrackingGoalsTab from "@/components/trainer/tracking/TrackingGoalsTab";
-import TrackingNotesTab from "@/components/trainer/tracking/TrackingNotesTab";
-import TrackingCalendarTab from "@/components/trainer/tracking/TrackingCalendarTab";
-import TrackingAlertsTab from "@/components/trainer/tracking/TrackingAlertsTab";
 import type { Assessment, Injury, Goal, TrackingNote } from "@/services/tracking";
 
+// ── Lazy-loaded tab components ─────────────────────────────────────────────────
+const TrackingDashboardTab  = lazy(() => import("@/components/trainer/tracking/TrackingDashboardTab"));
+const TrackingTrainingTab   = lazy(() => import("@/components/trainer/tracking/TrackingTrainingTab"));
+const TrackingNutritionTab  = lazy(() => import("@/components/trainer/tracking/TrackingNutritionTab"));
+const TrackingAssessmentTab = lazy(() => import("@/components/trainer/tracking/TrackingAssessmentTab"));
+const TrackingInjuriesTab   = lazy(() => import("@/components/trainer/tracking/TrackingInjuriesTab"));
+const TrackingGoalsTab      = lazy(() => import("@/components/trainer/tracking/TrackingGoalsTab"));
+const TrackingNotesTab      = lazy(() => import("@/components/trainer/tracking/TrackingNotesTab"));
+const TrackingRecoveryTab   = lazy(() => import("@/components/trainer/tracking/TrackingRecoveryTab"));
+const TrackingTimelineTab   = lazy(() => import("@/components/trainer/tracking/TrackingTimelineTab"));
+
+// ── Tab definition ─────────────────────────────────────────────────────────────
 const TABS = [
-  { value: "training",   label: "Entrenamiento", icon: Dumbbell },
-  { value: "progress",   label: "Progreso",      icon: TrendingUp },
-  { value: "assessment", label: "Evaluación",    icon: ClipboardList },
-  { value: "injuries",   label: "Lesiones",      icon: AlertTriangle },
-  { value: "goals",      label: "Objetivos",     icon: Target },
-  { value: "notes",      label: "Notas",         icon: StickyNote },
-  { value: "calendar",   label: "Calendario",    icon: CalendarDays },
-  { value: "alerts",     label: "Alertas",       icon: Bell },
+  { value: "dashboard",  label: "Dashboard",   icon: Activity },
+  { value: "training",   label: "Entreno",     icon: Dumbbell },
+  { value: "nutrition",  label: "Nutrición",   icon: Utensils },
+  { value: "progress",   label: "Progreso",    icon: TrendingUp },
+  { value: "recovery",   label: "Recuperación",icon: HeartPulse },
+  { value: "timeline",   label: "Timeline",    icon: Clock },
 ] as const;
 
 type TabValue = typeof TABS[number]["value"];
 
+// ── Tab fallback ───────────────────────────────────────────────────────────────
+function TabFallback() {
+  return (
+    <div className="space-y-3 mt-2">
+      {[...Array(3)].map((_, i) => (
+        <div key={i} className="h-20 rounded-xl bg-muted/20 animate-pulse" />
+      ))}
+    </div>
+  );
+}
+
+// ── Page header ────────────────────────────────────────────────────────────────
+function PageHeader() {
+  return (
+    <div>
+      <h1 className="text-2xl font-display font-bold tracking-tight neon-text uppercase">
+        Seguimiento
+      </h1>
+      <p className="text-muted-foreground text-sm mt-1">
+        Selecciona un alumno para ver su dashboard completo
+      </p>
+    </div>
+  );
+}
+
+// ── Main Page ──────────────────────────────────────────────────────────────────
 export default function TrackingPage() {
   const { students, loading: loadingStudents } = useLinkedStudents();
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TabValue>("training");
+  const [activeTab, setActiveTab] = useState<TabValue>("dashboard");
 
   const student = students.find((s) => s.user_id === selectedStudentId) ?? null;
 
+  // Core tracking data
   const {
-    assessments, injuries, goals, notes, exerciseLogs, loading,
+    assessments, injuries, goals, notes, exerciseLogs, loading: loadingTracking,
     setAssessments, setInjuries, setGoals, setNotes,
   } = useStudentTracking(selectedStudentId);
 
-  // Counts for alert badge
+  // Recovery data
+  const {
+    logs: recoveryLogs, loading: loadingRecovery,
+    addLog: addRecoveryLog, removeLog: removeRecoveryLog,
+  } = useStudentRecovery(selectedStudentId);
+
+  // Photo sessions (loaded in panel itself via usePhotoSessions — referenced here for Timeline)
+  const { sessions: photoSessions } = usePhotoSessions(selectedStudentId);
+
+  // Badge counts
   const activeInjuries = injuries.filter((i) => i.status === "activa").length;
 
   const handleSelectStudent = (id: string) => {
     setSelectedStudentId(id);
-    setActiveTab("training");
+    setActiveTab("dashboard");
   };
 
-  const handleBack = () => {
-    setSelectedStudentId(null);
-  };
+  const handleBack = () => setSelectedStudentId(null);
 
-  // ── Loading state ──────────────────────────────────────────────────────────
+  // ── Loading ────────────────────────────────────────────────────────────────
   if (loadingStudents) {
     return (
       <div className="flex justify-center py-16">
@@ -71,7 +106,7 @@ export default function TrackingPage() {
     );
   }
 
-  // ── Empty state (no students linked) ──────────────────────────────────────
+  // ── Empty state ────────────────────────────────────────────────────────────
   if (students.length === 0) {
     return (
       <div className="space-y-6">
@@ -104,7 +139,7 @@ export default function TrackingPage() {
               onClick={() => handleSelectStudent(s.user_id)}
               subtitle={
                 <span className="text-[10px] text-muted-foreground uppercase tracking-tight">
-                  Ver seguimiento detallado
+                  Ver dashboard
                 </span>
               }
               className="border-border/40 hover:border-primary/30"
@@ -117,149 +152,164 @@ export default function TrackingPage() {
 
   // ── Student detail view ────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 shrink-0"
-          onClick={handleBack}
-        >
+        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handleBack}>
           <ArrowLeft className="h-4.5 w-4.5" />
         </Button>
-        <div className="flex items-center gap-3 min-w-0">
-          <Avatar className="h-9 w-9 border border-primary/20 shrink-0">
-            <AvatarImage src={student?.avatar_url ?? undefined} />
-            <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-              {student?.avatar_initials ?? (student?.display_name ?? "??").slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <h1 className="text-base font-bold truncate">{student?.display_name}</h1>
-            <p className="text-[10px] text-muted-foreground">Seguimiento individual</p>
-          </div>
+        <Avatar className="h-9 w-9 border border-primary/20 shrink-0">
+          <AvatarImage src={student?.avatar_url ?? undefined} />
+          <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+            {student?.avatar_initials ?? (student?.display_name ?? "??").slice(0, 2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-base font-bold truncate">{student?.display_name}</h1>
+          <p className="text-[10px] text-muted-foreground">Dashboard de seguimiento</p>
         </div>
+        {/* Quick status badge */}
+        {activeInjuries > 0 && (
+          <Badge className="gap-1 bg-destructive/15 text-destructive border border-destructive/30 shrink-0">
+            <AlertTriangle className="h-3 w-3" />
+            {activeInjuries} lesión{activeInjuries > 1 ? "es" : ""}
+          </Badge>
+        )}
       </div>
 
-      {/* Tab layout */}
+      {/* Main tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
         <TabsList className="flex flex-wrap w-full bg-muted/40 border border-border/50 p-1 h-auto rounded-xl">
-          {TABS.map(({ value, label, icon: Icon }) => {
-            const isBadged = value === "injuries" && activeInjuries > 0;
-            return (
-              <TabsTrigger
-                key={value}
-                value={value}
-                className="flex-1 min-w-[70px] text-[10px] py-1.5 px-2 transition-all data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-lg font-semibold relative"
-              >
-                <span className="flex items-center gap-1 justify-center">
-                  <Icon className="h-3 w-3" />
-                  {label}
-                  {isBadged && (
-                    <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-destructive text-[8px] font-bold text-white flex items-center justify-center">
-                      {activeInjuries}
-                    </span>
-                  )}
-                </span>
-              </TabsTrigger>
-            );
-          })}
+          {TABS.map(({ value, label, icon: Icon }) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="flex-1 min-w-[70px] text-[10px] py-1.5 px-2 transition-all data-[state=active]:bg-card data-[state=active]:shadow-sm rounded-lg font-semibold"
+            >
+              <span className="flex items-center gap-1 justify-center">
+                <Icon className="h-3 w-3" />
+                {label}
+              </span>
+            </TabsTrigger>
+          ))}
         </TabsList>
+
+        {/* Dashboard */}
+        <TabsContent value="dashboard" className="space-y-4 outline-none mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <TrackingDashboardTab
+              studentId={selectedStudentId}
+              assessments={assessments}
+              injuries={injuries}
+              goals={goals}
+              notes={notes}
+              exerciseLogs={exerciseLogs}
+              recoveryLogs={recoveryLogs}
+              loading={loadingTracking}
+              onTabChange={(tab) => setActiveTab(tab as TabValue)}
+            />
+          </Suspense>
+        </TabsContent>
 
         {/* Entrenamiento */}
         <TabsContent value="training" className="space-y-4 outline-none mt-4">
-          <TrackingTrainingTab studentId={selectedStudentId} />
+          <Suspense fallback={<TabFallback />}>
+            <TrackingTrainingTab
+              studentId={selectedStudentId}
+              assessments={assessments}
+              goals={goals}
+              exerciseLogs={exerciseLogs}
+              loading={loadingTracking}
+            />
+          </Suspense>
         </TabsContent>
 
-        {/* Progreso */}
+        {/* Nutrición */}
+        <TabsContent value="nutrition" className="space-y-4 outline-none mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <TrackingNutritionTab
+              studentId={selectedStudentId}
+              assessments={assessments}
+              notes={notes}
+            />
+          </Suspense>
+        </TabsContent>
+
+        {/* Progreso Físico — includes Assessment, Injuries, Goals, Notes, Photos */}
         <TabsContent value="progress" className="space-y-4 outline-none mt-4">
-          <TrackingProgressTab studentId={selectedStudentId} />
+          <Suspense fallback={<TabFallback />}>
+            <>
+              {/* Body assessment & photo sessions */}
+              <TrackingAssessmentTab
+                studentId={selectedStudentId}
+                assessments={assessments}
+                loading={loadingTracking}
+                onAdd={(a: Assessment) => setAssessments((prev) => [a, ...prev])}
+                onDelete={(id: string) => setAssessments((prev) => prev.filter((x) => x.id !== id))}
+              />
+              {/* Injuries */}
+              <TrackingInjuriesTab
+                studentId={selectedStudentId}
+                injuries={injuries}
+                loading={loadingTracking}
+                onAdd={(i: Injury) => setInjuries((prev) => [i, ...prev])}
+                onUpdate={(id: string, data: Partial<Injury>) =>
+                  setInjuries((prev) => prev.map((x) => x.id === id ? { ...x, ...data } : x))
+                }
+                onDelete={(id: string) => setInjuries((prev) => prev.filter((x) => x.id !== id))}
+              />
+              {/* Goals */}
+              <TrackingGoalsTab
+                studentId={selectedStudentId}
+                goals={goals}
+                loading={loadingTracking}
+                onAdd={(g: Goal) => setGoals((prev) => [g, ...prev])}
+                onUpdate={(id: string, data: Partial<Goal>) =>
+                  setGoals((prev) => prev.map((x) => x.id === id ? { ...x, ...data } : x))
+                }
+                onDelete={(id: string) => setGoals((prev) => prev.filter((x) => x.id !== id))}
+              />
+              {/* Trainer notes */}
+              <TrackingNotesTab
+                studentId={selectedStudentId}
+                notes={notes}
+                loading={loadingTracking}
+                onAdd={(n: TrackingNote) => setNotes((prev) => [n, ...prev])}
+                onDelete={(id: string) => setNotes((prev) => prev.filter((x) => x.id !== id))}
+              />
+            </>
+          </Suspense>
         </TabsContent>
 
-        {/* Evaluación */}
-        <TabsContent value="assessment" className="space-y-4 outline-none mt-4">
-          <TrackingAssessmentTab
-            studentId={selectedStudentId}
-            assessments={assessments}
-            loading={loading}
-            onAdd={(a: Assessment) => setAssessments((prev) => [a, ...prev])}
-            onDelete={(id: string) => setAssessments((prev) => prev.filter((x) => x.id !== id))}
-          />
+        {/* Recuperación */}
+        <TabsContent value="recovery" className="space-y-4 outline-none mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <TrackingRecoveryTab
+              studentId={selectedStudentId}
+              logs={recoveryLogs}
+              loading={loadingRecovery}
+              onAdd={addRecoveryLog}
+              onRemove={removeRecoveryLog}
+            />
+          </Suspense>
         </TabsContent>
 
-        {/* Lesiones */}
-        <TabsContent value="injuries" className="space-y-4 outline-none mt-4">
-          <TrackingInjuriesTab
-            studentId={selectedStudentId}
-            injuries={injuries}
-            loading={loading}
-            onAdd={(i: Injury) => setInjuries((prev) => [i, ...prev])}
-            onUpdate={(id: string, data: Partial<Injury>) =>
-              setInjuries((prev) => prev.map((x) => x.id === id ? { ...x, ...data } : x))
-            }
-            onDelete={(id: string) => setInjuries((prev) => prev.filter((x) => x.id !== id))}
-          />
-        </TabsContent>
-
-        {/* Objetivos */}
-        <TabsContent value="goals" className="space-y-4 outline-none mt-4">
-          <TrackingGoalsTab
-            studentId={selectedStudentId}
-            goals={goals}
-            loading={loading}
-            onAdd={(g: Goal) => setGoals((prev) => [g, ...prev])}
-            onUpdate={(id: string, data: Partial<Goal>) =>
-              setGoals((prev) => prev.map((x) => x.id === id ? { ...x, ...data } : x))
-            }
-            onDelete={(id: string) => setGoals((prev) => prev.filter((x) => x.id !== id))}
-          />
-        </TabsContent>
-
-        {/* Notas */}
-        <TabsContent value="notes" className="space-y-4 outline-none mt-4">
-          <TrackingNotesTab
-            studentId={selectedStudentId}
-            notes={notes}
-            loading={loading}
-            onAdd={(n: TrackingNote) => setNotes((prev) => [n, ...prev])}
-            onDelete={(id: string) => setNotes((prev) => prev.filter((x) => x.id !== id))}
-          />
-        </TabsContent>
-
-        {/* Calendario */}
-        <TabsContent value="calendar" className="space-y-4 outline-none mt-4">
-          <TrackingCalendarTab
-            assessments={assessments}
-            exerciseLogs={exerciseLogs}
-            loading={loading}
-          />
-        </TabsContent>
-
-        {/* Alertas */}
-        <TabsContent value="alerts" className="space-y-4 outline-none mt-4">
-          <TrackingAlertsTab
-            assessments={assessments}
-            injuries={injuries}
-            goals={goals}
-            exerciseLogs={exerciseLogs}
-            loading={loading}
-          />
+        {/* Timeline */}
+        <TabsContent value="timeline" className="space-y-4 outline-none mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <TrackingTimelineTab
+              assessments={assessments}
+              injuries={injuries}
+              goals={goals}
+              notes={notes}
+              exerciseLogs={exerciseLogs}
+              recoveryLogs={recoveryLogs}
+              photoSessions={photoSessions}
+              loading={loadingTracking || loadingRecovery}
+            />
+          </Suspense>
         </TabsContent>
       </Tabs>
-    </div>
-  );
-}
-
-function PageHeader() {
-  return (
-    <div>
-      <h1 className="text-2xl font-display font-bold tracking-tight neon-text uppercase">
-        Seguimiento
-      </h1>
-      <p className="text-muted-foreground text-sm mt-1">
-        Selecciona un alumno para ver su seguimiento detallado
-      </p>
     </div>
   );
 }

@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
 import UserSettingsDialog from "@/components/UserSettingsDialog";
 import { useAppTheme } from "@/hooks/useAppTheme";
-import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 
 export function AppLayout() {
   const { role } = useAuth();
@@ -45,9 +44,6 @@ export function AppLayout() {
                 </>
               )}
             </header>
-            <div className="px-4 md:px-6 pt-3 md:pt-4">
-              <Breadcrumbs />
-            </div>
             <main className="flex-1 p-4 md:p-6 overflow-y-auto overflow-x-hidden hide-scrollbar">
               <Outlet />
             </main>

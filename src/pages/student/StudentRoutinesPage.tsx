@@ -94,6 +94,15 @@ export default function StudentRoutinesPage() {
   const groupId = groupMembershipQuery.data?.group_id;
   const hasGroupRoutine = !!groupId;
 
+  // Sync activeTab based on group membership (group routine takes priority)
+  useEffect(() => {
+    if (hasGroupRoutine) {
+      setActiveTab("group");
+    } else {
+      setActiveTab("personal");
+    }
+  }, [hasGroupRoutine]);
+
   // Fetch group exercises
   const groupExercisesQuery = useQuery({
     queryKey: ["groupExercises", groupId],
@@ -549,33 +558,14 @@ export default function StudentRoutinesPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        {hasGroupRoutine && (
-          <div className="flex justify-center">
-            <TabsList className="bg-muted/60 border border-border/40 rounded-xl p-1 h-10 shadow-sm">
-              <TabsTrigger 
-                value="personal" 
-                className="rounded-lg px-5 py-1.5 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
-              >
-                Rutina Personal
-              </TabsTrigger>
-              <TabsTrigger 
-                value="group" 
-                className="rounded-lg px-5 py-1.5 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm transition-all"
-              >
-                Rutina Grupal
-              </TabsTrigger>
-            </TabsList>
-          </div>
-        )}
-
         {/* Week Day Selector */}
         <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
           {DAYS.map((day, i) => {
             const isSelected = selectedDay === day;
             const isToday = day === today;
-            const personalCount = exercises.filter(e => e.day === day).length;
-            const groupCount = groupExercises.filter(e => e.day === day).length;
-            const totalCount = personalCount + groupCount;
+            const totalCount = hasGroupRoutine
+              ? groupExercises.filter(e => e.day === day).length
+              : exercises.filter(e => e.day === day).length;
             
             return (
               <button

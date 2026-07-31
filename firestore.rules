@@ -102,7 +102,10 @@ service cloud.firestore {
 
     // Group Members: All authenticated can read. Trainers can manage.
     match /training_group_members/{memberId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        getRole(request.auth.uid) == "trainer" ||
+        request.auth.uid == resource.data.student_id
+      );
       allow write: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer"
       );

@@ -7,17 +7,19 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2, Send } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useStudentSurveys, useSurveyQuestions } from "@/hooks/useStudentSurveys";
+import { FREE_TEXT_OPTION_SENTINEL } from "@/services/surveys";
 import { toast } from "sonner";
 
 interface TakeSurveyDialogProps {
   assignmentId: string;
   surveyId: string;
+  trainerId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCompleted: () => void;
 }
 
-export function TakeSurveyDialog({ assignmentId, surveyId, open, onOpenChange, onCompleted }: TakeSurveyDialogProps) {
+export function TakeSurveyDialog({ assignmentId, surveyId, trainerId, open, onOpenChange, onCompleted }: TakeSurveyDialogProps) {
   const { user } = useAuth();
   
   // Use React Query hooks instead of direct service calls
@@ -51,7 +53,7 @@ export function TakeSurveyDialog({ assignmentId, surveyId, open, onOpenChange, o
         question_id: qId,
         answer_text: text
       }));
-      await submitAnswers({ assignmentId, surveyId, answers: formattedAnswers });
+      await submitAnswers({ assignmentId, surveyId, trainerId, answers: formattedAnswers });
       toast.success("Respuestas enviadas correctamente");
       onCompleted();
       onOpenChange(false);
@@ -86,22 +88,46 @@ export function TakeSurveyDialog({ assignmentId, surveyId, open, onOpenChange, o
                     value={answers[q.id] || ""}
                     onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })}
                   />
-                ) : (
-                  <RadioGroup 
-                    value={answers[q.id] || ""} 
-                    onValueChange={v => setAnswers({ ...answers, [q.id]: v })}
-                    className="flex flex-col space-y-3 mt-4"
-                  >
-                    {q.options?.map((opt, oIdx) => (
-                      <div key={oIdx} className="flex items-center space-x-3 bg-background p-3 rounded-lg border border-border/50 transition-colors hover:border-primary/50">
-                        <RadioGroupItem value={opt} id={`q-${q.id}-opt-${oIdx}`} />
-                        <Label htmlFor={`q-${q.id}-opt-${oIdx}`} className="font-normal cursor-pointer flex-1 text-sm">
-                          {opt}
-                        </Label>
-                      </div>
-                    ))}
-                  </RadioGroup>
-                )}
+                ) : (() => {
+                  const hasFreeText = q.options?.includes(FREE_TEXT_OPTION_SENTINEL);
+                  const fixedOptions = q.options?.filter(o => o !== FREE_TEXT_OPTION_SENTINEL) ?? [];
+                  const currentAnswer = answers[q.id] || "";
+                  const radioValue = fixedOptions.includes(currentAnswer) ? currentAnswer : "";
+                  const freeTextValue = fixedOptions.includes(currentAnswer) ? "" : currentAnswer;
+                  return (
+                    <div className="space-y-3 mt-4">
+                      {fixedOptions.length > 0 && (
+                        <RadioGroup
+                          value={radioValue}
+                          onValueChange={v => setAnswers({ ...answers, [q.id]: v })}
+                          className="flex flex-col space-y-3"
+                        >
+                          {fixedOptions.map((opt, oIdx) => (
+                            <div key={oIdx} className="flex items-center space-x-3 bg-background p-3 rounded-lg border border-border/50 transition-colors hover:border-primary/50">
+                              <RadioGroupItem value={opt} id={`q-${q.id}-opt-${oIdx}`} />
+                              <Label htmlFor={`q-${q.id}-opt-${oIdx}`} className="font-normal cursor-pointer flex-1 text-sm">
+                                {opt}
+                              </Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      )}
+                      {hasFreeText && (
+                        <div className="space-y-1.5">
+                          {fixedOptions.length > 0 && (
+                            <p className="text-[11px] font-semibold text-muted-foreground">O escribe tu respuesta:</p>
+                          )}
+                          <Textarea
+                            placeholder="Escribe tu respuesta aquí..."
+                            className="resize-none min-h-[80px]"
+                            value={freeTextValue}
+                            onChange={e => setAnswers({ ...answers, [q.id]: e.target.value })}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ))}
           </div>

@@ -74,9 +74,11 @@ const App = () => (
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/trainer/students" element={<ProtectedRoute requiredRole="trainer"><Suspense fallback={<PageLoader />}><StudentsPage /></Suspense></ProtectedRoute>} />
               <Route path="/trainer/students/:studentId" element={<ProtectedRoute requiredRole="trainer"><Suspense fallback={<PageLoader />}><StudentDetailPage /></Suspense></ProtectedRoute>} />
-              <Route path="/trainer/routines" element={<ProtectedRoute requiredRole="trainer"><Suspense fallback={<PageLoader />}><RoutinesPage /></Suspense></ProtectedRoute>} />
-              <Route path="/trainer/routines/:studentId" element={<ProtectedRoute requiredRole="trainer"><Suspense fallback={<PageLoader />}><RoutinesPage /></Suspense></ProtectedRoute>} />
-              <Route path="/trainer/routines/group/:groupId" element={<ProtectedRoute requiredRole="trainer"><Suspense fallback={<PageLoader />}><RoutinesPage /></Suspense></ProtectedRoute>} />
+              <Route path="/trainer/routines" element={<Navigate to="/trainer/groups" replace />} />
+              <Route path="/trainer/routines/:studentId" element={<Navigate to="/trainer/groups" replace />} />
+              <Route path="/trainer/routines/group/:groupId" element={<Navigate to="/trainer/groups" replace />} />
+              <Route path="/trainer/groups/:groupId/routine" element={<ProtectedRoute requiredRole="trainer"><Suspense fallback={<PageLoader />}><RoutinesPage /></Suspense></ProtectedRoute>} />
+              <Route path="/trainer/groups/student/:studentId/routine" element={<ProtectedRoute requiredRole="trainer"><Suspense fallback={<PageLoader />}><RoutinesPage /></Suspense></ProtectedRoute>} />
               <Route path="/trainer/plans" element={<ProtectedRoute requiredRole="trainer"><Suspense fallback={<PageLoader />}><PlansPage /></Suspense></ProtectedRoute>} />
               <Route path="/trainer/tracking" element={<ProtectedRoute requiredRole="trainer"><Suspense fallback={<PageLoader />}><TrackingPage /></Suspense></ProtectedRoute>} />
               <Route path="/trainer/notifications" element={<ProtectedRoute requiredRole="trainer"><Suspense fallback={<PageLoader />}><NotificationsPage /></Suspense></ProtectedRoute>} />

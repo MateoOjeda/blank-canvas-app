@@ -13,6 +13,7 @@ import {
   Ruler, Droplets, Beef, Flame, Utensils, Smile, ImageIcon
 } from "lucide-react";
 import WeightProgressChart from "@/components/trainer/WeightProgressChart";
+import PhotoSessionsPanel from "@/components/trainer/tracking/PhotoSessionsPanel";
 import {
   Assessment, HABIT_KEYS, HABIT_LABELS, HABIT_POSITIVE,
   HabitsMap, addAssessment, deleteAssessment
@@ -177,11 +178,11 @@ export default function TrackingAssessmentTab({
             </div>
           </div>
 
-          {/* Progress photos placeholder */}
-          <div className="p-3 rounded-xl border border-dashed border-border/50 bg-muted/20 text-center space-y-1">
-            <ImageIcon className="h-5 w-5 mx-auto text-muted-foreground/50" />
-            <p className="text-[10px] text-muted-foreground">Fotos de progreso (frente, lateral, espalda) — próximamente</p>
-          </div>
+          {/* Progress photos */}
+          <PhotoSessionsPanel
+            studentId={studentId}
+            latestAssessment={assessments[0] ?? null}
+          />
 
           {/* Nutrition */}
           <div>

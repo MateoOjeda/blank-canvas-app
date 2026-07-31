@@ -433,9 +433,7 @@ export function useRoutines() {
 
   const handleBackToList = () => {
     setSelectedStudent("");
-    if (urlStudentId) {
-      navigate("/trainer/routines", { replace: true });
-    }
+    navigate("/trainer/groups");
   };
 
   const setActiveTab = (tab: string) => {

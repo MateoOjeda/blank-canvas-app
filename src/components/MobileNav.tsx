@@ -9,7 +9,6 @@ import {
 
 const trainerItems = [
   { title: "Alumnos", url: "/trainer/students", icon: Users },
-  { title: "Rutinas", url: "/trainer/routines", icon: Dumbbell },
   { title: "Planes", url: "/trainer/plans", icon: ClipboardList },
   { title: "Seguimiento", url: "/trainer/tracking", icon: BarChart3 },
   { title: "Grupos", url: "/trainer/groups", icon: Users },

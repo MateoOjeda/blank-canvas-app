@@ -30,6 +30,9 @@ export function AvailableStudentsList({
     student.display_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Do not render the section at all when there are no pending students — no empty states, no reserved space.
+  if (!isLoading && students.length === 0) return null;
+
   return (
     <motion.div variants={itemVariants}>
       <PremiumCard className="overflow-hidden">

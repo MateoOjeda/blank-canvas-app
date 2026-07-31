@@ -28,6 +28,7 @@ interface TrainerChange {
 interface PendingSurvey {
   id: string;
   survey_id: string;
+  trainer_id: string;
   survey?: {
     title: string;
   };
@@ -164,6 +165,7 @@ export default function StudentDashboardPage() {
           onOpenChange={(v) => !v && setActiveSurvey(null)}
           surveyId={activeSurvey.survey_id}
           assignmentId={activeSurvey.id}
+          trainerId={activeSurvey.trainer_id}
           onCompleted={() => {
             setActiveSurvey(null);
             refetchAll();
