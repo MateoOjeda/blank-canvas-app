@@ -182,6 +182,7 @@ export default function TrackingAssessmentTab({
           <PhotoSessionsPanel
             studentId={studentId}
             latestAssessment={assessments[0] ?? null}
+            readOnly={true}
           />
 
           {/* Nutrition */}

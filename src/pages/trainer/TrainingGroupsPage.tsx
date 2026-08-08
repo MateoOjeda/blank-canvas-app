@@ -7,7 +7,8 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { SearchInput } from "@/components/ui/search-input";
 import { Separator } from "@/components/ui/separator";
 import { Accordion } from "@/components/ui/accordion";
-import { CreateGroupForm } from "@/components/trainer/training-groups/CreateGroupForm";
+import { Button } from "@/components/ui/button";
+import { CreateGroupDialog } from "@/components/trainer/training-groups/CreateGroupDialog";
 import { DeleteGroupDialog } from "@/components/trainer/training-groups/DeleteGroupDialog";
 import { RenameGroupDialog } from "@/components/trainer/training-groups/RenameGroupDialog";
 import { AddToGroupDialog } from "@/components/trainer/training-groups/AddToGroupDialog";
@@ -15,7 +16,7 @@ import { MoveStudentDialog } from "@/components/trainer/training-groups/MoveStud
 import { GroupAccordionItem } from "@/components/trainer/training-groups/GroupAccordionItem";
 import { UngroupedStudentCard } from "@/components/trainer/training-groups/UngroupedStudentCard";
 import { UnifiedGroupsKpiCards } from "@/components/trainer/training-groups/UnifiedGroupsKpiCards";
-import { UserX } from "lucide-react";
+import { Plus, UserX } from "lucide-react";
 
 export default function TrainingGroupsPage() {
   const {
@@ -52,6 +53,9 @@ export default function TrainingGroupsPage() {
 
   // ── Accordion state
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
+
+  // ── Create group dialog state
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
 
   // ── Rename dialog state
   const [renameTarget, setRenameTarget] = useState<TrainingGroup | null>(null);
@@ -92,7 +96,6 @@ export default function TrainingGroupsPage() {
   };
 
   const handleAddStudentsFromAccordion = (groupId: string, studentIds: string[]) => {
-    // For inline add from accordion, archive by default (no dialog needed since these are ungrouped)
     addMembers({ groupId, studentIds, routineAction: "archive" as RoutineAction });
   };
 
@@ -100,7 +103,6 @@ export default function TrainingGroupsPage() {
     const student = students.find((s) => s.user_id === studentId);
     if (!student || !user) return;
 
-    // Check if student has an active routine before showing the dialog
     const hasRoutine = await checkStudentHasActiveRoutine(user.uid, studentId);
     setAddToGroupHasRoutine(hasRoutine);
     setAddToGroupTarget({
@@ -118,7 +120,6 @@ export default function TrainingGroupsPage() {
   };
 
   const handleMoveStudent = (memberId: string, studentId: string) => {
-    // Find current group
     const member = allMembers.find((m) => m.id === memberId);
     if (!member) return;
     const group = groups.find((g) => g.id === member.group_id);
@@ -146,10 +147,6 @@ export default function TrainingGroupsPage() {
     navigate(`/trainer/groups/student/${studentId}/routine`);
   };
 
-  const handleViewRoutineIndividual = (studentId: string) => {
-    navigate(`/trainer/students/${studentId}?tab=rutinas`);
-  };
-
   // ─── RENDER ───────────────────────────────────────────────
 
   if (loading) {
@@ -164,8 +161,17 @@ export default function TrainingGroupsPage() {
     <div className="max-w-6xl mx-auto pb-24 space-y-6 animate-in fade-in duration-300">
       {/* Header */}
       <SectionHeader
-        title="Grupos de Entrenamiento"
-        description="Administra grupos, rutinas colectivas y alumnos desde un solo lugar."
+        title="Gestión de Alumnos"
+        description="Administra grupos de entrenamiento y alumnos individuales desde un solo lugar."
+        actions={
+          <Button
+            onClick={() => setCreateGroupOpen(true)}
+            className="gap-1.5 h-10 rounded-xl text-xs font-semibold shadow-sm"
+          >
+            <Plus className="h-4 w-4" />
+            Nuevo Grupo
+          </Button>
+        }
       />
 
       {/* KPIs */}
@@ -175,77 +181,80 @@ export default function TrainingGroupsPage() {
         totalUngroupedStudents={ungroupedStudents.length}
       />
 
-      {/* Create Group */}
-      <CreateGroupForm
-        newGroupName={newGroupName}
-        setNewGroupName={setNewGroupName}
-        creating={creating}
-        createGroup={createGroup}
-      />
-
-      {/* Search */}
+      {/* ═══ GRUPOS ═══ */}
       {groups.length > 0 && (
-        <div className="space-y-2">
-          <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">
-            Mis Grupos ({filteredGroups.length})
-          </h2>
-          <div className="max-w-sm">
-            <SearchInput
-              placeholder="Buscar grupo..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onClear={() => setSearchQuery("")}
-              className="h-8.5 rounded-lg"
-            />
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1 shrink-0">
+              Grupos ({filteredGroups.length})
+            </h2>
+            <div className="w-full max-w-xs">
+              <SearchInput
+                placeholder="Buscar grupo..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onClear={() => setSearchQuery("")}
+                className="h-8 rounded-lg text-xs"
+              />
+            </div>
           </div>
+
+          {filteredGroups.length === 0 ? (
+            <EmptyState
+              type="no-results"
+              title="Sin coincidencias"
+              description="No se encontraron grupos que coincidan con tu búsqueda."
+              className="py-6 min-h-[150px]"
+            />
+          ) : (
+            <Accordion
+              type="multiple"
+              value={expandedGroups}
+              onValueChange={setExpandedGroups}
+              className="space-y-3"
+            >
+              {filteredGroups.map((group) => (
+                <GroupAccordionItem
+                  key={group.id}
+                  group={group}
+                  members={getMembersForGroup(group.id)}
+                  students={students}
+                  ungroupedStudents={ungroupedStudents}
+                  isExpanded={expandedGroups.includes(group.id)}
+                  onRename={(g) => setRenameTarget(g)}
+                  onDelete={(g) => setDeleteTarget(g)}
+                  onAddStudents={handleAddStudentsFromAccordion}
+                  onRemoveMember={handleRemoveMember}
+                  onMoveStudent={handleMoveStudent}
+                  onNavigateToRoutine={handleNavigateToRoutine}
+                  onViewNutrition={handleViewNutrition}
+                  onViewProgress={handleViewProgress}
+                />
+              ))}
+            </Accordion>
+          )}
         </div>
       )}
 
-      {/* Groups Accordion */}
-      {filteredGroups.length === 0 && groups.length > 0 ? (
+      {/* Empty state: no groups and no students at all */}
+      {groups.length === 0 && ungroupedStudents.length === 0 && (
         <EmptyState
-          type="no-results"
-          title="Sin coincidencias"
-          description="No se encontraron grupos que coincidan con tu búsqueda."
-          className="py-6 min-h-[150px]"
+          type="empty"
+          title="Sin alumnos ni grupos"
+          description="Aún no tienes alumnos vinculados. Cuando los tengas, podrás organizarlos en grupos aquí."
+          className="py-12 min-h-[200px]"
         />
-      ) : groups.length === 0 ? null : (
-        <Accordion
-          type="multiple"
-          value={expandedGroups}
-          onValueChange={setExpandedGroups}
-          className="space-y-3"
-        >
-          {filteredGroups.map((group) => (
-            <GroupAccordionItem
-              key={group.id}
-              group={group}
-              members={getMembersForGroup(group.id)}
-              students={students}
-              ungroupedStudents={ungroupedStudents}
-              isExpanded={expandedGroups.includes(group.id)}
-              onRename={(g) => setRenameTarget(g)}
-              onDelete={(g) => setDeleteTarget(g)}
-              onAddStudents={handleAddStudentsFromAccordion}
-              onRemoveMember={handleRemoveMember}
-              onMoveStudent={handleMoveStudent}
-              onNavigateToRoutine={handleNavigateToRoutine}
-              onViewNutrition={handleViewNutrition}
-              onViewProgress={handleViewProgress}
-            />
-          ))}
-        </Accordion>
       )}
 
-      {/* ═══ ALUMNOS SIN GRUPO ═══ */}
+      {/* ═══ ALUMNOS INDIVIDUALES ═══ */}
       {ungroupedStudents.length > 0 && (
         <>
-          <Separator className="my-6" />
+          {groups.length > 0 && <Separator className="my-2" />}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <UserX className="h-4 w-4 text-orange-500" />
               <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                Alumnos Sin Grupo ({ungroupedStudents.length})
+                Alumnos Individuales ({ungroupedStudents.length})
               </h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -253,11 +262,9 @@ export default function TrainingGroupsPage() {
                 <UngroupedStudentCard
                   key={student.user_id}
                   student={student}
-                  onViewRoutine={handleViewRoutineIndividual}
-                  onEditRoutine={handleEditRoutineIndividual}
-                  onViewNutrition={handleViewNutrition}
-                  onEditNutrition={handleViewNutrition}
-                  onViewProgress={handleViewProgress}
+                  onRoutine={handleEditRoutineIndividual}
+                  onNutrition={handleViewNutrition}
+                  onProgress={handleViewProgress}
                   onAddToGroup={handleAddToGroupFromCard}
                 />
               ))}
@@ -267,6 +274,15 @@ export default function TrainingGroupsPage() {
       )}
 
       {/* ── DIALOGS ── */}
+      <CreateGroupDialog
+        open={createGroupOpen}
+        onOpenChange={setCreateGroupOpen}
+        newGroupName={newGroupName}
+        setNewGroupName={setNewGroupName}
+        creating={creating}
+        createGroup={createGroup}
+      />
+
       <DeleteGroupDialog
         deleteTarget={deleteTarget}
         onOpenChange={() => setDeleteTarget(null)}

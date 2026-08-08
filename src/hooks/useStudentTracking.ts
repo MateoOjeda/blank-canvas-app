@@ -5,8 +5,9 @@ import {
   collection, query, where, getDocs, orderBy, limit
 } from "firebase/firestore";
 import {
-  fetchAssessments, fetchInjuries, fetchGoals, fetchNotes,
-  Assessment, Injury, Goal, TrackingNote
+  fetchAssessments, fetchInjuriesByStudent, fetchGoalsByStudent,
+  fetchNotes, fetchStudentNotes,
+  Assessment, Injury, Goal, TrackingNote, StudentNote
 } from "@/services/tracking";
 
 export interface ExerciseLogDay {
@@ -19,6 +20,7 @@ interface UseStudentTrackingResult {
   injuries: Injury[];
   goals: Goal[];
   notes: TrackingNote[];
+  studentNotes: StudentNote[];
   exerciseLogs: ExerciseLogDay[];
   loading: boolean;
   // Setters for optimistic updates
@@ -26,11 +28,15 @@ interface UseStudentTrackingResult {
   setInjuries: React.Dispatch<React.SetStateAction<Injury[]>>;
   setGoals: React.Dispatch<React.SetStateAction<Goal[]>>;
   setNotes: React.Dispatch<React.SetStateAction<TrackingNote[]>>;
+  setStudentNotes: React.Dispatch<React.SetStateAction<StudentNote[]>>;
 }
 
 /**
  * Loads all tracking data for a student in parallel.
  * Uses a single fetch per collection to minimize Firestore reads.
+ * Injuries and goals are fetched by student_id (student-owned).
+ * Trainer notes are fetched by trainer_id + student_id (trainer-owned).
+ * Student notes are fetched by student_id (student-owned).
  */
 export function useStudentTracking(studentId: string | null): UseStudentTrackingResult {
   const { user } = useAuth();
@@ -38,6 +44,7 @@ export function useStudentTracking(studentId: string | null): UseStudentTracking
   const [injuries, setInjuries] = useState<Injury[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [notes, setNotes] = useState<TrackingNote[]>([]);
+  const [studentNotes, setStudentNotes] = useState<StudentNote[]>([]);
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLogDay[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -46,11 +53,12 @@ export function useStudentTracking(studentId: string | null): UseStudentTracking
     setLoading(true);
 
     try {
-      const [a, inj, g, n] = await Promise.all([
+      const [a, inj, g, n, sn] = await Promise.all([
         fetchAssessments(user.uid, studentId),
-        fetchInjuries(user.uid, studentId),
-        fetchGoals(user.uid, studentId),
+        fetchInjuriesByStudent(studentId),
+        fetchGoalsByStudent(studentId),
         fetchNotes(user.uid, studentId),
+        fetchStudentNotes(studentId),
       ]);
 
       // Exercise logs — last 200 entries for calendar/alerts/training tab
@@ -71,6 +79,7 @@ export function useStudentTracking(studentId: string | null): UseStudentTracking
       setInjuries(inj);
       setGoals(g);
       setNotes(n);
+      setStudentNotes(sn);
       setExerciseLogs(logs);
     } catch (err) {
       console.error("Error loading student tracking data:", err);
@@ -84,6 +93,7 @@ export function useStudentTracking(studentId: string | null): UseStudentTracking
     setInjuries([]);
     setGoals([]);
     setNotes([]);
+    setStudentNotes([]);
     setExerciseLogs([]);
     if (studentId) {
       fetchAll();
@@ -91,7 +101,7 @@ export function useStudentTracking(studentId: string | null): UseStudentTracking
   }, [studentId, fetchAll]);
 
   return {
-    assessments, injuries, goals, notes, exerciseLogs, loading,
-    setAssessments, setInjuries, setGoals, setNotes,
+    assessments, injuries, goals, notes, studentNotes, exerciseLogs, loading,
+    setAssessments, setInjuries, setGoals, setNotes, setStudentNotes,
   };
 }

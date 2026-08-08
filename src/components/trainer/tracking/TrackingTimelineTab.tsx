@@ -76,7 +76,7 @@ function buildTimeline(
   goals: Goal[],
   notes: TrackingNote[],
   exerciseLogs: ExerciseLogDay[],
-  recoveryLogs: RecoveryLog[],
+  recoveryLogs: RecoveryLog[] = [],
   photoSessions: PhotoSession[]
 ): TimelineEvent[] {
   const events: TimelineEvent[] = [];
@@ -285,7 +285,7 @@ interface Props {
   goals: Goal[];
   notes: TrackingNote[];
   exerciseLogs: ExerciseLogDay[];
-  recoveryLogs: RecoveryLog[];
+  recoveryLogs?: RecoveryLog[];
   photoSessions: PhotoSession[];
   loading: boolean;
 }
@@ -303,7 +303,7 @@ const EVENT_LABELS: Partial<Record<EventType, string>> = {
 type FilterType = "all" | EventType;
 
 export default function TrackingTimelineTab({
-  assessments, injuries, goals, notes, exerciseLogs, recoveryLogs, photoSessions, loading
+  assessments, injuries, goals, notes, exerciseLogs, recoveryLogs = [], photoSessions, loading
 }: Props) {
   const [filter, setFilter] = useState<FilterType>("all");
   const [showCount, setShowCount] = useState(20);

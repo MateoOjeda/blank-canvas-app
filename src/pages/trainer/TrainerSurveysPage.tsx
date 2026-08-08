@@ -83,16 +83,28 @@ export default function TrainerSurveysPage() {
   const loadingResults = isLoadingAssignments || isLoadingAnswers;
 
   const handleDelete = async (id: string) => {
+    console.log("[Delete Flow 1/11] Delete button clicked for surveyId:", id);
     setDeleteSurveyId(id);
   };
 
   const confirmDelete = async () => {
-    if (!deleteSurveyId) return;
+    if (!deleteSurveyId) {
+      console.log("[Delete Flow 2/11] confirmDelete called but deleteSurveyId is null/empty");
+      return;
+    }
+    console.log("[Delete Flow 2/11] Confirmation accepted for surveyId:", deleteSurveyId);
     try {
       await deleteSurveyMutation(deleteSurveyId);
       toast.success("Encuesta eliminada");
-    } catch {
-      toast.error("Error al eliminar la encuesta");
+    } catch (err: any) {
+      console.error("[Delete Flow ERROR in UI confirmDelete]", {
+        error: err,
+        code: err?.code,
+        message: err?.message,
+        stack: err?.stack,
+        customData: err?.customData
+      });
+      toast.error(`Error al eliminar la encuesta: ${err?.message || err}`);
     } finally {
       setDeleteSurveyId(null);
     }

@@ -27,6 +27,7 @@ const StudentDashboardPage = lazy(() => import("@/pages/student/StudentDashboard
 const PersonalChangePage = lazy(() => import("@/pages/student/PersonalChangePage"));
 const TransformationPage = lazy(() => import("@/pages/student/TransformationPage"));
 const StudentMealsPage = lazy(() => import("@/pages/student/StudentMealsPage"));
+const StudentProgressPage = lazy(() => import("@/pages/student/StudentProgressPage"));
 
 const PublicStudentView = lazy(() => import("@/pages/PublicStudentView"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -93,6 +94,7 @@ const App = () => (
               <Route path="/student/personal-change" element={<ProtectedRoute requiredRole="student"><Suspense fallback={<PageLoader />}><PersonalChangePage /></Suspense></ProtectedRoute>} />
               <Route path="/student/transformation" element={<ProtectedRoute requiredRole="student"><Suspense fallback={<PageLoader />}><TransformationPage /></Suspense></ProtectedRoute>} />
               <Route path="/student/meals" element={<ProtectedRoute requiredRole="student"><Suspense fallback={<PageLoader />}><StudentMealsPage /></Suspense></ProtectedRoute>} />
+              <Route path="/student/my-progress" element={<ProtectedRoute requiredRole="student"><Suspense fallback={<PageLoader />}><StudentProgressPage /></Suspense></ProtectedRoute>} />
             </Route>
             <Route path="/view/:studentId" element={<Suspense fallback={<PageLoader />}><PublicStudentView /></Suspense>} />
             <Route path="*" element={<Suspense fallback={<PageLoader />}><NotFound /></Suspense>} />

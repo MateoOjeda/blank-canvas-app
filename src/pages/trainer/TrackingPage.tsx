@@ -1,17 +1,15 @@
 import { lazy, Suspense, useState } from "react";
 import { useLinkedStudents } from "@/hooks/useLinkedStudents";
 import { useStudentTracking } from "@/hooks/useStudentTracking";
-import { useStudentRecovery } from "@/hooks/useStudentRecovery";
 import { usePhotoSessions } from "@/hooks/usePhotoSessions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import {
-  Activity, AlertTriangle, ArrowLeft, BarChart3, Camera,
-  Clock, Dumbbell, HeartPulse, Loader2, TrendingUp, Utensils
+  Activity, AlertTriangle, ArrowLeft, BarChart3,
+  Clock, Dumbbell, Loader2, TrendingUp, Utensils, ClipboardList
 } from "lucide-react";
 import { StudentCard } from "@/components/trainer/StudentCard";
 import type { Assessment, Injury, Goal, TrackingNote } from "@/services/tracking";
@@ -20,21 +18,19 @@ import type { Assessment, Injury, Goal, TrackingNote } from "@/services/tracking
 const TrackingDashboardTab  = lazy(() => import("@/components/trainer/tracking/TrackingDashboardTab"));
 const TrackingTrainingTab   = lazy(() => import("@/components/trainer/tracking/TrackingTrainingTab"));
 const TrackingNutritionTab  = lazy(() => import("@/components/trainer/tracking/TrackingNutritionTab"));
-const TrackingAssessmentTab = lazy(() => import("@/components/trainer/tracking/TrackingAssessmentTab"));
-const TrackingInjuriesTab   = lazy(() => import("@/components/trainer/tracking/TrackingInjuriesTab"));
-const TrackingGoalsTab      = lazy(() => import("@/components/trainer/tracking/TrackingGoalsTab"));
-const TrackingNotesTab      = lazy(() => import("@/components/trainer/tracking/TrackingNotesTab"));
-const TrackingRecoveryTab   = lazy(() => import("@/components/trainer/tracking/TrackingRecoveryTab"));
+const TrackingProgressTab   = lazy(() => import("@/components/trainer/tracking/TrackingProgressTab"));
 const TrackingTimelineTab   = lazy(() => import("@/components/trainer/tracking/TrackingTimelineTab"));
+const TrackingAssessmentTab = lazy(() => import("@/components/trainer/tracking/TrackingAssessmentTab"));
+const TrackingNotesTab      = lazy(() => import("@/components/trainer/tracking/TrackingNotesTab"));
 
 // ── Tab definition ─────────────────────────────────────────────────────────────
 const TABS = [
-  { value: "dashboard",  label: "Dashboard",   icon: Activity },
-  { value: "training",   label: "Entreno",     icon: Dumbbell },
-  { value: "nutrition",  label: "Nutrición",   icon: Utensils },
-  { value: "progress",   label: "Progreso",    icon: TrendingUp },
-  { value: "recovery",   label: "Recuperación",icon: HeartPulse },
-  { value: "timeline",   label: "Timeline",    icon: Clock },
+  { value: "dashboard",   label: "Dashboard",   icon: Activity },
+  { value: "training",    label: "Entreno",     icon: Dumbbell },
+  { value: "nutrition",   label: "Nutrición",   icon: Utensils },
+  { value: "progress",    label: "Progreso",    icon: TrendingUp },
+  { value: "assessment", label: "Evaluación",  icon: ClipboardList },
+  { value: "timeline",    label: "Timeline",    icon: Clock },
 ] as const;
 
 type TabValue = typeof TABS[number]["value"];
@@ -74,15 +70,9 @@ export default function TrackingPage() {
 
   // Core tracking data
   const {
-    assessments, injuries, goals, notes, exerciseLogs, loading: loadingTracking,
+    assessments, injuries, goals, notes, studentNotes, exerciseLogs, loading: loadingTracking,
     setAssessments, setInjuries, setGoals, setNotes,
   } = useStudentTracking(selectedStudentId);
-
-  // Recovery data
-  const {
-    logs: recoveryLogs, loading: loadingRecovery,
-    addLog: addRecoveryLog, removeLog: removeRecoveryLog,
-  } = useStudentRecovery(selectedStudentId);
 
   // Photo sessions (loaded in panel itself via usePhotoSessions — referenced here for Timeline)
   const { sessions: photoSessions } = usePhotoSessions(selectedStudentId);
@@ -204,7 +194,6 @@ export default function TrackingPage() {
               goals={goals}
               notes={notes}
               exerciseLogs={exerciseLogs}
-              recoveryLogs={recoveryLogs}
               loading={loadingTracking}
               onTabChange={(tab) => setActiveTab(tab as TabValue)}
             />
@@ -235,61 +224,30 @@ export default function TrackingPage() {
           </Suspense>
         </TabsContent>
 
-        {/* Progreso Físico — includes Assessment, Injuries, Goals, Notes, Photos */}
+        {/* Progreso — Read-only student evolution dashboard */}
         <TabsContent value="progress" className="space-y-4 outline-none mt-4">
           <Suspense fallback={<TabFallback />}>
-            <>
-              {/* Body assessment & photo sessions */}
-              <TrackingAssessmentTab
-                studentId={selectedStudentId}
-                assessments={assessments}
-                loading={loadingTracking}
-                onAdd={(a: Assessment) => setAssessments((prev) => [a, ...prev])}
-                onDelete={(id: string) => setAssessments((prev) => prev.filter((x) => x.id !== id))}
-              />
-              {/* Injuries */}
-              <TrackingInjuriesTab
-                studentId={selectedStudentId}
-                injuries={injuries}
-                loading={loadingTracking}
-                onAdd={(i: Injury) => setInjuries((prev) => [i, ...prev])}
-                onUpdate={(id: string, data: Partial<Injury>) =>
-                  setInjuries((prev) => prev.map((x) => x.id === id ? { ...x, ...data } : x))
-                }
-                onDelete={(id: string) => setInjuries((prev) => prev.filter((x) => x.id !== id))}
-              />
-              {/* Goals */}
-              <TrackingGoalsTab
-                studentId={selectedStudentId}
-                goals={goals}
-                loading={loadingTracking}
-                onAdd={(g: Goal) => setGoals((prev) => [g, ...prev])}
-                onUpdate={(id: string, data: Partial<Goal>) =>
-                  setGoals((prev) => prev.map((x) => x.id === id ? { ...x, ...data } : x))
-                }
-                onDelete={(id: string) => setGoals((prev) => prev.filter((x) => x.id !== id))}
-              />
-              {/* Trainer notes */}
-              <TrackingNotesTab
-                studentId={selectedStudentId}
-                notes={notes}
-                loading={loadingTracking}
-                onAdd={(n: TrackingNote) => setNotes((prev) => [n, ...prev])}
-                onDelete={(id: string) => setNotes((prev) => prev.filter((x) => x.id !== id))}
-              />
-            </>
+            <TrackingProgressTab
+              studentId={selectedStudentId}
+              assessments={assessments}
+              injuries={injuries}
+              goals={goals}
+              studentNotes={studentNotes}
+              loading={loadingTracking}
+              onNavigateToAssessment={() => setActiveTab("assessment")}
+            />
           </Suspense>
         </TabsContent>
 
-        {/* Recuperación */}
-        <TabsContent value="recovery" className="space-y-4 outline-none mt-4">
+        {/* Evaluación Física (Trainer-owned form) */}
+        <TabsContent value="assessment" className="space-y-4 outline-none mt-4">
           <Suspense fallback={<TabFallback />}>
-            <TrackingRecoveryTab
+            <TrackingAssessmentTab
               studentId={selectedStudentId}
-              logs={recoveryLogs}
-              loading={loadingRecovery}
-              onAdd={addRecoveryLog}
-              onRemove={removeRecoveryLog}
+              assessments={assessments}
+              loading={loadingTracking}
+              onAdd={(a: Assessment) => setAssessments((prev) => [a, ...prev])}
+              onDelete={(id: string) => setAssessments((prev) => prev.filter((x) => x.id !== id))}
             />
           </Suspense>
         </TabsContent>
@@ -303,9 +261,8 @@ export default function TrackingPage() {
               goals={goals}
               notes={notes}
               exerciseLogs={exerciseLogs}
-              recoveryLogs={recoveryLogs}
               photoSessions={photoSessions}
-              loading={loadingTracking || loadingRecovery}
+              loading={loadingTracking}
             />
           </Suspense>
         </TabsContent>

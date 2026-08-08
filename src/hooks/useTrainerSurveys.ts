@@ -32,9 +32,22 @@ export function useTrainerSurveys(trainerId?: string) {
   });
 
   const deleteSurveyMutation = useMutation({
-    mutationFn: (surveyId: string) => deleteSurvey(surveyId),
-    onSuccess: () => {
+    mutationFn: (surveyId: string) => {
+      console.log("[Delete Flow 3/11] Mutation started for surveyId:", surveyId);
+      return deleteSurvey(surveyId);
+    },
+    onSuccess: (_, surveyId) => {
+      console.log("[Delete Flow 10/11] React Query onSuccess for surveyId:", surveyId);
       queryClient.invalidateQueries({ queryKey: ["trainerSurveys", trainerId] });
+    },
+    onError: (err: any, surveyId) => {
+      console.error("[Delete Flow 11/11] React Query onError for surveyId:", surveyId, {
+        error: err,
+        code: err?.code,
+        message: err?.message,
+        stack: err?.stack,
+        customData: err?.customData
+      });
     },
   });
 

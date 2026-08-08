@@ -116,6 +116,7 @@ export interface Injury {
   id: string;
   trainer_id: string;
   student_id: string;
+  created_by?: string;
   created_at: string;
   updated_at: string;
   location: string;
@@ -134,6 +135,19 @@ export async function fetchInjuries(
   const q = query(
     collection(db, "tracking_injuries"),
     where("trainer_id", "==", trainerId),
+    where("student_id", "==", studentId),
+    orderBy("created_at", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Injury));
+}
+
+/** Fetch all injuries for a student regardless of who created them */
+export async function fetchInjuriesByStudent(
+  studentId: string
+): Promise<Injury[]> {
+  const q = query(
+    collection(db, "tracking_injuries"),
     where("student_id", "==", studentId),
     orderBy("created_at", "desc")
   );
@@ -168,6 +182,7 @@ export interface Goal {
   id: string;
   trainer_id: string;
   student_id: string;
+  created_by?: string;
   created_at: string;
   goal: string;
   category?: string;
@@ -185,6 +200,19 @@ export async function fetchGoals(
   const q = query(
     collection(db, "tracking_goals"),
     where("trainer_id", "==", trainerId),
+    where("student_id", "==", studentId),
+    orderBy("created_at", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Goal));
+}
+
+/** Fetch all goals for a student regardless of who created them */
+export async function fetchGoalsByStudent(
+  studentId: string
+): Promise<Goal[]> {
+  const q = query(
+    collection(db, "tracking_goals"),
     where("student_id", "==", studentId),
     orderBy("created_at", "desc")
   );
@@ -210,7 +238,7 @@ export async function deleteGoal(id: string): Promise<void> {
   await deleteDoc(doc(db, "tracking_goals", id));
 }
 
-// ─── Notes ───────────────────────────────────────────────────────────────────
+// ─── Trainer Notes (trainer-owned) ──────────────────────────────────────────
 
 export type NoteVisibility = "privada" | "publica";
 
@@ -246,4 +274,45 @@ export async function addNote(
 
 export async function deleteNote(id: string): Promise<void> {
   await deleteDoc(doc(db, "tracking_notes", id));
+}
+
+// ─── Student Notes (student-owned) ──────────────────────────────────────────
+
+export interface StudentNote {
+  id: string;
+  student_id: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  content: string;
+}
+
+export async function fetchStudentNotes(
+  studentId: string
+): Promise<StudentNote[]> {
+  const q = query(
+    collection(db, "student_notes"),
+    where("student_id", "==", studentId),
+    orderBy("created_at", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as StudentNote));
+}
+
+export async function addStudentNote(
+  data: Omit<StudentNote, "id">
+): Promise<string> {
+  const ref = await addDoc(collection(db, "student_notes"), data);
+  return ref.id;
+}
+
+export async function updateStudentNote(
+  id: string,
+  data: Partial<Pick<StudentNote, "content" | "updated_at">>
+): Promise<void> {
+  await updateDoc(doc(db, "student_notes", id), data);
+}
+
+export async function deleteStudentNote(id: string): Promise<void> {
+  await deleteDoc(doc(db, "student_notes", id));
 }

@@ -28,14 +28,15 @@ type SnapshotKey = "weight" | "body_fat" | "muscle_mass" | "arm" | "chest" | "wa
 interface Props {
   studentId: string;
   latestAssessment?: Assessment | null;
+  readOnly?: boolean;
 }
 
 const POSITION_LABELS = { front: "Frente", back: "Espalda", left: "Lateral izq.", right: "Lateral der." };
 const SNAPSHOT_DISPLAY: { key: SnapshotKey; label: string; unit: string }[] = [
-  { key: "weight",      label: "Peso",   unit: "kg" },
-  { key: "body_fat",    label: "Grasa",  unit: "%" },
-  { key: "muscle_mass", label: "Músculo",unit: "kg" },
-  { key: "waist",       label: "Cintura",unit: "cm" },
+  { key: "weight", label: "Peso", unit: "kg" },
+  { key: "body_fat", label: "Grasa", unit: "%" },
+  { key: "muscle_mass", label: "Músculo", unit: "kg" },
+  { key: "waist", label: "Cintura", unit: "cm" },
 ];
 
 // ─── Session card ─────────────────────────────────────────────────────────────
@@ -43,12 +44,14 @@ const SNAPSHOT_DISPLAY: { key: SnapshotKey; label: string; unit: string }[] = [
 function SessionCard({
   session,
   allSessions,
+  readOnly = false,
   onEdit,
   onDelete,
   onCompare,
 }: {
   session: PhotoSession;
   allSessions: PhotoSession[];
+  readOnly?: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onCompare: (idA: string | null, idB: string | null) => void;
@@ -95,14 +98,16 @@ function SessionCard({
                 <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{session.notes}</p>
               )}
             </div>
-            <div className="flex gap-1 shrink-0">
-              <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary" onClick={onEdit}>
-                <Edit2 className="h-3 w-3" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => setConfirmDelete(true)}>
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </div>
+            {!readOnly && (
+              <div className="flex gap-1 shrink-0">
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary" onClick={onEdit}>
+                  <Edit2 className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => setConfirmDelete(true)}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Snapshot metrics */}
@@ -141,30 +146,32 @@ function SessionCard({
       </Card>
 
       {/* Delete confirm */}
-      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar sesión?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer. Se eliminará la sesión del{" "}
-              {format(parseISO(session.session_date), "d 'de' MMMM yyyy", { locale: es })}.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={onDelete}>
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {!readOnly && (
+        <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar sesión?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción no se puede deshacer. Se eliminará la sesión del{" "}
+                {format(parseISO(session.session_date), "d 'de' MMMM yyyy", { locale: es })}.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={onDelete}>
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </>
   );
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function PhotoSessionsPanel({ studentId, latestAssessment }: Props) {
+export default function PhotoSessionsPanel({ studentId, latestAssessment, readOnly = false }: Props) {
   const { user } = useAuth();
   const {
     sessions, loading, loadingMore, hasMore, loadMore,
@@ -225,14 +232,21 @@ export default function PhotoSessionsPanel({ studentId, latestAssessment }: Prop
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-bold flex items-center gap-2">
-            <Camera className="h-4 w-4 text-primary" />
-            Sesiones de Fotos
-          </h3>
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            {sessions.length} sesión{sessions.length !== 1 ? "es" : ""} registrada{sessions.length !== 1 ? "s" : ""}
-          </p>
+        <div className="flex items-center gap-2">
+          <div>
+            <h3 className="text-sm font-bold flex items-center gap-2">
+              <Camera className="h-4 w-4 text-primary" />
+              Sesiones de Fotos
+            </h3>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {sessions.length} sesión{sessions.length !== 1 ? "es" : ""} registrada{sessions.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+          {readOnly && (
+            <Badge variant="outline" className="text-[9px] bg-muted/20 text-muted-foreground border-border/40 font-medium ml-2">
+              Gestionadas por el alumno
+            </Badge>
+          )}
         </div>
         <div className="flex gap-2">
           {sessions.length >= 2 && (
@@ -246,14 +260,16 @@ export default function PhotoSessionsPanel({ studentId, latestAssessment }: Prop
               Comparar
             </Button>
           )}
-          <Button
-            size="sm"
-            className="h-8 text-[10px] gap-1.5 font-bold"
-            onClick={() => { setEditingSession(null); setShowDialog(true); }}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Nueva sesión
-          </Button>
+          {!readOnly && (
+            <Button
+              size="sm"
+              className="h-8 text-[10px] gap-1.5 font-bold"
+              onClick={() => { setEditingSession(null); setShowDialog(true); }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Nueva sesión
+            </Button>
+          )}
         </div>
       </div>
 
@@ -268,7 +284,7 @@ export default function PhotoSessionsPanel({ studentId, latestAssessment }: Prop
         <EmptyState
           type="empty"
           title="Sin sesiones de fotos"
-          description='Crea la primera sesión con el botón "Nueva sesión".'
+          description={readOnly ? "El alumno aún no ha registrado fotos de su progreso." : 'Crea la primera sesión con el botón "Nueva sesión".'}
         />
       ) : (
         <>
@@ -278,6 +294,7 @@ export default function PhotoSessionsPanel({ studentId, latestAssessment }: Prop
                 key={session.id}
                 session={session}
                 allSessions={sessions}
+                readOnly={readOnly}
                 onEdit={() => { setEditingSession(session); setShowDialog(true); }}
                 onDelete={() => handleDelete(session.id)}
                 onCompare={(a, b) => setCompareIds({ a, b })}

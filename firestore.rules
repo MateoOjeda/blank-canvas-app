@@ -164,7 +164,7 @@ service cloud.firestore {
       allow write: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer" && (
           (request.resource != null && request.auth.uid == request.resource.data.trainer_id) ||
-          (resource != null && request.auth.uid == resource.data.trainer_id)
+          (resource != null && (!("trainer_id" in resource.data) || resource.data.trainer_id == null || request.auth.uid == resource.data.trainer_id))
         )
       );
     }
@@ -175,7 +175,7 @@ service cloud.firestore {
       allow write: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer" && (
           (request.resource != null && request.auth.uid == request.resource.data.trainer_id) ||
-          (resource != null && request.auth.uid == resource.data.trainer_id)
+          (resource != null && (!("trainer_id" in resource.data) || resource.data.trainer_id == null || request.auth.uid == resource.data.trainer_id))
         )
       );
     }
@@ -195,6 +195,8 @@ service cloud.firestore {
     // Survey Assignments: Trainers can assign/delete. Students can update status to completed.
     match /survey_assignments/{assignId} {
       allow read: if isAuthenticated() && (
+        !("trainer_id" in resource.data) ||
+        resource.data.trainer_id == null ||
         request.auth.uid == resource.data.trainer_id ||
         request.auth.uid == resource.data.student_id
       );
@@ -203,18 +205,23 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.trainer_id
       );
       allow update: if isAuthenticated() && (
-        (request.auth.uid == resource.data.trainer_id && getRole(request.auth.uid) == "trainer") ||
+        (getRole(request.auth.uid) == "trainer" && (!("trainer_id" in resource.data) || resource.data.trainer_id == null || request.auth.uid == resource.data.trainer_id)) ||
         (request.auth.uid == resource.data.student_id && request.resource.data.status == "completada")
       );
       allow delete: if isAuthenticated() && (
-        request.auth.uid == resource.data.trainer_id && 
-        getRole(request.auth.uid) == "trainer"
+        getRole(request.auth.uid) == "trainer" && (
+          !("trainer_id" in resource.data) ||
+          resource.data.trainer_id == null ||
+          request.auth.uid == resource.data.trainer_id
+        )
       );
     }
     
     // Survey Answers: Linked trainer and student can read. Only student/trainer can write/create.
     match /survey_answers/{answerId} {
       allow read: if isAuthenticated() && (
+        !("trainer_id" in resource.data) ||
+        resource.data.trainer_id == null ||
         request.auth.uid == resource.data.trainer_id ||
         request.auth.uid == resource.data.student_id
       );
@@ -223,7 +230,11 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.trainer_id
       );
       allow update, delete: if isAuthenticated() && (
-        request.auth.uid == resource.data.trainer_id && getRole(request.auth.uid) == "trainer"
+        getRole(request.auth.uid) == "trainer" && (
+          !("trainer_id" in resource.data) ||
+          resource.data.trainer_id == null ||
+          request.auth.uid == resource.data.trainer_id
+        )
       );
     }
 
@@ -268,6 +279,86 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.trainer_id ||
         (resource != null && (request.auth.uid == resource.data.student_id || request.auth.uid == resource.data.trainer_id))
       );
+    }
+
+    // Photo Sessions: Students own their sessions. Linked trainers have read-only access.
+    match /photo_sessions/{sessionId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.student_id ||
+        request.auth.uid == resource.data.trainer_id
+      );
+      allow create: if isAuthenticated() &&
+        request.auth.uid == request.resource.data.student_id;
+      allow update, delete: if isAuthenticated() &&
+        request.auth.uid == resource.data.student_id;
+    }
+
+    // Tracking Injuries: Student-owned. Students can CRUD their own injuries. Linked trainers can read.
+    match /tracking_injuries/{injuryId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.student_id ||
+        request.auth.uid == resource.data.trainer_id
+      );
+      allow create: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.student_id ||
+        request.auth.uid == request.resource.data.trainer_id
+      );
+      allow update, delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.student_id ||
+        request.auth.uid == resource.data.trainer_id
+      );
+    }
+
+    // Tracking Goals: Student-owned. Students can CRUD their own goals. Linked trainers can read.
+    match /tracking_goals/{goalId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.student_id ||
+        request.auth.uid == resource.data.trainer_id
+      );
+      allow create: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.student_id ||
+        request.auth.uid == request.resource.data.trainer_id
+      );
+      allow update, delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.student_id ||
+        request.auth.uid == resource.data.trainer_id
+      );
+    }
+
+    // Tracking Notes (Trainer-authored): Trainer can CRUD. Student can read public notes.
+    match /tracking_notes/{noteId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.trainer_id ||
+        (request.auth.uid == resource.data.student_id && resource.data.visibility == "publica")
+      );
+      allow create: if isAuthenticated() &&
+        request.auth.uid == request.resource.data.trainer_id;
+      allow update, delete: if isAuthenticated() &&
+        request.auth.uid == resource.data.trainer_id;
+    }
+
+    // Student Notes: Student-owned progress notes. Linked trainers can read.
+    match /student_notes/{noteId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.student_id ||
+        request.auth.uid == resource.data.trainer_id
+      );
+      allow create: if isAuthenticated() &&
+        request.auth.uid == request.resource.data.student_id;
+      allow update, delete: if isAuthenticated() &&
+        request.auth.uid == resource.data.student_id;
+    }
+
+    // Weight History: Student writes their weight. Linked trainers can read.
+    match /weight_history/{entryId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.student_id ||
+        request.auth.uid == resource.data.trainer_id
+      );
+      allow create: if isAuthenticated() &&
+        request.auth.uid == request.resource.data.student_id;
+      allow update, delete: if isAuthenticated() &&
+        request.auth.uid == resource.data.student_id;
     }
 
     // Default: Deny all

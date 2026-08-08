@@ -24,7 +24,7 @@ interface Props {
   goals: Goal[];
   notes: TrackingNote[];
   exerciseLogs: ExerciseLogDay[];
-  recoveryLogs: RecoveryLog[];
+  recoveryLogs?: RecoveryLog[];
   loading: boolean;
   onTabChange: (tab: string) => void;
 }
@@ -57,7 +57,7 @@ function computeHealthScore(
   injuries: Injury[],
   goals: Goal[],
   exerciseLogs: ExerciseLogDay[],
-  recoveryLogs: RecoveryLog[]
+  recoveryLogs: RecoveryLog[] = []
 ): HealthScoreBreakdown {
   const now = new Date();
 
@@ -137,13 +137,21 @@ function computeHealthScore(
   }
 
   // ── Total (weighted) ──
-  const total = Math.round(
-    trainingScore * 0.30 +
-    nutritionScore * 0.25 +
-    recoveryScore * 0.20 +
-    physicalScore * 0.15 +
-    adherenceScore * 0.10
-  );
+  const hasRecoveryData = recoveryLogs.length > 0;
+  const total = hasRecoveryData
+    ? Math.round(
+        trainingScore * 0.30 +
+        nutritionScore * 0.25 +
+        recoveryScore * 0.20 +
+        physicalScore * 0.15 +
+        adherenceScore * 0.10
+      )
+    : Math.round(
+        trainingScore * 0.35 +
+        nutritionScore * 0.30 +
+        physicalScore * 0.23 +
+        adherenceScore * 0.12
+      );
 
   const clamped = Math.min(100, Math.max(0, total));
 
@@ -176,7 +184,7 @@ function computeSmartAlerts(
   injuries: Injury[],
   goals: Goal[],
   exerciseLogs: ExerciseLogDay[],
-  recoveryLogs: RecoveryLog[]
+  recoveryLogs: RecoveryLog[] = []
 ): SmartAlert[] {
   const alerts: SmartAlert[] = [];
   const now = new Date();
@@ -452,7 +460,7 @@ const SEV_CFG: Record<AlertSeverity, { border: string; bg: string; iconColor: st
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function TrackingDashboardTab({
-  assessments, injuries, goals, notes, exerciseLogs, recoveryLogs, loading, onTabChange
+  assessments, injuries, goals, notes, exerciseLogs, recoveryLogs = [], loading, onTabChange
 }: Props) {
   const score = useMemo(
     () => computeHealthScore(assessments, injuries, goals, exerciseLogs, recoveryLogs),

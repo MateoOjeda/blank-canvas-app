@@ -39,7 +39,6 @@ export function usePhotoSessions(studentId: string | null): UsePhotoSessionsResu
     setLoading(true);
     try {
       const { sessions: data, lastDoc: ld } = await fetchPhotoSessions(
-        user.uid,
         studentId,
         PAGE_SIZE
       );
@@ -58,7 +57,6 @@ export function usePhotoSessions(studentId: string | null): UsePhotoSessionsResu
     setLoadingMore(true);
     try {
       const { sessions: data, lastDoc: ld } = await fetchPhotoSessions(
-        user.uid,
         studentId,
         PAGE_SIZE,
         lastDoc

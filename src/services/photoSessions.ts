@@ -60,14 +60,12 @@ export type PhotoSessionInput = Omit<PhotoSession, "id">;
 // ─── Firestore CRUD ───────────────────────────────────────────────────────────
 
 export async function fetchPhotoSessions(
-  trainerId: string,
   studentId: string,
   pageSize = 10,
   lastDoc?: DocumentSnapshot
 ): Promise<{ sessions: PhotoSession[]; lastDoc: DocumentSnapshot | null }> {
   let q = query(
     collection(db, "photo_sessions"),
-    where("trainer_id", "==", trainerId),
     where("student_id", "==", studentId),
     orderBy("session_date", "desc"),
     limit(pageSize)
@@ -76,7 +74,6 @@ export async function fetchPhotoSessions(
   if (lastDoc) {
     q = query(
       collection(db, "photo_sessions"),
-      where("trainer_id", "==", trainerId),
       where("student_id", "==", studentId),
       orderBy("session_date", "desc"),
       startAfter(lastDoc),
