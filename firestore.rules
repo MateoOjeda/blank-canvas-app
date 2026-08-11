@@ -16,13 +16,13 @@ service cloud.firestore {
 
     function isStudentOfTrainer(trainerId) {
       return isAuthenticated() && (
-        exists(/databases/$(database)/documents/trainer_students/$(trainerId)_$(request.auth.uid))
+        exists(/databases/$(database)/documents/trainer_students/$(trainerId + '_' + request.auth.uid))
       );
     }
 
     function isTrainerOfStudent(studentId) {
       return isAuthenticated() && (
-        exists(/databases/$(database)/documents/trainer_students/$(request.auth.uid)_$(studentId))
+        exists(/databases/$(database)/documents/trainer_students/$(request.auth.uid + '_' + studentId))
       );
     }
 
@@ -100,7 +100,7 @@ service cloud.firestore {
     match /training_groups/{groupId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == resource.data.trainer_id ||
-        exists(/databases/$(database)/documents/training_group_members/$(resource.data.id)_$(request.auth.uid))
+        exists(/databases/$(database)/documents/training_group_members/$(resource.data.id + '_' + request.auth.uid))
       );
       allow write: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer" && (
@@ -125,7 +125,7 @@ service cloud.firestore {
     match /group_exercises/{exId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == resource.data.trainer_id ||
-        exists(/databases/$(database)/documents/training_group_members/$(resource.data.group_id)_$(request.auth.uid))
+        exists(/databases/$(database)/documents/training_group_members/$(resource.data.group_id + '_' + request.auth.uid))
       );
       allow write: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer" && (
@@ -181,7 +181,7 @@ service cloud.firestore {
     match /custom_surveys/{surveyId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == resource.data.trainer_id ||
-        exists(/databases/$(database)/documents/survey_assignments/$(resource.data.id)_$(request.auth.uid))
+        exists(/databases/$(database)/documents/survey_assignments/$(resource.data.id + '_' + request.auth.uid))
       );
       allow write: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer" && (
@@ -195,7 +195,7 @@ service cloud.firestore {
     match /survey_questions/{questionId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == resource.data.trainer_id ||
-        exists(/databases/$(database)/documents/survey_assignments/$(resource.data.survey_id)_$(request.auth.uid))
+        exists(/databases/$(database)/documents/survey_assignments/$(resource.data.survey_id + '_' + request.auth.uid))
       );
       allow write: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer" && (
