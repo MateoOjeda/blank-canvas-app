@@ -23,12 +23,12 @@ import {
   logTrainerChange,
   addBiSerieChild,
   removeBiSerieChild,
+  autoUpdateRoutineCycle,
+  getOrCreateActiveRoutine,
   type Exercise,
   type DayConfig,
   type ExerciseType,
-  autoUpdateRoutineCycle,
-} from "@/services/rutinas";
-import { getOrCreateActiveRoutine } from "@/services/routineManager";
+} from "@/services/routines";
 import { EXERCISES_BY_BODY_PART, type BodyPart } from "@/lib/exercisesByBodyPart";
 import { toast } from "sonner";
 

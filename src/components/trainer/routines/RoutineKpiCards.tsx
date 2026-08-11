@@ -1,7 +1,7 @@
 import React from "react";
 import { PremiumCard, PremiumCardContent } from "@/components/ui/premium-card";
 import { Dumbbell, Clock, Users } from "lucide-react";
-import type { Exercise } from "@/services/rutinas";
+import type { Exercise } from "@/services/routines";
 
 interface RoutineKpiCardsProps {
   exercises: Exercise[];

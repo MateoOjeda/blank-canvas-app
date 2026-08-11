@@ -405,13 +405,13 @@ export function useTrainingGroups() {
       // 3. Create membership documents
       const batch = new ChunkedBatch(db);
       for (const sid of studentIds) {
-        const memberRef = doc(collection(db, 'training_group_members'));
+        const memberRef = doc(db, 'training_group_members', `${groupId}_${sid}`);
         batch.set(memberRef, {
           group_id: groupId,
           student_id: sid,
           previous_routine_id: routineIds[sid] || null,
           created_at: new Date().toISOString(),
-        });
+        }, { merge: true });
       }
       await batch.commit();
     },
@@ -454,12 +454,12 @@ export function useTrainingGroups() {
       await deleteDoc(doc(db, 'training_group_members', memberId));
 
       // 2. Create new membership in target group, preserving previous_routine_id
-      await addDoc(collection(db, 'training_group_members'), {
+      await setDoc(doc(db, 'training_group_members', `${toGroupId}_${studentId}`), {
         group_id: toGroupId,
         student_id: studentId,
         previous_routine_id: previousRoutineId || null,
         created_at: new Date().toISOString(),
-      });
+      }, { merge: true });
     },
     onSuccess: (_, variables) => {
       const targetGroup = groups.find((g) => g.id === variables.toGroupId);

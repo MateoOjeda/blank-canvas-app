@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dumbbell, Trash2 } from "lucide-react";
-import type { Exercise } from "@/services/rutinas";
+import type { Exercise } from "@/services/routines";
 
 interface ExerciseListPanelProps {
   selectedDay: string;

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Dumbbell } from "lucide-react";
-import type { DayConfig, ExerciseType } from "@/services/rutinas";
+import type { DayConfig, ExerciseType } from "@/services/routines";
 
 interface ExerciseForm {
   name: string;

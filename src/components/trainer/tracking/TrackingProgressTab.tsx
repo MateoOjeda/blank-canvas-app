@@ -14,7 +14,7 @@ import PhotoSessionsPanel from "@/components/trainer/tracking/PhotoSessionsPanel
 import PhotoCompareModal from "@/components/trainer/tracking/PhotoCompareModal";
 import { usePhotoSessions } from "@/hooks/usePhotoSessions";
 import type { Assessment, Injury, Goal, StudentNote } from "@/services/tracking";
-import { format, parseISO } from "date-fns";
+import { safeFormat } from "@/lib/dateUtils";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
@@ -37,12 +37,14 @@ const STATUS_INJURY: Record<InjuryStatus, { label: string; className: string }> 
   activa: { label: "Activa", className: "bg-destructive/10 text-destructive border-destructive/30" },
   recuperada: { label: "Recuperada", className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" },
 };
+const STATUS_INJURY_FALLBACK = { label: "Desconocido", className: "bg-muted/40 text-muted-foreground border-border/40" };
 
 const STATUS_GOAL: Record<GoalStatus, { label: string; className: string }> = {
   en_progreso: { label: "En progreso", className: "bg-primary/10 text-primary border-primary/30" },
   logrado: { label: "Logrado ✓", className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" },
   abandonado: { label: "Abandonado", className: "bg-muted/40 text-muted-foreground border-border/40" },
 };
+const STATUS_GOAL_FALLBACK = { label: "Desconocido", className: "bg-muted/40 text-muted-foreground border-border/40" };
 
 // ─── Metric helpers ───────────────────────────────────────────────────────────
 
@@ -112,7 +114,12 @@ export default function TrackingProgressTab({
 
   // Photo sessions
   const sortedPhotos = useMemo(
-    () => [...photoSessions].sort((a, b) => a.session_date.localeCompare(b.session_date)),
+    () =>
+      [...photoSessions].sort((a, b) => {
+        const sa = typeof a.session_date === "string" ? a.session_date : "";
+        const sb = typeof b.session_date === "string" ? b.session_date : "";
+        return sa.localeCompare(sb);
+      }),
     [photoSessions]
   );
   const initialPhoto = sortedPhotos[0] ?? null;
@@ -214,7 +221,7 @@ export default function TrackingProgressTab({
                       })()}
                       <div className="p-2">
                         <p className="text-[10px] font-bold">
-                          {format(parseISO(initialPhoto.session_date), "d 'de' MMMM yyyy", { locale: es })}
+                          {safeFormat(initialPhoto.session_date, "d 'de' MMMM yyyy", "—", { locale: es })}
                         </p>
                       </div>
                     </div>
@@ -241,7 +248,7 @@ export default function TrackingProgressTab({
                       })()}
                       <div className="p-2">
                         <p className="text-[10px] font-bold">
-                          {format(parseISO((latestPhoto ?? initialPhoto!).session_date), "d 'de' MMMM yyyy", { locale: es })}
+                          {safeFormat((latestPhoto ?? initialPhoto!).session_date, "d 'de' MMMM yyyy", "—", { locale: es })}
                         </p>
                       </div>
                     </div>
@@ -297,7 +304,7 @@ export default function TrackingProgressTab({
           ) : (
             <div className="space-y-3">
               <p className="text-[10px] text-muted-foreground font-semibold">
-                {format(parseISO(latestAssessment.recorded_at), "EEEE d 'de' MMMM yyyy", { locale: es })}
+                {safeFormat(latestAssessment.recorded_at, "EEEE d 'de' MMMM yyyy", "—", { locale: es })}
               </p>
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                 {[
@@ -353,7 +360,7 @@ export default function TrackingProgressTab({
             ) : (
               <div className="space-y-2">
                 {activeInjuries.map((inj) => {
-                  const cfg = STATUS_INJURY[inj.status];
+                  const cfg = STATUS_INJURY[inj.status as InjuryStatus] ?? STATUS_INJURY_FALLBACK;
                   return (
                     <div key={inj.id} className="p-3 rounded-xl bg-destructive/5 border border-destructive/20 space-y-1.5">
                       <div className="flex items-start justify-between gap-2">
@@ -366,12 +373,12 @@ export default function TrackingProgressTab({
                         </Badge>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={cn("text-xs font-bold", painColor(inj.pain_level))}>
-                          Dolor: {inj.pain_level}/10
+                        <span className={cn("text-xs font-bold", painColor(inj.pain_level ?? 0))}>
+                          Dolor: {inj.pain_level ?? "—"}/10
                         </span>
                         {inj.intensity && <Badge variant="outline" className="text-[9px]">{inj.intensity}</Badge>}
                         <span className="text-[9px] text-muted-foreground ml-auto">
-                          {format(parseISO(inj.created_at), "d MMM yyyy", { locale: es })}
+                          {safeFormat(inj.created_at, "d MMM yyyy", "—", { locale: es })}
                         </span>
                       </div>
                       {inj.observations && (
@@ -390,7 +397,7 @@ export default function TrackingProgressTab({
                     </summary>
                     <div className="space-y-2 mt-2">
                       {recoveredInjuries.map((inj) => {
-                        const cfg = STATUS_INJURY[inj.status];
+                        const cfg = STATUS_INJURY[inj.status as InjuryStatus] ?? STATUS_INJURY_FALLBACK;
                         return (
                           <div key={inj.id} className="p-3 rounded-xl bg-secondary/10 border border-border/30 space-y-1.5 opacity-70">
                             <div className="flex items-start justify-between gap-2">
@@ -400,7 +407,7 @@ export default function TrackingProgressTab({
                               </Badge>
                             </div>
                             <span className="text-[9px] text-muted-foreground">
-                              {format(parseISO(inj.created_at), "d MMM yyyy", { locale: es })}
+                              {safeFormat(inj.created_at, "d MMM yyyy", "—", { locale: es })}
                             </span>
                           </div>
                         );
@@ -432,7 +439,8 @@ export default function TrackingProgressTab({
             ) : (
               <div className="space-y-2">
                 {[...activeGoals, ...completedGoals].map((g) => {
-                  const stCfg = STATUS_GOAL[g.status];
+                  const stCfg = STATUS_GOAL[g.status as GoalStatus] ?? STATUS_GOAL_FALLBACK;
+                  const progressPct = Math.min(100, Math.max(0, g.progress_pct ?? 0));
                   return (
                     <div
                       key={g.id}
@@ -456,15 +464,15 @@ export default function TrackingProgressTab({
                       <div className="space-y-1">
                         <div className="flex justify-between text-[9px] text-muted-foreground font-semibold">
                           <span>Progreso</span>
-                          <span className="font-bold text-primary">{g.progress_pct}%</span>
+                          <span className="font-bold text-primary">{progressPct}%</span>
                         </div>
                         <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
-                          <div className="h-full bg-primary/70 rounded-full transition-all duration-500" style={{ width: `${g.progress_pct}%` }} />
+                          <div className="h-full bg-primary/70 rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
                         </div>
                       </div>
                       <p className="text-[9px] text-muted-foreground">
-                        {format(parseISO(g.start_date), "d MMM", { locale: es })} →{" "}
-                        {format(parseISO(g.target_date), "d MMM yyyy", { locale: es })}
+                        {safeFormat(g.start_date, "d MMM", "—", { locale: es })} →{" "}
+                        {safeFormat(g.target_date, "d MMM yyyy", "—", { locale: es })}
                       </p>
                     </div>
                   );
@@ -491,7 +499,7 @@ export default function TrackingProgressTab({
                   <div key={note.id} className="p-3 rounded-xl bg-secondary/10 border border-border/30 space-y-1.5">
                     <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">{note.content}</p>
                     <p className="text-[9px] text-muted-foreground">
-                      {format(parseISO(note.created_at), "d 'de' MMMM yyyy, HH:mm", { locale: es })}
+                      {safeFormat(note.created_at, "d 'de' MMMM yyyy, HH:mm", "—", { locale: es })}
                     </p>
                   </div>
                 ))}

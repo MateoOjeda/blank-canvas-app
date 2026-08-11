@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BODY_PARTS } from "@/lib/exercisesByBodyPart";
-import type { DayConfig } from "@/services/rutinas";
+import type { DayConfig } from "@/services/routines";
 
 interface MuscleConfigCardProps {
   selectedDay: string;

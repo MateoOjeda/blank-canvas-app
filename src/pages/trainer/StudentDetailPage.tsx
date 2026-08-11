@@ -16,7 +16,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDiagnostic } from "@/hooks/useDiagnostic";
 import { useStudentSurveys } from "@/hooks/useStudentSurveys";
 import { useStudentRoutines } from "@/hooks/useStudentRoutines";
-import { fetchRoutineExercises } from "@/services/routineManager";
+import { fetchRoutineExercises, setRoutineCycleDates } from "@/services/routines";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PremiumCard, PremiumCardContent, PremiumCardHeader, PremiumCardTitle } from "@/components/ui/premium-card";
@@ -38,7 +38,6 @@ import PersonalDiagnosticTab from "@/components/trainer/PersonalDiagnosticTab";
 import WeightProgressChart from "@/components/trainer/WeightProgressChart";
 import ExerciseHistoryTab from "@/components/trainer/ExerciseHistoryTab";
 import MealsTab from "@/components/trainer/MealsTab";
-import { setRoutineCycleDates } from "@/services/rutinas";
 import { toast } from "sonner";
 import { addDays, differenceInDays } from "date-fns";
 import { StudentHeader } from "@/components/trainer/student-detail/StudentHeader";
@@ -48,8 +47,8 @@ import { PlanAssignmentCard } from "@/components/trainer/student-detail/PlanAssi
 import { StudentRoutinesTab } from "@/components/trainer/student-detail/StudentRoutinesTab";
 import { StudentSurveysTab } from "@/components/trainer/student-detail/StudentSurveysTab";
 import { StudentMeasurementsTab } from "@/components/trainer/student-detail/StudentMeasurementsTab";
-import { StudentTransformationsTab } from "@/components/trainer/student-detail/StudentTransformationsTab";
 import { StudentHistoryTab } from "@/components/trainer/student-detail/StudentHistoryTab";
+
 
 
 const LEVEL_LABELS: Record<string, string> = {
@@ -332,7 +331,6 @@ export default function StudentDetailPage() {
                 { value: "surveys", label: "Encuestas" },
                 { value: "progress", label: "Progreso" },
                 { value: "measurements", label: "Mediciones" },
-                { value: "transformations", label: "Transformación" },
                 { value: "diagnostic", label: "Diagnóstico" },
                 { value: "history", label: "Historial" }
               ];
@@ -403,11 +401,6 @@ export default function StudentDetailPage() {
             {/* TAB: Mediciones */}
             <TabsContent value="measurements" className="outline-none">
               <StudentMeasurementsTab profile={profile} />
-            </TabsContent>
-
-            {/* TAB: Transformación */}
-            <TabsContent value="transformations" className="outline-none">
-              <StudentTransformationsTab />
             </TabsContent>
 
             {/* TAB: Diagnóstico */}

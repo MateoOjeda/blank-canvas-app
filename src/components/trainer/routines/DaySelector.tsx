@@ -1,7 +1,6 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import type { DayConfig } from "@/services/rutinas";
-import type { Exercise } from "@/services/rutinas";
+import type { DayConfig, Exercise } from "@/services/routines";
 
 const DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const DAY_SHORT = ["L", "M", "X", "J", "V", "S", "D"];

@@ -75,6 +75,51 @@
       ]
     },
     {
+      "collectionGroup": "exercise_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "student_id", "order": "ASCENDING" },
+        { "fieldPath": "trainer_id", "order": "ASCENDING" },
+        { "fieldPath": "log_date", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tracking_assessments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "trainer_id", "order": "ASCENDING" },
+        { "fieldPath": "student_id", "order": "ASCENDING" },
+        { "fieldPath": "recorded_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tracking_notes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "trainer_id", "order": "ASCENDING" },
+        { "fieldPath": "student_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tracking_injuries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "trainer_id", "order": "ASCENDING" },
+        { "fieldPath": "student_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tracking_goals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "trainer_id", "order": "ASCENDING" },
+        { "fieldPath": "student_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "weight_history",
       "queryScope": "COLLECTION",
       "fields": [

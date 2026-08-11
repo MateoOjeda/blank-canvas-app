@@ -126,14 +126,15 @@ export async function fetchAvailableStudents(trainerId: string): Promise<Availab
 }
 
 export async function linkStudent(trainerId: string, studentId: string) {
-  await addDoc(collection(db, "trainer_students"), {
+  const linkId = `${trainerId}_${studentId}`;
+  await setDoc(doc(db, "trainer_students", linkId), {
     trainer_id: trainerId,
     student_id: studentId,
     created_at: new Date().toISOString(),
     payment_status: "pendiente",
     plan_entrenamiento: "none",
     plan_alimentacion: "none"
-  });
+  }, { merge: true });
 }
 
 export async function unlinkStudent(trainerId: string, studentId: string) {
@@ -289,7 +290,8 @@ export async function createStudentProfile(trainerId: string, data: { name: stri
   });
   
   // 3. Link to trainer
-  const linkRef = doc(collection(db, "trainer_students"));
+  const linkId = `${trainerId}_${studentId}`;
+  const linkRef = doc(db, "trainer_students", linkId);
   batch.set(linkRef, {
     trainer_id: trainerId,
     student_id: studentId,
@@ -297,7 +299,7 @@ export async function createStudentProfile(trainerId: string, data: { name: stri
     payment_status: "pendiente",
     plan_entrenamiento: "none",
     plan_alimentacion: "none"
-  });
+  }, { merge: true });
   
   await batch.commit();
   return studentId;

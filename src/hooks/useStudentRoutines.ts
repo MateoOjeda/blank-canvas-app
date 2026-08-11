@@ -9,11 +9,6 @@ import {
   addBiSerieChild as addBiSerieChildService,
   removeBiSerieChild as removeBiSerieChildService,
   autoUpdateRoutineCycle as autoUpdateRoutineCycleService,
-  type Exercise,
-  type DayConfig,
-  type NewExercise,
-} from "@/services/rutinas";
-import {
   getOrCreateActiveRoutine,
   archiveActiveRoutine,
   fetchStudentRoutines,
@@ -21,7 +16,10 @@ import {
   fetchRoutineExercises,
   linkExercisesToRoutine,
   assignGroupRoutineToStudent,
-} from "@/services/routineManager";
+  type Exercise,
+  type DayConfig,
+  type NewExercise,
+} from "@/services/routines";
 
 export function useStudentRoutines(trainerId?: string, studentId?: string) {
   const queryClient = useQueryClient();
@@ -51,8 +49,7 @@ export function useStudentRoutines(trainerId?: string, studentId?: string) {
       let rId = exercise.routine_id;
       // Si no se provee routine_id, se obtiene o crea la rutina activa correspondiente al alumno
       if (!rId) {
-        const { getOrCreateActiveRoutine: getOrCreateActiveRoutineFn } = await import("@/services/routineManager");
-        const activeRoutine = await getOrCreateActiveRoutineFn(trainerId!, "ALUMNO", studentId!);
+        const activeRoutine = await getOrCreateActiveRoutine(trainerId!, "ALUMNO", studentId!);
         rId = activeRoutine.id;
       }
       return addExerciseService({

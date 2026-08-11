@@ -14,8 +14,19 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/user_roles/$(userId)).data.role;
     }
 
+    function isStudentOfTrainer(trainerId) {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/trainer_students/$(trainerId)_$(request.auth.uid))
+      );
+    }
+
+    function isTrainerOfStudent(studentId) {
+      return isAuthenticated() && (
+        exists(/databases/$(database)/documents/trainer_students/$(request.auth.uid)_$(studentId))
+      );
+    }
+
     // Profiles: Read restricted to owners, linked trainers, and students viewing their trainer's profile.
-    // [CAMBIO TAREA-001] Se elimina la lectura pública total (read: if true) para evitar fuga de PII/Salud.
     match /profiles/{userId} {
       allow read: if isAuthenticated() && (
         isOwner(userId) ||
@@ -25,24 +36,19 @@ service cloud.firestore {
       allow write: if isOwner(userId);
     }
 
-    // User Roles: Read by anyone authenticated. 
-    // [CAMBIO TAREA-001] Se restringe el auto-registro para que usuarios nuevos solo puedan registrarse como "student" (evita auto-promoción a trainer).
-    // Se mantiene la compatibilidad con creación de alumnos sombra por parte de entrenadores.
+    // User Roles: Read by anyone authenticated.
     match /user_roles/{docId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && (
-        // Un entrenador puede crear un rol, pero únicamente de tipo "student" (por ejemplo, para alumnos sombra)
         (getRole(request.auth.uid) == "trainer" && request.resource.data.role == "student") ||
-        // Un usuario nuevo que se registra a sí mismo solo puede asignarse el rol de "student"
         (request.auth.uid == docId && request.resource.data.user_id == docId && request.resource.data.role == "student")
       );
       allow update, delete: if isAuthenticated() && (
-        (getRole(request.auth.uid) == "trainer")
+        getRole(request.auth.uid) == "trainer"
       );
     }
 
     // Trainer-Student Links: Read for trainer and linked student.
-    // Update (payment and plans status) restricted to the trainer.
     match /trainer_students/{linkId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == resource.data.trainer_id || 
@@ -62,11 +68,12 @@ service cloud.firestore {
       );
     }
 
-    // Exercises: Only trainers can write/modify exercises for their students.
-    // [CAMBIO TAREA-001] Se elimina la lectura pública anónima (allow read: if student_id != null) para evitar fuga de planificaciones de entrenamientos.
-    // Solo el entrenador propietario y el estudiante asignado pueden leer.
+    // Exercises: Read restricted to owning trainer or assigned student.
     match /exercises/{exerciseId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.trainer_id ||
+        request.auth.uid == resource.data.student_id
+      );
       allow write: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer" && (
           (request.resource != null && request.auth.uid == request.resource.data.trainer_id) ||
@@ -89,9 +96,12 @@ service cloud.firestore {
       );
     }
 
-    // Training Groups: Trainers can manage. All authenticated can read.
+    // Training Groups: Read restricted to owning trainer or group member.
     match /training_groups/{groupId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.trainer_id ||
+        exists(/databases/$(database)/documents/training_group_members/$(resource.data.id)_$(request.auth.uid))
+      );
       allow write: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer" && (
           (request.resource != null && request.auth.uid == request.resource.data.trainer_id) ||
@@ -100,22 +110,28 @@ service cloud.firestore {
       );
     }
 
-    // Group Members: All authenticated can read. Trainers can manage.
+    // Group Members: Read for assigned student or linked trainer.
     match /training_group_members/{memberId} {
       allow read: if isAuthenticated() && (
-        getRole(request.auth.uid) == "trainer" ||
-        request.auth.uid == resource.data.student_id
+        request.auth.uid == resource.data.student_id ||
+        isTrainerOfStudent(resource.data.student_id)
       );
       allow write: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer"
       );
     }
 
-    // Group Exercises: All authenticated can read. Trainers can manage.
+    // Group Exercises: Read for owning trainer or group member.
     match /group_exercises/{exId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.trainer_id ||
+        exists(/databases/$(database)/documents/training_group_members/$(resource.data.group_id)_$(request.auth.uid))
+      );
       allow write: if isAuthenticated() && (
-        getRole(request.auth.uid) == "trainer"
+        getRole(request.auth.uid) == "trainer" && (
+          (request.resource != null && request.auth.uid == request.resource.data.trainer_id) ||
+          (resource != null && request.auth.uid == resource.data.trainer_id)
+        )
       );
     }
 
@@ -133,9 +149,12 @@ service cloud.firestore {
       );
     }
 
-    // Global Plans: Only owners can manage.
+    // Global Plans: Read restricted to owning trainer or linked student.
     match /global_plans/{planId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.trainer_id ||
+        isStudentOfTrainer(resource.data.trainer_id)
+      );
       allow write: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer" && (
           (request.resource != null && request.auth.uid == request.resource.data.trainer_id) ||
@@ -144,7 +163,7 @@ service cloud.firestore {
       );
     }
 
-    // Plan Levels / Purchases: Write restricted to trainers (unlocking plans).
+    // Plan Levels: Read restricted to trainer or assigned student.
     match /plan_levels/{levelId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == resource.data.trainer_id ||
@@ -158,9 +177,12 @@ service cloud.firestore {
       );
     }
 
-    // Surveys: Only trainers can write/create templates.
+    // Custom Surveys: Read restricted to authoring trainer or assigned student.
     match /custom_surveys/{surveyId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.trainer_id ||
+        exists(/databases/$(database)/documents/survey_assignments/$(resource.data.id)_$(request.auth.uid))
+      );
       allow write: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer" && (
           (request.resource != null && request.auth.uid == request.resource.data.trainer_id) ||
@@ -169,9 +191,12 @@ service cloud.firestore {
       );
     }
     
-    // Survey Questions: Only trainers can manage.
+    // Survey Questions: Read restricted to authoring trainer or assigned student.
     match /survey_questions/{questionId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.trainer_id ||
+        exists(/databases/$(database)/documents/survey_assignments/$(resource.data.survey_id)_$(request.auth.uid))
+      );
       allow write: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer" && (
           (request.resource != null && request.auth.uid == request.resource.data.trainer_id) ||
@@ -180,11 +205,12 @@ service cloud.firestore {
       );
     }
     
-    // Personal Diagnostic: All authenticated can read.
+    // Personal Diagnostic: Restricted to student owner or linked trainer.
     match /seguimiento_personal/{docId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == resource.data.student_id ||
-        getRole(request.auth.uid) == "trainer"
+        request.auth.uid == resource.data.trainer_id ||
+        isTrainerOfStudent(resource.data.student_id)
       );
       allow write: if isAuthenticated() && (
         (request.resource != null && request.auth.uid == request.resource.data.student_id) ||
@@ -192,7 +218,7 @@ service cloud.firestore {
       );
     }
     
-    // Survey Assignments: Trainers can assign/delete. Students can update status to completed.
+    // Survey Assignments: Read restricted to trainer or assigned student.
     match /survey_assignments/{assignId} {
       allow read: if isAuthenticated() && (
         !("trainer_id" in resource.data) ||
@@ -217,7 +243,7 @@ service cloud.firestore {
       );
     }
     
-    // Survey Answers: Linked trainer and student can read. Only student/trainer can write/create.
+    // Survey Answers: Read restricted to trainer or assigned student.
     match /survey_answers/{answerId} {
       allow read: if isAuthenticated() && (
         !("trainer_id" in resource.data) ||
@@ -238,7 +264,7 @@ service cloud.firestore {
       );
     }
 
-    // Tracking Changes (Notifications): Trainers can write. Students or trainers can delete (clear).
+    // Trainer Changes (Notifications)
     match /trainer_changes/{docId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == resource.data.trainer_id ||
@@ -254,6 +280,14 @@ service cloud.firestore {
         request.auth.uid == resource.data.student_id
       );
     }
+
+    // System & User Notifications
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated() && request.auth.uid == resource.data.user_id;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.user_id;
+    }
+
 
     // Exercise Logs: Read/Write for trainer and student.
     match /exercise_logs/{logId} {
@@ -281,11 +315,12 @@ service cloud.firestore {
       );
     }
 
-    // Photo Sessions: Students own their sessions. Trainers have read-only access.
+    // Photo Sessions: Student-owned. Read restricted to student, creator trainer, or linked trainer.
     match /photo_sessions/{sessionId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == resource.data.student_id ||
-        getRole(request.auth.uid) == "trainer"
+        request.auth.uid == resource.data.trainer_id ||
+        isTrainerOfStudent(resource.data.student_id)
       );
       allow create: if isAuthenticated() &&
         request.auth.uid == request.resource.data.student_id;
@@ -293,37 +328,54 @@ service cloud.firestore {
         request.auth.uid == resource.data.student_id;
     }
 
-    // Tracking Injuries: Student-owned. Students can CRUD their own injuries. Trainers can read.
-    match /tracking_injuries/{injuryId} {
+    // Tracking Assessments: Read/Write for student, creator trainer, or linked trainer.
+    match /tracking_assessments/{docId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == resource.data.student_id ||
-        getRole(request.auth.uid) == "trainer"
+        request.auth.uid == resource.data.trainer_id ||
+        isTrainerOfStudent(resource.data.student_id)
       );
       allow create: if isAuthenticated() && (
         request.auth.uid == request.resource.data.student_id ||
-        getRole(request.auth.uid) == "trainer"
+        request.auth.uid == request.resource.data.trainer_id
       );
       allow update, delete: if isAuthenticated() && (
         request.auth.uid == resource.data.student_id ||
-        request.auth.uid == resource.data.trainer_id ||
-        getRole(request.auth.uid) == "trainer"
+        request.auth.uid == resource.data.trainer_id
       );
     }
 
-    // Tracking Goals: Student-owned. Students can CRUD their own goals. Trainers can read.
-    match /tracking_goals/{goalId} {
+    // Tracking Injuries: Read/Write for student, creator trainer, or linked trainer.
+    match /tracking_injuries/{injuryId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == resource.data.student_id ||
-        getRole(request.auth.uid) == "trainer"
+        request.auth.uid == resource.data.trainer_id ||
+        isTrainerOfStudent(resource.data.student_id)
       );
       allow create: if isAuthenticated() && (
         request.auth.uid == request.resource.data.student_id ||
-        getRole(request.auth.uid) == "trainer"
+        request.auth.uid == request.resource.data.trainer_id
       );
       allow update, delete: if isAuthenticated() && (
         request.auth.uid == resource.data.student_id ||
+        request.auth.uid == resource.data.trainer_id
+      );
+    }
+
+    // Tracking Goals: Read/Write for student, creator trainer, or linked trainer.
+    match /tracking_goals/{goalId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.student_id ||
         request.auth.uid == resource.data.trainer_id ||
-        getRole(request.auth.uid) == "trainer"
+        isTrainerOfStudent(resource.data.student_id)
+      );
+      allow create: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.student_id ||
+        request.auth.uid == request.resource.data.trainer_id
+      );
+      allow update, delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.student_id ||
+        request.auth.uid == resource.data.trainer_id
       );
     }
 
@@ -339,11 +391,11 @@ service cloud.firestore {
         request.auth.uid == resource.data.trainer_id;
     }
 
-    // Student Notes: Student-owned progress notes. Trainers can read.
+    // Student Notes: Student-owned progress notes. Linked trainer can read.
     match /student_notes/{noteId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == resource.data.student_id ||
-        getRole(request.auth.uid) == "trainer"
+        isTrainerOfStudent(resource.data.student_id)
       );
       allow create: if isAuthenticated() &&
         request.auth.uid == request.resource.data.student_id;
@@ -351,16 +403,33 @@ service cloud.firestore {
         request.auth.uid == resource.data.student_id;
     }
 
-    // Weight History: Student writes their weight. Trainers can read.
+    // Weight History: Student writes their weight. Linked trainer can read.
     match /weight_history/{entryId} {
       allow read: if isAuthenticated() && (
         request.auth.uid == resource.data.student_id ||
-        getRole(request.auth.uid) == "trainer"
+        isTrainerOfStudent(resource.data.student_id)
       );
       allow create: if isAuthenticated() &&
         request.auth.uid == request.resource.data.student_id;
       allow update, delete: if isAuthenticated() &&
         request.auth.uid == resource.data.student_id;
+    }
+
+    // Tracking Recovery: Read/Write for student, creator trainer, or linked trainer.
+    match /tracking_recovery/{docId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.student_id ||
+        request.auth.uid == resource.data.trainer_id ||
+        isTrainerOfStudent(resource.data.student_id)
+      );
+      allow create: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.student_id ||
+        request.auth.uid == request.resource.data.trainer_id
+      );
+      allow update, delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.student_id ||
+        request.auth.uid == resource.data.trainer_id
+      );
     }
 
     // Default: Deny all

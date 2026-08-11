@@ -9,7 +9,6 @@ import {
   setDoc, 
   deleteDoc, 
   updateDoc, 
-  addDoc,
   orderBy
 } from "firebase/firestore";
 import { chunkArray, ChunkedBatch } from "@/lib/chunking";
@@ -282,11 +281,13 @@ export async function fetchStudentPendingSurveys(studentId: string) {
   if (assignments.length === 0) return [];
 
   const surveyIds = assignments.map(a => a.survey_id);
-  const surveysSnap = await getDocsInChunks("custom_surveys", "__name__", surveyIds);
-  const allSurveys = surveysSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
 
-  // Fetch associated questions for these pending surveys
-  const questionsSnap = await getDocsInChunks("survey_questions", "survey_id", surveyIds);
+  // Fetch surveys and questions in parallel — both only depend on surveyIds computed above
+  const [surveysSnap, questionsSnap] = await Promise.all([
+    getDocsInChunks("custom_surveys", "__name__", surveyIds),
+    getDocsInChunks("survey_questions", "survey_id", surveyIds),
+  ]);
+  const allSurveys = surveysSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
   const allQuestions = questionsSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
 
   return assignments.map(a => {
@@ -323,23 +324,28 @@ export async function submitSurveyAnswers(assignmentId: string, answers: { quest
   if (!studentId) throw new Error("No authenticated user");
   
   const batch = new ChunkedBatch(db);
-  
+  const submittedAt = new Date().toISOString();
+
   answers.forEach(a => {
-    const ansRef = doc(collection(db, "survey_answers"));
+    // Deterministic ID: one document per (assignment, question) pair.
+    // setDoc with merge:true makes this idempotent — re-submitting the same
+    // answer updates the existing document instead of creating a duplicate.
+    const answerId = `${assignmentId}_${a.question_id}`;
+    const ansRef = doc(db, "survey_answers", answerId);
     batch.set(ansRef, {
       assignment_id: assignmentId,
       student_id: studentId,
       trainer_id: trainerId,
       question_id: a.question_id,
       answer_text: a.answer_text,
-      created_at: new Date().toISOString()
-    });
+      created_at: submittedAt,
+    }, { merge: true });
   });
   
   batch.update(doc(db, "survey_assignments", assignmentId), { 
     completed: true, 
     status: "completada",
-    completed_at: new Date().toISOString() 
+    completed_at: submittedAt,
   });
     
   await batch.commit();

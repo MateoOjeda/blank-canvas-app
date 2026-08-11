@@ -9,6 +9,7 @@ import {
   fetchNotes, fetchStudentNotes,
   Assessment, Injury, Goal, TrackingNote, StudentNote
 } from "@/services/tracking";
+import { toast } from "sonner";
 
 export interface ExerciseLogDay {
   log_date: string;
@@ -23,12 +24,25 @@ interface UseStudentTrackingResult {
   studentNotes: StudentNote[];
   exerciseLogs: ExerciseLogDay[];
   loading: boolean;
+  permissionDenied: boolean;
+  error: string | null;
   // Setters for optimistic updates
   setAssessments: React.Dispatch<React.SetStateAction<Assessment[]>>;
   setInjuries: React.Dispatch<React.SetStateAction<Injury[]>>;
   setGoals: React.Dispatch<React.SetStateAction<Goal[]>>;
   setNotes: React.Dispatch<React.SetStateAction<TrackingNote[]>>;
   setStudentNotes: React.Dispatch<React.SetStateAction<StudentNote[]>>;
+}
+
+/**
+ * Helper to determine if a caught error represents a Firestore permission denial.
+ */
+function isPermissionError(err: any): boolean {
+  return (
+    err?.code === "permission-denied" ||
+    err?.message?.includes("permission") ||
+    err?.toString()?.includes("permission-denied")
+  );
 }
 
 /**
@@ -47,42 +61,91 @@ export function useStudentTracking(studentId: string | null): UseStudentTracking
   const [studentNotes, setStudentNotes] = useState<StudentNote[]>([]);
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLogDay[]>([]);
   const [loading, setLoading] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!user || !studentId) return;
     setLoading(true);
+    setPermissionDenied(false);
+    setError(null);
+
+    let hasPermissionError = false;
+
+    const handleSubQueryError = (err: any, queryName: string) => {
+      console.error(`Error fetching ${queryName}:`, err);
+      if (isPermissionError(err)) {
+        hasPermissionError = true;
+      }
+    };
 
     try {
+      // Fetch each collection independently so a single Firestore query failure
+      // (e.g. missing composite index) doesn't prevent the others from loading.
       const [a, inj, g, n, sn] = await Promise.all([
-        fetchAssessments(user.uid, studentId),
-        fetchInjuriesByStudent(studentId),
-        fetchGoalsByStudent(studentId),
-        fetchNotes(user.uid, studentId),
-        fetchStudentNotes(studentId),
+        fetchAssessments(user.uid, studentId).catch((err) => {
+          handleSubQueryError(err, "assessments");
+          return [] as typeof assessments;
+        }),
+        fetchInjuriesByStudent(studentId).catch((err) => {
+          handleSubQueryError(err, "injuries");
+          return [] as typeof injuries;
+        }),
+        fetchGoalsByStudent(studentId).catch((err) => {
+          handleSubQueryError(err, "goals");
+          return [] as typeof goals;
+        }),
+        fetchNotes(user.uid, studentId).catch((err) => {
+          handleSubQueryError(err, "trainer notes");
+          return [] as typeof notes;
+        }),
+        fetchStudentNotes(studentId).catch((err) => {
+          handleSubQueryError(err, "student notes");
+          return [] as typeof studentNotes;
+        }),
       ]);
-
-      // Exercise logs — last 200 entries for calendar/alerts/training tab
-      const q = query(
-        collection(db, "exercise_logs"),
-        where("student_id", "==", studentId),
-        where("trainer_id", "==", user.uid),
-        orderBy("log_date", "desc"),
-        limit(200)
-      );
-      const snap = await getDocs(q);
-      const logs: ExerciseLogDay[] = snap.docs.map((d) => ({
-        log_date: d.data().log_date,
-        completed: !!d.data().completed,
-      }));
 
       setAssessments(a);
       setInjuries(inj);
       setGoals(g);
       setNotes(n);
       setStudentNotes(sn);
-      setExerciseLogs(logs);
-    } catch (err) {
+
+      // Exercise logs — isolated query with its own try-catch
+      try {
+        const q = query(
+          collection(db, "exercise_logs"),
+          where("student_id", "==", studentId),
+          where("trainer_id", "==", user.uid),
+          orderBy("log_date", "desc"),
+          limit(200)
+        );
+        const snap = await getDocs(q);
+        const logs: ExerciseLogDay[] = snap.docs.map((d) => ({
+          log_date: d.data().log_date,
+          completed: !!d.data().completed,
+        }));
+        setExerciseLogs(logs);
+      } catch (exerciseErr: any) {
+        handleSubQueryError(exerciseErr, "exercise logs");
+      }
+
+      if (hasPermissionError) {
+        setPermissionDenied(true);
+        const permErrMsg = "No tienes permiso para ver el seguimiento de este alumno.";
+        setError(permErrMsg);
+        toast.error(permErrMsg);
+      }
+    } catch (err: any) {
       console.error("Error loading student tracking data:", err);
+      if (isPermissionError(err)) {
+        setPermissionDenied(true);
+        const permErrMsg = "No tienes permiso para ver el seguimiento de este alumno.";
+        setError(permErrMsg);
+        toast.error(permErrMsg);
+      } else {
+        setError(err?.message || "Error al cargar los datos de seguimiento");
+      }
     } finally {
       setLoading(false);
     }
@@ -95,6 +158,8 @@ export function useStudentTracking(studentId: string | null): UseStudentTracking
     setNotes([]);
     setStudentNotes([]);
     setExerciseLogs([]);
+    setPermissionDenied(false);
+    setError(null);
     if (studentId) {
       fetchAll();
     }
@@ -102,6 +167,7 @@ export function useStudentTracking(studentId: string | null): UseStudentTracking
 
   return {
     assessments, injuries, goals, notes, studentNotes, exerciseLogs, loading,
+    permissionDenied, error,
     setAssessments, setInjuries, setGoals, setNotes, setStudentNotes,
   };
 }

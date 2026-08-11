@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, TrendingUp } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { format, parseISO } from "date-fns";
+import { safeFormat } from "@/lib/dateUtils";
 import { es } from "date-fns/locale";
 
 interface Props {
@@ -37,7 +37,12 @@ export default function WeightProgressChart({ studentId }: Props) {
           orderBy("recorded_at", "asc")
         );
         const snap = await getDocs(q);
-        const entries = snap.docs.map(d => ({ weight: d.data().weight, recorded_at: d.data().recorded_at }));
+        const entries: WeightEntry[] = snap.docs
+          .map(d => ({
+            weight: d.data().weight,
+            recorded_at: d.data().recorded_at,
+          }))
+          .filter(e => e.weight != null && e.recorded_at != null);
         setData(entries);
       } catch (err) {
         console.error("Error fetching weight history:", err);
@@ -63,11 +68,18 @@ export default function WeightProgressChart({ studentId }: Props) {
     );
   }
 
-  const chartData = data.map((d) => ({
-    date: format(parseISO(d.recorded_at), "dd MMM", { locale: es }),
-    peso: Number(d.weight),
-    fullDate: format(parseISO(d.recorded_at), "d 'de' MMMM yyyy", { locale: es }),
-  }));
+  const chartData = data
+    .map((d) => {
+      const dateLabel = safeFormat(d.recorded_at, "dd MMM", "", { locale: es });
+      const fullLabel = safeFormat(d.recorded_at, "d 'de' MMMM yyyy", "", { locale: es });
+      return {
+        date: dateLabel || "—",
+        peso: Number(d.weight),
+        fullDate: fullLabel || "—",
+        _valid: !!dateLabel, // used to filter out entries that couldn't be parsed
+      };
+    })
+    .filter(d => d._valid);
 
   const latest = data[data.length - 1];
   const first = data[0];
