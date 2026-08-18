@@ -174,33 +174,46 @@ export async function unlinkStudent(trainerId: string, studentId: string) {
 export async function deleteStudentPermanently(trainerId: string, studentId: string) {
   const deleteQueue: any[] = [];
   
-  // 1. Collections directly tied to student_id
-  const collections = [
+  // 1. Collections directly tied to student_id + trainer_id
+  const collectionsWithTrainer = [
     "exercise_logs", 
     "exercises", 
     "plan_levels", 
     "trainer_changes", 
     "routine_day_config",
     "trainer_students",
-    "student_meals",
-    "training_group_members",
     "routines"
   ];
 
-  // 2. Extra queries
+  // 2. Collections tied to student_id only
+  const collectionsStudentOnly = [
+    "student_meals",
+    "training_group_members",
+    "notifications",
+    "tracking_assessments",
+    "tracking_injuries",
+    "tracking_goals",
+    "tracking_notes",
+    "student_notes",
+    "weight_history",
+    "tracking_recovery",
+    "change_readings",
+    "seguimiento_personal",
+    "photo_sessions"
+  ];
+
+  // 3. Extra queries
   const qRole = query(collection(db, "user_roles"), where("user_id", "==", studentId));
   const qAssignments = query(collection(db, "survey_assignments"), where("student_id", "==", studentId));
 
   // Query all in parallel to minimize roundtrips
-  const queryPromises = collections.map(coll => {
-    let q;
-    if (["exercise_logs", "exercises", "plan_levels", "trainer_changes", "routine_day_config", "trainer_students", "routines"].includes(coll)) {
-       q = query(collection(db, coll), where("student_id", "==", studentId), where("trainer_id", "==", trainerId));
-    } else {
-       q = query(collection(db, coll), where("student_id", "==", studentId));
-    }
-    return getDocs(q);
-  });
+  const trainerPromises = collectionsWithTrainer.map(coll => 
+    getDocs(query(collection(db, coll), where("student_id", "==", studentId), where("trainer_id", "==", trainerId)))
+  );
+
+  const studentPromises = collectionsStudentOnly.map(coll => 
+    getDocs(query(collection(db, coll), where("student_id", "==", studentId)))
+  );
 
   const [
     roleSnap,
@@ -209,10 +222,11 @@ export async function deleteStudentPermanently(trainerId: string, studentId: str
   ] = await Promise.all([
     getDocs(qRole),
     getDocs(qAssignments),
-    ...queryPromises
+    ...trainerPromises,
+    ...studentPromises
   ]);
 
-  // Collect documents to delete from collections
+  // Collect documents to delete from all collections
   collectionsSnaps.forEach(snap => {
     snap.docs.forEach(d => deleteQueue.push(d.ref));
   });

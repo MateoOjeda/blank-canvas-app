@@ -110,7 +110,8 @@ export async function getOrCreateActiveRoutine(
     return { id: d.id, ...d.data() } as Routine;
   }
 
-  const newDoc = {
+  const routineId = `${trainerId}_${targetId}`;
+  const routineData = {
     trainer_id: trainerId,
     target_type: targetType,
     target_id: targetId,
@@ -120,8 +121,8 @@ export async function getOrCreateActiveRoutine(
     created_at: new Date().toISOString()
   };
 
-  const docRef = await addDoc(collection(db, "routines"), newDoc);
-  return { id: docRef.id, ...newDoc } as Routine;
+  await setDoc(doc(db, "routines", routineId), routineData, { merge: true });
+  return { id: routineId, ...routineData } as Routine;
 }
 
 /**
@@ -439,6 +440,7 @@ export async function assignGroupRoutineToStudent(
   studentId: string,
   groupId: string
 ): Promise<void> {
+  // 1. Archive any active individual routine for this student
   const qActive = query(
     collection(db, "routines"),
     where("trainer_id", "==", trainerId),
@@ -453,15 +455,22 @@ export async function assignGroupRoutineToStudent(
     where("student_id", "==", studentId)
   );
 
-  const [activeSnap, linkSnap] = await Promise.all([
+  // 2. Fetch group exercises to copy into student's routine
+  const qGroupEx = query(
+    collection(db, "group_exercises"),
+    where("group_id", "==", groupId)
+  );
+
+  const [activeSnap, linkSnap, groupExSnap] = await Promise.all([
     getDocs(qActive),
-    getDocs(qLink)
+    getDocs(qLink),
+    getDocs(qGroupEx)
   ]);
 
   const batch = new ChunkedBatch(db);
   let hasWrites = false;
 
-  // 1. Archive ANY current active individual routine for this student
+  // Archive current active individual routine
   if (!activeSnap.empty) {
     activeSnap.docs.forEach(d => {
       if (d.data().status !== "ARCHIVADA") {
@@ -471,7 +480,7 @@ export async function assignGroupRoutineToStudent(
     });
   }
 
-  // 2. Automatically update routine cycle dates to keep the range active
+  // Update cycle dates
   if (!linkSnap.empty) {
     const docRef = linkSnap.docs[0].ref;
     const data = linkSnap.docs[0].data();
@@ -481,7 +490,7 @@ export async function assignGroupRoutineToStudent(
     const todayLocal = new Date(today.getTime() - (offset * 60 * 1000));
     const todayStr = todayLocal.toISOString().split('T')[0];
     
-    const updates: any = {};
+    const updates: Record<string, string> = {};
     if (data.routine_assignment_date !== todayStr) {
       updates.routine_assignment_date = todayStr;
     }
@@ -508,7 +517,54 @@ export async function assignGroupRoutineToStudent(
     await batch.commit();
   }
 
-  // Notify student about new group routine assignment
+  // 3. Get or create active routine for student and copy group exercises into it
+  const routine = await getOrCreateActiveRoutine(trainerId, "ALUMNO", studentId);
+
+  if (!groupExSnap.empty) {
+    const exBatch = new ChunkedBatch(db);
+    const groupIdToNewId = new Map<string, string>();
+
+    groupExSnap.docs.forEach(d => {
+      const data = d.data();
+      const newId = `${routine.id}_${d.id}`;
+      groupIdToNewId.set(d.id, newId);
+
+      exBatch.set(doc(db, "exercises", newId), {
+        trainer_id: trainerId,
+        student_id: studentId,
+        routine_id: routine.id,
+        name: data.name,
+        sets: data.sets,
+        reps: data.reps,
+        weight: data.weight || 0,
+        day: data.day,
+        body_part: data.body_part,
+        is_to_failure: data.is_to_failure || false,
+        is_dropset: data.is_dropset || false,
+        is_piramide: data.is_piramide || false,
+        pyramid_reps: data.pyramid_reps || null,
+        exercise_type: data.exercise_type || "NORMAL",
+        parent_exercise_id: null,
+        completed: false,
+        created_at: new Date().toISOString()
+      }, { merge: true });
+    });
+
+    // Fix parent_exercise_id references
+    groupExSnap.docs.forEach(d => {
+      const data = d.data();
+      if (data.parent_exercise_id && groupIdToNewId.has(data.parent_exercise_id)) {
+        const newId = `${routine.id}_${d.id}`;
+        exBatch.update(doc(db, "exercises", newId), {
+          parent_exercise_id: groupIdToNewId.get(data.parent_exercise_id)
+        });
+      }
+    });
+
+    await exBatch.commit();
+  }
+
+  // Notify student
   createNotification({
     userId: studentId,
     type: "routine",

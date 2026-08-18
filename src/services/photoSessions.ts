@@ -107,8 +107,14 @@ export async function deletePhotoSession(id: string): Promise<void> {
   try {
     const docSnap = await getDoc(doc(db, "photo_sessions", id));
     if (docSnap.exists()) {
-      const photos: string[] = docSnap.data()?.photos || [];
-      await Promise.all(photos.map(url => deleteStoragePhoto(url)));
+      const photos = (docSnap.data()?.photos as PhotoSessionPhotos) || {};
+      const urls: string[] = [];
+      if (photos.front) urls.push(photos.front);
+      if (photos.back) urls.push(photos.back);
+      if (photos.left) urls.push(photos.left);
+      if (photos.right) urls.push(photos.right);
+      if (photos.extra && Array.isArray(photos.extra)) urls.push(...photos.extra);
+      await Promise.all(urls.map(url => deleteStoragePhoto(url)));
     }
   } catch {
     // Best effort — don't block doc deletion if Storage cleanup fails

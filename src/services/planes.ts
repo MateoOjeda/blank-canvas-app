@@ -126,8 +126,8 @@ export async function updatePlanAssignment(
         hasWrites = true;
       }
     } else {
-      const newDocRef = doc(collection(db, "plan_levels"));
-      batch.set(newDocRef, {
+      const levelId = `${trainerId}_${studentId}_${planType}_${level}`;
+      batch.set(doc(db, "plan_levels", levelId), {
         trainer_id: trainerId,
         student_id: studentId,
         plan_type: planType,
@@ -135,7 +135,7 @@ export async function updatePlanAssignment(
         unlocked: true,
         content: "",
         created_at: new Date().toISOString()
-      });
+      }, { merge: true });
       hasWrites = true;
     }
   }
