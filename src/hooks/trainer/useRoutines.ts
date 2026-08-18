@@ -121,6 +121,7 @@ export function useRoutines() {
         setSelectedIds(new Set());
       } catch (err) {
         console.error("Error fetching group data:", err);
+        toast.error("Error al cargar datos del grupo");
       } finally {
         setLoadingExercises(false);
       }
@@ -148,6 +149,7 @@ export function useRoutines() {
       setSelectedIds(new Set());
     } catch (err) {
       console.error("Error fetching routine data:", err);
+      toast.error("Error al cargar la rutina");
     } finally {
       setLoadingExercises(false);
     }

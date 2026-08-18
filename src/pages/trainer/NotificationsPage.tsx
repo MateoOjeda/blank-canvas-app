@@ -1,24 +1,22 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
 import { 
   collection, 
   query, 
   where, 
-  getDocs, 
   orderBy, 
   limit, 
   onSnapshot, 
-  writeBatch,
   doc,
 } from "firebase/firestore";
 import { ChunkedBatch } from "@/lib/chunking";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Bell, Camera, CheckCheck, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
+import { toast } from "sonner";
 
 interface Notification {
   id: string;
@@ -56,6 +54,7 @@ export default function NotificationsPage() {
       setLoading(false);
     }, (err) => {
       console.error("Error fetching notifications:", err);
+      toast.error("Error al cargar notificaciones");
       setLoading(false);
     });
 
@@ -75,6 +74,7 @@ export default function NotificationsPage() {
       await batch.commit();
     } catch (err) {
       console.error("Error marking all as read:", err);
+      toast.error("Error al marcar como leído");
     }
   };
 
