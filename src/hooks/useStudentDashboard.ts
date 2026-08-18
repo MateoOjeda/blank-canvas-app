@@ -1,14 +1,16 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { db } from "@/lib/firebase";
-import { doc, getDoc, collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
+import { useQuery } from "@tanstack/react-query";
+import {
+  fetchStudentProfile,
+  fetchStudentTrainerLink,
+  fetchTrainerChanges,
+} from "@/services/studentDashboard";
 
 export function useStudentDashboard(studentId?: string) {
   const profileQuery = useQuery({
     queryKey: ["studentProfile", studentId],
     queryFn: async () => {
       if (!studentId) return null;
-      const snap = await getDoc(doc(db, "profiles", studentId));
-      return snap.exists() ? snap.data() : null;
+      return fetchStudentProfile(studentId);
     },
     enabled: !!studentId,
   });
@@ -17,9 +19,7 @@ export function useStudentDashboard(studentId?: string) {
     queryKey: ["studentTrainerLink", studentId],
     queryFn: async () => {
       if (!studentId) return null;
-      const q = query(collection(db, "trainer_students"), where("student_id", "==", studentId));
-      const snap = await getDocs(q);
-      return !snap.empty ? snap.docs[0].data() : null;
+      return fetchStudentTrainerLink(studentId);
     },
     enabled: !!studentId,
   });
@@ -28,14 +28,7 @@ export function useStudentDashboard(studentId?: string) {
     queryKey: ["trainerChanges", studentId],
     queryFn: async () => {
       if (!studentId) return [];
-      const q = query(
-        collection(db, "trainer_changes"), 
-        where("student_id", "==", studentId),
-        orderBy("created_at", "desc"),
-        limit(10)
-      );
-      const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      return fetchTrainerChanges(studentId);
     },
     enabled: !!studentId,
   });

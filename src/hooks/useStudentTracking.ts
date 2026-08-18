@@ -1,20 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { db } from "@/lib/firebase";
-import {
-  collection, query, where, getDocs, orderBy, limit
-} from "firebase/firestore";
 import {
   fetchAssessments, fetchInjuriesByStudent, fetchGoalsByStudent,
   fetchNotes, fetchStudentNotes,
   Assessment, Injury, Goal, TrackingNote, StudentNote
 } from "@/services/tracking";
+import { fetchExerciseLogs, type ExerciseLogDay } from "@/services/exerciseLogs";
 import { toast } from "sonner";
 
-export interface ExerciseLogDay {
-  log_date: string;
-  completed: boolean;
-}
+export { type ExerciseLogDay } from "@/services/exerciseLogs";
 
 interface UseStudentTrackingResult {
   assessments: Assessment[];
@@ -113,18 +107,7 @@ export function useStudentTracking(studentId: string | null): UseStudentTracking
 
       // Exercise logs — isolated query with its own try-catch
       try {
-        const q = query(
-          collection(db, "exercise_logs"),
-          where("student_id", "==", studentId),
-          where("trainer_id", "==", user.uid),
-          orderBy("log_date", "desc"),
-          limit(200)
-        );
-        const snap = await getDocs(q);
-        const logs: ExerciseLogDay[] = snap.docs.map((d) => ({
-          log_date: d.data().log_date,
-          completed: !!d.data().completed,
-        }));
+        const logs = await fetchExerciseLogs(studentId, user.uid);
         setExerciseLogs(logs);
       } catch (exerciseErr: any) {
         handleSubQueryError(exerciseErr, "exercise logs");

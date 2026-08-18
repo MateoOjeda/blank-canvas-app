@@ -1,16 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { db } from "@/lib/firebase";
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  orderBy, 
-  limit, 
-  setDoc, 
-  updateDoc, 
-  doc 
-} from "firebase/firestore";
+import { fetchDiagnostic, saveDiagnostic } from "@/services/diagnostic";
 
 export function useDiagnostic(studentId?: string) {
   const queryClient = useQueryClient();
@@ -19,34 +8,18 @@ export function useDiagnostic(studentId?: string) {
     queryKey: ["personalDiagnostic", studentId],
     queryFn: async () => {
       if (!studentId) return null;
-      const q = query(
-        collection(db, "seguimiento_personal"),
-        where("student_id", "==", studentId),
-        orderBy("created_at", "desc"),
-        limit(1)
-      );
-      const snap = await getDocs(q);
-      if (snap.empty) return null;
-      const document = snap.docs[0];
-      return { id: document.id, ...document.data() } as any;
+      return fetchDiagnostic(studentId);
     },
     enabled: !!studentId,
   });
 
   const saveDiagnosticMutation = useMutation({
-    mutationFn: async ({ existingId, payload }: { existingId: string | null; payload: any }) => {
+    mutationFn: async ({ existingId, payload }: { existingId: string | null; payload: Record<string, unknown> }) => {
       if (!studentId) throw new Error("No student ID provided");
-      if (existingId) {
-        await updateDoc(doc(db, "seguimiento_personal", existingId), payload);
-      } else {
-        await setDoc(doc(db, "seguimiento_personal", studentId), {
-          student_id: studentId,
-          created_at: new Date().toISOString(),
-          ...payload,
-        });
-        // Update the query cache so subsequent reads pick up the new doc
-        queryClient.setQueryData(["personalDiagnostic", studentId], 
-          (old: any) => old ?? { id: studentId, student_id: studentId, ...payload }
+      await saveDiagnostic(studentId, existingId, payload);
+      if (!existingId) {
+        queryClient.setQueryData(["personalDiagnostic", studentId],
+          (old: unknown) => old ?? { id: studentId, student_id: studentId, ...payload }
         );
       }
     },

@@ -1,24 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { db } from "@/lib/firebase";
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  orderBy, 
-  addDoc, 
-  deleteDoc,
-  doc,
-  limit
-} from "firebase/firestore";
+import {
+  fetchStudentMeals,
+  fetchNutritionLevel,
+  addStudentMeal,
+  deleteStudentMeal,
+  type Meal,
+} from "@/services/studentMeals";
 
-export interface Meal {
-  id: string;
-  title: string;
-  content: string;
-  meal_type: string;
-  created_at: string;
-}
+export type { Meal };
 
 export function useStudentMeals(studentId?: string, trainerId?: string) {
   const queryClient = useQueryClient();
@@ -27,24 +16,7 @@ export function useStudentMeals(studentId?: string, trainerId?: string) {
     queryKey: ["studentMeals", studentId, trainerId],
     queryFn: async () => {
       if (!studentId) return [];
-      
-      let q = query(
-        collection(db, "student_meals"),
-        where("student_id", "==", studentId),
-        orderBy("created_at", "desc")
-      );
-
-      if (trainerId && trainerId !== studentId) {
-        q = query(
-          collection(db, "student_meals"),
-          where("student_id", "==", studentId),
-          where("trainer_id", "==", trainerId),
-          orderBy("created_at", "desc")
-        );
-      }
-
-      const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() } as Meal));
+      return fetchStudentMeals(studentId, trainerId);
     },
     enabled: !!studentId,
   });
@@ -53,38 +25,15 @@ export function useStudentMeals(studentId?: string, trainerId?: string) {
     queryKey: ["nutritionLevel", studentId],
     queryFn: async () => {
       if (!studentId) return "principiante";
-      const q = query(
-        collection(db, "plan_levels"),
-        where("student_id", "==", studentId),
-        where("plan_type", "==", "nutricion"),
-        where("unlocked", "==", true),
-        limit(1)
-      );
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        return snap.docs[0].data().level;
-      }
-      return "principiante";
+      return fetchNutritionLevel(studentId);
     },
     enabled: !!studentId,
   });
 
   const addMealMutation = useMutation({
-    mutationFn: async (data: { title: string; ingredients: string; options: any[] }) => {
+    mutationFn: async (data: { title: string; ingredients: string; options: Array<{ name: string; description: string }> }) => {
       if (!trainerId || !studentId) throw new Error("Missing trainer or student ID");
-      const mealData = {
-        ingredients: data.ingredients.trim(),
-        options: data.options.filter(o => o.name.trim() || o.description.trim())
-      };
-      await addDoc(collection(db, "student_meals"), {
-        trainer_id: trainerId,
-        student_id: studentId,
-        title: data.title.trim(),
-        content: JSON.stringify(mealData),
-        meal_type: "general",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
+      return addStudentMeal(trainerId, studentId, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["studentMeals", studentId, trainerId] });
@@ -93,7 +42,7 @@ export function useStudentMeals(studentId?: string, trainerId?: string) {
 
   const deleteMealMutation = useMutation({
     mutationFn: async (mealId: string) => {
-      await deleteDoc(doc(db, "student_meals", mealId));
+      return deleteStudentMeal(mealId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["studentMeals", studentId, trainerId] });
