@@ -34,7 +34,7 @@ service cloud.firestore {
         getRole(userId) == "trainer"
       );
       allow write: if isOwner(userId) || (
-        getRole(request.auth.uid) == "trainer"
+        getRole(request.auth.uid) == "trainer" && isTrainerOfStudent(userId)
       );
     }
 
@@ -134,8 +134,14 @@ service cloud.firestore {
         request.auth.uid == resource.data.student_id ||
         isTrainerOfStudent(resource.data.student_id)
       );
-      allow write: if isAuthenticated() && (
+      allow create: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer"
+      );
+      allow update, delete: if isAuthenticated() && (
+        getRole(request.auth.uid) == "trainer" && (
+          (request.resource != null && request.auth.uid == request.resource.data.trainer_id) ||
+          (resource != null && exists(/databases/$(database)/documents/training_groups/$(resource.data.group_id)) && get(/databases/$(database)/documents/training_groups/$(resource.data.group_id)).data.trainer_id == request.auth.uid)
+        )
       );
     }
 
@@ -232,7 +238,8 @@ service cloud.firestore {
       );
       allow write: if isAuthenticated() && (
         (request.resource != null && request.auth.uid == request.resource.data.student_id) ||
-        (resource != null && request.auth.uid == resource.data.student_id)
+        (resource != null && request.auth.uid == resource.data.student_id) ||
+        (getRole(request.auth.uid) == "trainer" && isTrainerOfStudent(request.resource.data.student_id))
       );
     }
     
@@ -250,7 +257,7 @@ service cloud.firestore {
       );
       allow update: if isAuthenticated() && (
         (getRole(request.auth.uid) == "trainer" && (!("trainer_id" in resource.data) || resource.data.trainer_id == null || request.auth.uid == resource.data.trainer_id)) ||
-        (request.auth.uid == resource.data.student_id && request.resource.data.status == "completada")
+        (request.auth.uid == resource.data.student_id && request.resource.data.status == "completada" && request.resource.data.keySet().hasOnly(["status", "completed", "completed_at"]))
       );
       allow delete: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer" && (
@@ -302,7 +309,10 @@ service cloud.firestore {
     // System & User Notifications
     match /notifications/{notifId} {
       allow read: if isAuthenticated() && request.auth.uid == resource.data.user_id;
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.user_id;
+      allow create: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.user_id ||
+        getRole(request.auth.uid) == "trainer"
+      );
       allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.user_id;
     }
 
@@ -340,10 +350,14 @@ service cloud.firestore {
         request.auth.uid == resource.data.trainer_id ||
         isTrainerOfStudent(resource.data.student_id)
       );
-      allow create: if isAuthenticated() &&
-        request.auth.uid == request.resource.data.student_id;
-      allow update, delete: if isAuthenticated() &&
-        request.auth.uid == resource.data.student_id;
+      allow create: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.student_id ||
+        (getRole(request.auth.uid) == "trainer" && isTrainerOfStudent(request.resource.data.student_id))
+      );
+      allow update, delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.student_id ||
+        (getRole(request.auth.uid) == "trainer" && isTrainerOfStudent(resource.data.student_id))
+      );
     }
 
     // Tracking Assessments: Read/Write for student, creator trainer, or linked trainer.
