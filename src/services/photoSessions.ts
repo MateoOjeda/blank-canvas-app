@@ -4,6 +4,7 @@ import {
   query,
   where,
   getDocs,
+  getDoc,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -103,6 +104,15 @@ export async function updatePhotoSession(
 }
 
 export async function deletePhotoSession(id: string): Promise<void> {
+  try {
+    const docSnap = await getDoc(doc(db, "photo_sessions", id));
+    if (docSnap.exists()) {
+      const photos: string[] = docSnap.data()?.photos || [];
+      await Promise.all(photos.map(url => deleteStoragePhoto(url)));
+    }
+  } catch {
+    // Best effort — don't block doc deletion if Storage cleanup fails
+  }
   await deleteDoc(doc(db, "photo_sessions", id));
 }
 

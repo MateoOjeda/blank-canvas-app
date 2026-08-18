@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import { ChunkedBatch } from "@/lib/chunking";
 import { LEVELS, DEFAULT_PRICES } from "@/lib/planConstants";
+import { createNotification } from "./notifications";
 
 export interface GlobalPlan {
   id: string;
@@ -159,6 +160,16 @@ export async function updatePlanAssignment(
 
   if (hasWrites) {
     await batch.commit();
+  }
+
+  // Notify student about plan level change
+  if (level !== "none") {
+    createNotification({
+      userId: studentId,
+      type: "plan",
+      title: "Nivel de plan actualizado",
+      message: `Tu entrenador te ha asignado el nivel "${level}" del plan de ${planType === "entrenamiento" ? "entrenamiento" : "alimentación"}.`,
+    }).catch(() => {});
   }
 }
 

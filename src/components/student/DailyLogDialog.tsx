@@ -54,7 +54,7 @@ export default function DailyLogDialog({ open, onClose, exercise, studentId, tra
         actual_reps: parseInt(actualReps) || null,
         actual_weight: parseFloat(actualWeight) || null,
         notes,
-        updated_at: new Date().toISOString()
+        created_at: new Date().toISOString()
       }, { merge: true });
 
       toast.success("Registro guardado");

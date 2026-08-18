@@ -7,7 +7,7 @@ import {
   getDocs, 
   orderBy, 
   limit, 
-  addDoc, 
+  setDoc, 
   updateDoc, 
   doc 
 } from "firebase/firestore";
@@ -39,11 +39,15 @@ export function useDiagnostic(studentId?: string) {
       if (existingId) {
         await updateDoc(doc(db, "seguimiento_personal", existingId), payload);
       } else {
-        await addDoc(collection(db, "seguimiento_personal"), {
+        await setDoc(doc(db, "seguimiento_personal", studentId), {
           student_id: studentId,
           created_at: new Date().toISOString(),
           ...payload,
         });
+        // Update the query cache so subsequent reads pick up the new doc
+        queryClient.setQueryData(["personalDiagnostic", studentId], 
+          (old: any) => old ?? { id: studentId, student_id: studentId, ...payload }
+        );
       }
     },
     onSuccess: () => {

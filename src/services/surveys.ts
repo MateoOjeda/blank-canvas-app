@@ -12,6 +12,7 @@ import {
   orderBy
 } from "firebase/firestore";
 import { chunkArray, ChunkedBatch } from "@/lib/chunking";
+import { createNotification } from "./notifications";
 
 // Simple in-memory cache to minimize Firestore read operations on static definitions
 const surveyCache = new Map<string, any>();
@@ -170,6 +171,17 @@ export async function assignSurveyToStudents(surveyId: string, studentIds: strin
   });
 
   await batch.commit();
+
+  // Notify each student about the new survey assignment
+  studentIds.forEach(id => {
+    createNotification({
+      userId: id,
+      type: "survey",
+      title: "Nueva encuesta",
+      message: "Tu entrenador te ha asignado una nueva encuesta.",
+      relatedId: surveyId,
+    }).catch(() => {});
+  });
 }
 
 export async function removeSurveyAssignment(surveyId: string, studentId: string) {
@@ -178,8 +190,6 @@ export async function removeSurveyAssignment(surveyId: string, studentId: string
 }
 
 export async function deleteSurvey(surveyId: string) {
-  console.log("[Delete Flow 4/11] Service deleteSurvey called. Survey ID received:", surveyId);
-
   // Invalidate cache
   surveyCache.delete(surveyId);
   questionsCache.delete(surveyId);
@@ -187,20 +197,13 @@ export async function deleteSurvey(surveyId: string) {
   const deleteQueue: any[] = [];
   
   // 1. Fetch associated questions and assignments in parallel
-  console.log("[Delete Flow 5/11] Querying survey_questions for survey_id:", surveyId);
-  console.log("[Delete Flow 6/11] Querying survey_assignments for survey_id:", surveyId);
-
   const [qSnap, aSnap] = await Promise.all([
     getDocs(query(collection(db, "survey_questions"), where("survey_id", "==", surveyId))),
     getDocs(query(collection(db, "survey_assignments"), where("survey_id", "==", surveyId)))
   ]);
-
-  console.log(`[Delete Flow 5/11 Result] Found ${qSnap.docs.length} questions:`, qSnap.docs.map(d => ({ id: d.id, path: d.ref.path, data: d.data() })));
-  console.log(`[Delete Flow 6/11 Result] Found ${aSnap.docs.length} assignments:`, aSnap.docs.map(d => ({ id: d.id, path: d.ref.path, data: d.data() })));
   
   // 2. Fetch associated answers for these assignments
   const assignmentIds = aSnap.docs.map(d => d.id);
-  console.log("[Delete Flow 7/11] Querying survey_answers for assignmentIds:", assignmentIds);
 
   if (assignmentIds.length > 0) {
     const chunks = chunkArray(assignmentIds, 30);
@@ -211,9 +214,6 @@ export async function deleteSurvey(surveyId: string) {
     answersSnaps.forEach(snap => {
       snap.docs.forEach(d => deleteQueue.push(d.ref));
     });
-    console.log(`[Delete Flow 7/11 Result] Found ${deleteQueue.length} answers to delete.`);
-  } else {
-    console.log("[Delete Flow 7/11 Result] No assignments found, 0 answers to query.");
   }
 
   // 3. Add questions and assignments to delete queue
@@ -224,25 +224,14 @@ export async function deleteSurvey(surveyId: string) {
   const surveyDocRef = doc(db, "custom_surveys", surveyId);
   deleteQueue.push(surveyDocRef);
 
-  console.log(`[Delete Flow 8/11] Batch operations created (${deleteQueue.length} total docs to delete):`, deleteQueue.map(ref => ref.path));
-
   // 5. Commit deletes automatically chunked by ChunkedBatch
   const batch = new ChunkedBatch(db);
   deleteQueue.forEach(ref => batch.delete(ref));
 
-  console.log("[Delete Flow 9/11] batch.commit() started...");
   try {
     await batch.commit();
-    console.log("[Delete Flow 9/11] batch.commit() finished successfully!");
   } catch (err: any) {
-    console.error("[Delete Flow ERROR in batch.commit()] Complete FirebaseError object:", {
-      error: err,
-      code: err?.code,
-      message: err?.message,
-      stack: err?.stack,
-      customData: err?.customData,
-      rawString: String(err)
-    });
+    console.error("Error deleting survey:", surveyId, err);
     throw err;
   }
 }

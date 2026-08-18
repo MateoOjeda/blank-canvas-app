@@ -8,8 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Zap, Dumbbell, User, ArrowLeft, Mail, Lock, UserPlus, LogIn, Chrome } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const TRAINER_CODE = "12345678910a";
-
 export default function AuthPage() {
   const { signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
   const navigate = useNavigate();
@@ -33,7 +31,7 @@ export default function AuthPage() {
 
     if (err.code === 'auth/unauthorized-domain') {
       title = "Dominio no autorizado";
-      description = "Google Sign-In requiere que el dominio actual esté autorizado en la consola de Firebase. En localhost, asegúrate de añadirlo en Firebase Console > Auth > Settings.";
+      description = "Google Sign-In requiere que el dominio actual esté autorizado en la consola de Firebase. Añade el dominio en Firebase Console > Auth > Settings > Authorized domains.";
     } else if (err.code === 'auth/operation-not-allowed') {
       title = "Proveedor deshabilitado";
       description = "Debes habilitar el proveedor (Email o Google) en la consola de Firebase.";
@@ -81,7 +79,6 @@ export default function AuthPage() {
     } catch (err) {
       handleAuthError(err, "Google Auth");
     } finally {
-      setLoading(true); // Keep loading while redirecting
       setLoading(false);
     }
   };

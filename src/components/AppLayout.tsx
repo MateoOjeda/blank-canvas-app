@@ -3,8 +3,6 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { useAuth } from "@/hooks/useAuth";
 import { Outlet, useNavigate } from "react-router-dom";
-import { AppContext } from "@/lib/context";
-import { useAppState } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
 import UserSettingsDialog from "@/components/UserSettingsDialog";
@@ -12,14 +10,12 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 
 export function AppLayout() {
   const { role } = useAuth();
-  const appState = useAppState();
   const navigate = useNavigate();
   useAppTheme();
   
   const isTrainer = role === "trainer";
 
   return (
-    <AppContext.Provider value={appState}>
       <SidebarProvider>
         <div className="h-screen flex w-full pb-[72px] md:pb-0 overflow-hidden relative">
           <AppSidebar />
@@ -51,6 +47,5 @@ export function AppLayout() {
           <MobileNav />
         </div>
       </SidebarProvider>
-    </AppContext.Provider>
   );
 }

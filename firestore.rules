@@ -33,7 +33,9 @@ service cloud.firestore {
         getRole(request.auth.uid) == "trainer" ||
         getRole(userId) == "trainer"
       );
-      allow write: if isOwner(userId);
+      allow write: if isOwner(userId) || (
+        getRole(request.auth.uid) == "trainer"
+      );
     }
 
     // User Roles: Read by anyone authenticated.
@@ -55,8 +57,10 @@ service cloud.firestore {
         request.auth.uid == resource.data.student_id
       );
       allow create: if isAuthenticated() && (
-        request.auth.uid == request.resource.data.trainer_id ||
-        request.auth.uid == request.resource.data.student_id
+        // Trainers can create links for any student
+        getRole(request.auth.uid) == "trainer" ||
+        // Students can only create links where they are the student (not the trainer)
+        (request.auth.uid == request.resource.data.student_id && request.auth.uid != request.resource.data.trainer_id)
       );
       allow update: if isAuthenticated() && (
         request.auth.uid == resource.data.trainer_id && 
@@ -74,7 +78,21 @@ service cloud.firestore {
         request.auth.uid == resource.data.trainer_id ||
         request.auth.uid == resource.data.student_id
       );
-      allow write: if isAuthenticated() && (
+      // Trainers can fully manage exercises
+      allow create, delete: if isAuthenticated() && (
+        getRole(request.auth.uid) == "trainer" && (
+          (request.resource != null && request.auth.uid == request.resource.data.trainer_id) ||
+          (resource != null && request.auth.uid == resource.data.trainer_id)
+        )
+      );
+      // Students can update only the 'completed' field on their own exercises
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.student_id &&
+        request.resource.data.completed != null &&
+        request.resource.data.keySet().hasOnly(["completed"])
+      );
+      // Trainers can update their own exercises
+      allow update: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer" && (
           (request.resource != null && request.auth.uid == request.resource.data.trainer_id) ||
           (resource != null && request.auth.uid == resource.data.trainer_id)
@@ -284,7 +302,7 @@ service cloud.firestore {
     // System & User Notifications
     match /notifications/{notifId} {
       allow read: if isAuthenticated() && request.auth.uid == resource.data.user_id;
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.user_id;
       allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.user_id;
     }
 
@@ -430,6 +448,11 @@ service cloud.firestore {
         request.auth.uid == resource.data.student_id ||
         request.auth.uid == resource.data.trainer_id
       );
+    }
+
+    // Change Readings: Tracks which trainer changes a student has read.
+    match /change_readings/{userId} {
+      allow read, write: if isOwner(userId);
     }
 
     // Default: Deny all

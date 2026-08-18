@@ -55,7 +55,6 @@ export function useRoutines() {
   const [dayConfigs, setDayConfigs] = useState<Record<string, DayConfig>>({});
   const [routineNextChange, setRoutineNextChange] = useState<string | null>(null);
   const [routineAssignmentDate, setRoutineAssignmentDate] = useState<string | null>(null);
-  const [activeRoutineId, setActiveRoutineId] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "", sets: "", reps: "",
     isToFailure: false, isDropset: false, isPiramide: false, pyramidReps: "",
@@ -146,7 +145,6 @@ export function useRoutines() {
       setDayConfigs(data.dayConfigs);
       setRoutineNextChange(data.routineNextChange);
       setRoutineAssignmentDate(data.routineAssignmentDate);
-      setActiveRoutineId(data.routineId || null);
       setSelectedIds(new Set());
     } catch (err) {
       console.error("Error fetching routine data:", err);
@@ -280,12 +278,6 @@ export function useRoutines() {
           routine_id: routine.id,
         });
 
-        try {
-          // Ya no necesitamos actualizar el routine_id porque se lo pasamos al crear
-        } catch (err) {
-          console.error("Error linking to routine:", err);
-        }
-
         await logTrainerChange(user.uid, selectedStudent, "exercise_added",
           `Nuevo ejercicio: ${form.name} (${form.sets}×${repsDisplay} - ${selectedDay} - ${combinedBodyPart})`,
           newId || undefined
@@ -322,7 +314,6 @@ export function useRoutines() {
       setBiSerieEnabled(false);
       fetchData();
     } catch (err: any) {
-      console.error("DEBUG ERROR ADDING EXERCISE:", err);
       toast.error("Error: " + (err.message || "al agregar ejercicio"));
     }
   };
@@ -471,7 +462,6 @@ export function useRoutines() {
     availableExercises,
     routineNextChange,
     routineAssignmentDate,
-    activeRoutineId,
     // Form
     form,
     setForm,

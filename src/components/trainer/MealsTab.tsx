@@ -37,7 +37,6 @@ interface Meal {
 
 interface MealsTabProps {
   studentId: string;
-  nutritionLevel?: string;
   readOnly?: boolean;
 }
 

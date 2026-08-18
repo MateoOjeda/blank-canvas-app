@@ -6,10 +6,9 @@ import {
   query, 
   where, 
   getDocs, 
-  addDoc, 
+  setDoc, 
   updateDoc, 
   doc, 
-  setDoc,
   limit
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -129,11 +128,11 @@ export default function PersonalChangePage() {
       if (existingId) {
         await updateDoc(doc(db, "seguimiento_personal", existingId), payload);
       } else {
-        const docRef = await addDoc(collection(db, "seguimiento_personal"), {
+        await setDoc(doc(db, "seguimiento_personal", user.uid), {
           ...payload,
           created_at: new Date().toISOString()
         });
-        setExistingId(docRef.id);
+        setExistingId(user.uid);
       }
 
       // Save weight to weight_history and update profile
@@ -144,20 +143,11 @@ export default function PersonalChangePage() {
           setDoc(historyRef, { 
             student_id: user.uid, 
             weight: weightNum,
-            created_at: new Date().toISOString()
+            recorded_at: new Date().toISOString()
           }),
           updateDoc(doc(db, "profiles", user.uid), { weight: weightNum }),
         ]);
       }
-
-      // Add trainer change notification
-      await addDoc(collection(db, "trainer_changes"), {
-        student_id: user.uid,
-        trainer_id: user.uid,
-        change_type: "personal_survey",
-        description: existingId ? "Actualizó su encuesta de Cambio Personal" : "Completó su encuesta de Cambio Personal",
-        created_at: new Date().toISOString()
-      });
 
       toast({ title: "¡Guardado!", description: "Tu información de cambio personal ha sido registrada." });
     } catch (err: any) {

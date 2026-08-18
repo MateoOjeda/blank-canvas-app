@@ -1,8 +1,8 @@
 import { db } from "@/lib/firebase";
-import { 
-  collection, 
-  query, 
-  where, 
+import {
+  collection,
+  query,
+  where,
   getDocs, 
   doc, 
   setDoc, 
@@ -13,6 +13,7 @@ import {
   limit
 } from "firebase/firestore";
 import { ChunkedBatch } from "@/lib/chunking";
+import { createNotification } from "./notifications";
 
 // ── Types & Constants ──────────────────────────────────────────────────────────
 
@@ -176,6 +177,7 @@ export async function fetchArchivedRoutines(
     collection(db, "routines"),
     where("trainer_id", "==", trainerId),
     where("target_id", "==", studentId),
+    where("target_type", "==", "ALUMNO"),
     where("status", "==", "ARCHIVADA"),
     orderBy("created_at", "desc")
   );
@@ -453,7 +455,7 @@ export async function assignGroupRoutineToStudent(
 
   const [activeSnap, linkSnap] = await Promise.all([
     getDocs(qActive),
-    getDocs(linkSnap)
+    getDocs(qLink)
   ]);
 
   const batch = new ChunkedBatch(db);
@@ -505,6 +507,14 @@ export async function assignGroupRoutineToStudent(
   if (hasWrites) {
     await batch.commit();
   }
+
+  // Notify student about new group routine assignment
+  createNotification({
+    userId: studentId,
+    type: "routine",
+    title: "Nueva rutina grupal",
+    message: "Tu entrenador te ha asignado una nueva rutina grupal.",
+  }).catch(() => {});
 }
 
 export async function linkExercisesToRoutine(

@@ -1,1 +1,0 @@
-ALTER TABLE public.exercises ADD COLUMN IF NOT EXISTS parent_exercise_id uuid REFERENCES public.exercises(id) ON DELETE CASCADE DEFAULT NULL;

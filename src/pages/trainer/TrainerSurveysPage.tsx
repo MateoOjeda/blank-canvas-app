@@ -83,16 +83,11 @@ export default function TrainerSurveysPage() {
   const loadingResults = isLoadingAssignments || isLoadingAnswers;
 
   const handleDelete = async (id: string) => {
-    console.log("[Delete Flow 1/11] Delete button clicked for surveyId:", id);
     setDeleteSurveyId(id);
   };
 
   const confirmDelete = async () => {
-    if (!deleteSurveyId) {
-      console.log("[Delete Flow 2/11] confirmDelete called but deleteSurveyId is null/empty");
-      return;
-    }
-    console.log("[Delete Flow 2/11] Confirmation accepted for surveyId:", deleteSurveyId);
+    if (!deleteSurveyId) return;
     try {
       await deleteSurveyMutation(deleteSurveyId);
       toast.success("Encuesta eliminada");

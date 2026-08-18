@@ -654,7 +654,7 @@ export default function StudentRoutinesPage() {
       {logExercise && user && (
         <DailyLogDialog
           open={!!logExercise}
-          onClose={() => { setLogExercise(null); fetchExercises(); }}
+          onClose={() => { setLogExercise(null); queryClient.invalidateQueries({ queryKey: ["routineData", trainerId, user?.uid] }); }}
           exercise={logExercise}
           studentId={user.uid}
           trainerId={logExercise.trainer_id}

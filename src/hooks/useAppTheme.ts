@@ -26,7 +26,7 @@ export function useAppTheme() {
 
   useEffect(() => {
     if (!user) return;
-    const savedTheme = localStorage.getItem(`app_theme_${user.id}`);
+    const savedTheme = localStorage.getItem(`app_theme_${user.uid}`);
     if (savedTheme) {
       setCurrentTheme(savedTheme);
       document.documentElement.setAttribute('data-theme', savedTheme);
@@ -39,10 +39,10 @@ export function useAppTheme() {
   const setTheme = (themeId: string) => {
     if (!user) return;
     if (themeId === 'default') {
-      localStorage.removeItem(`app_theme_${user.id}`);
+      localStorage.removeItem(`app_theme_${user.uid}`);
       document.documentElement.removeAttribute('data-theme');
     } else {
-      localStorage.setItem(`app_theme_${user.id}`, themeId);
+      localStorage.setItem(`app_theme_${user.uid}`, themeId);
       document.documentElement.setAttribute('data-theme', themeId);
     }
     setCurrentTheme(themeId);
