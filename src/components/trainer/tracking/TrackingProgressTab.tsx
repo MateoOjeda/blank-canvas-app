@@ -104,6 +104,7 @@ function painColor(level: number) {
 
 export default function TrackingProgressTab({
   studentId, assessments, injuries, goals, studentNotes, loading,
+  onNavigateToAssessment,
 }: Props) {
   const { sessions: photoSessions, loading: loadingPhotos } = usePhotoSessions(studentId);
   const [compareIds, setCompareIds] = useState<{ a: string | null; b: string | null } | null>(null);
