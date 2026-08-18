@@ -35,7 +35,9 @@ export function useGlobalPlans(trainerId?: string) {
       updatePlanAssignment(trainerId!, studentId, planType, level),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["linkedStudents", trainerId] });
+      queryClient.invalidateQueries({ queryKey: ["linkedStudentsProfiles", trainerId] });
       queryClient.invalidateQueries({ queryKey: ["planLevels", trainerId, variables.studentId] });
+      queryClient.invalidateQueries({ queryKey: ["nutritionLevel", variables.studentId] });
     },
   });
 

@@ -9,8 +9,7 @@ import {
   setDoc, 
   deleteDoc, 
   updateDoc, 
-  addDoc,
-  limit
+  addDoc
 } from "firebase/firestore";
 import { chunkArray, ChunkedBatch } from "@/lib/chunking";
 
@@ -95,7 +94,7 @@ export async function fetchLinkedStudents(trainerId: string): Promise<LinkedStud
 
 export async function fetchAvailableStudents(trainerId: string): Promise<AvailableStudent[]> {
   const linksQuery = query(collection(db, "trainer_students"), where("trainer_id", "==", trainerId));
-  const rolesQuery = query(collection(db, "user_roles"), where("role", "==", "student"), limit(100));
+  const rolesQuery = query(collection(db, "user_roles"), where("role", "==", "student"));
   
   // Parallelize initial queries
   const [linksSnap, rolesSnap] = await Promise.all([
