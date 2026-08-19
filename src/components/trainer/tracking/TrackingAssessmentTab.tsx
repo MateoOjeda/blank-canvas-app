@@ -1,16 +1,14 @@
 import { useState, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
-  Activity, Plus, Trash2, Loader2, CheckCircle, BarChart3,
-  Ruler, Droplets, Beef, Flame, Utensils, Smile, ImageIcon
+  Plus, Trash2, Loader2, CheckCircle, BarChart3,
+  Ruler, Smile
 } from "lucide-react";
 import WeightProgressChart from "@/components/trainer/WeightProgressChart";
 import PhotoSessionsPanel from "@/components/trainer/tracking/PhotoSessionsPanel";
@@ -64,11 +62,6 @@ export default function TrackingAssessmentTab({
   const [hips, setHips] = useState("");
   const [thigh, setThigh] = useState("");
   const [calf, setCalf] = useState("");
-  const [waterLiters, setWaterLiters] = useState("");
-  const [proteinG, setProteinG] = useState("");
-  const [caloriesKcal, setCaloriesKcal] = useState("");
-  const [freeMeals, setFreeMeals] = useState("");
-  const [compliance, setCompliance] = useState(100);
   const [habits, setHabits] = useState<HabitsMap>({ ...DEFAULT_HABITS });
   const [mood, setMood] = useState<1 | 2 | 3 | 4 | 5>(3);
   const [notes, setNotes] = useState("");
@@ -94,11 +87,6 @@ export default function TrackingAssessmentTab({
         hips: hips ? Number(hips) : null,
         thigh: thigh ? Number(thigh) : null,
         calf: calf ? Number(calf) : null,
-        water_liters: waterLiters ? Number(waterLiters) : null,
-        protein_g: proteinG ? Number(proteinG) : null,
-        calories_kcal: caloriesKcal ? Number(caloriesKcal) : null,
-        free_meals: freeMeals ? Number(freeMeals) : null,
-        diet_compliance_pct: compliance,
         habits,
         mood,
         notes: notes.trim() || undefined,
@@ -109,15 +97,14 @@ export default function TrackingAssessmentTab({
       // Reset form
       setWeight(""); setBodyFat(""); setMuscleMass("");
       setArm(""); setChest(""); setWaist(""); setHips(""); setThigh(""); setCalf("");
-      setWaterLiters(""); setProteinG(""); setCaloriesKcal(""); setFreeMeals("");
-      setCompliance(100); setHabits({ ...DEFAULT_HABITS }); setMood(3); setNotes("");
+      setHabits({ ...DEFAULT_HABITS }); setMood(3); setNotes("");
     } catch {
       toast.error("Error al guardar la evaluación");
     } finally {
       setSaving(false);
     }
   }, [user, studentId, weight, bodyFat, muscleMass, arm, chest, waist, hips, thigh, calf,
-    waterLiters, proteinG, caloriesKcal, freeMeals, compliance, habits, mood, notes, onAdd]);
+    habits, mood, notes, onAdd]);
 
   const handleDelete = async (id: string) => {
     setDeleting(id);
@@ -184,46 +171,6 @@ export default function TrackingAssessmentTab({
             latestAssessment={assessments[0] ?? null}
             readOnly={true}
           />
-
-          {/* Nutrition */}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
-              <Utensils className="h-3 w-3 text-primary" /> Nutrición
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                { label: "Agua (L)", val: waterLiters, set: setWaterLiters },
-                { label: "Proteína (g)", val: proteinG, set: setProteinG },
-                { label: "Calorías (kcal)", val: caloriesKcal, set: setCaloriesKcal },
-                { label: "Comidas libres", val: freeMeals, set: setFreeMeals },
-              ].map(({ label, val, set }) => (
-                <div key={label} className="space-y-1">
-                  <Label className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">{label}</Label>
-                  <Input
-                    type="number"
-                    placeholder="—"
-                    value={val}
-                    onChange={(e) => set(e.target.value)}
-                    className="h-9 text-xs border-border/50 bg-secondary/15"
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 space-y-1.5">
-              <div className="flex justify-between items-center">
-                <Label className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">
-                  Cumplimiento dietético
-                </Label>
-                <span className="text-xs font-bold text-primary">{compliance}%</span>
-              </div>
-              <Slider
-                min={0} max={100} step={5}
-                value={[compliance]}
-                onValueChange={([v]) => setCompliance(v)}
-                className="w-full"
-              />
-            </div>
-          </div>
 
           {/* Habits */}
           <div>
@@ -362,27 +309,6 @@ export default function TrackingAssessmentTab({
                       </div>
                     ))}
                   </div>
-
-                  {/* Nutrition row */}
-                  {(a.water_liters || a.protein_g || a.calories_kcal || a.diet_compliance_pct != null) && (
-                    <div className="flex flex-wrap gap-2">
-                      {a.diet_compliance_pct != null && (
-                        <Badge variant="outline" className="text-[10px] border-primary/30 text-primary gap-1">
-                          <Flame className="h-2.5 w-2.5" /> {a.diet_compliance_pct}% cumpl.
-                        </Badge>
-                      )}
-                      {a.water_liters != null && (
-                        <Badge variant="outline" className="text-[10px] border-sky-400/40 text-sky-600 dark:text-sky-400 gap-1">
-                          <Droplets className="h-2.5 w-2.5" /> {a.water_liters}L agua
-                        </Badge>
-                      )}
-                      {a.protein_g != null && (
-                        <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-600 dark:text-emerald-400 gap-1">
-                          <Beef className="h-2.5 w-2.5" /> {a.protein_g}g prot.
-                        </Badge>
-                      )}
-                    </div>
-                  )}
 
                   {/* Habits */}
                   {a.habits && Object.keys(a.habits).length > 0 && (

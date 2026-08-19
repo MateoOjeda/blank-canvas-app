@@ -1,7 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { useLinkedStudents } from "@/hooks/useLinkedStudents";
 import { useStudentTracking } from "@/hooks/useStudentTracking";
-import { usePhotoSessions } from "@/hooks/usePhotoSessions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -9,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
   Activity, AlertTriangle, ArrowLeft, BarChart3,
-  Clock, Dumbbell, Loader2, TrendingUp, Utensils, ClipboardList
+  Dumbbell, Loader2, TrendingUp, ClipboardList
 } from "lucide-react";
 import { StudentCard } from "@/components/trainer/StudentCard";
 import type { Assessment, Injury, Goal, TrackingNote } from "@/services/tracking";
@@ -17,20 +16,15 @@ import type { Assessment, Injury, Goal, TrackingNote } from "@/services/tracking
 // ── Lazy-loaded tab components ─────────────────────────────────────────────────
 const TrackingDashboardTab  = lazy(() => import("@/components/trainer/tracking/TrackingDashboardTab"));
 const TrackingTrainingTab   = lazy(() => import("@/components/trainer/tracking/TrackingTrainingTab"));
-const TrackingNutritionTab  = lazy(() => import("@/components/trainer/tracking/TrackingNutritionTab"));
 const TrackingProgressTab   = lazy(() => import("@/components/trainer/tracking/TrackingProgressTab"));
-const TrackingTimelineTab   = lazy(() => import("@/components/trainer/tracking/TrackingTimelineTab"));
 const TrackingAssessmentTab = lazy(() => import("@/components/trainer/tracking/TrackingAssessmentTab"));
-const TrackingNotesTab      = lazy(() => import("@/components/trainer/tracking/TrackingNotesTab"));
 
 // ── Tab definition ─────────────────────────────────────────────────────────────
 const TABS = [
   { value: "dashboard",   label: "Dashboard",   icon: Activity },
   { value: "training",    label: "Entreno",     icon: Dumbbell },
-  { value: "nutrition",   label: "Nutrición",   icon: Utensils },
   { value: "progress",    label: "Progreso",    icon: TrendingUp },
   { value: "assessment", label: "Evaluación",  icon: ClipboardList },
-  { value: "timeline",    label: "Timeline",    icon: Clock },
 ] as const;
 
 type TabValue = typeof TABS[number]["value"];
@@ -73,9 +67,6 @@ export default function TrackingPage() {
     assessments, injuries, goals, notes, studentNotes, exerciseLogs, loading: loadingTracking,
     setAssessments, setInjuries, setGoals, setNotes,
   } = useStudentTracking(selectedStudentId);
-
-  // Photo sessions (loaded in panel itself via usePhotoSessions — referenced here for Timeline)
-  const { sessions: photoSessions } = usePhotoSessions(selectedStudentId);
 
   // Badge counts
   const activeInjuries = injuries.filter((i) => i.status === "activa").length;
@@ -213,17 +204,6 @@ export default function TrackingPage() {
           </Suspense>
         </TabsContent>
 
-        {/* Nutrición */}
-        <TabsContent value="nutrition" className="space-y-4 outline-none mt-4">
-          <Suspense fallback={<TabFallback />}>
-            <TrackingNutritionTab
-              studentId={selectedStudentId}
-              assessments={assessments}
-              notes={notes}
-            />
-          </Suspense>
-        </TabsContent>
-
         {/* Progreso — Read-only student evolution dashboard */}
         <TabsContent value="progress" className="space-y-4 outline-none mt-4">
           <Suspense fallback={<TabFallback />}>
@@ -248,21 +228,6 @@ export default function TrackingPage() {
               loading={loadingTracking}
               onAdd={(a: Assessment) => setAssessments((prev) => [a, ...prev])}
               onDelete={(id: string) => setAssessments((prev) => prev.filter((x) => x.id !== id))}
-            />
-          </Suspense>
-        </TabsContent>
-
-        {/* Timeline */}
-        <TabsContent value="timeline" className="space-y-4 outline-none mt-4">
-          <Suspense fallback={<TabFallback />}>
-            <TrackingTimelineTab
-              assessments={assessments}
-              injuries={injuries}
-              goals={goals}
-              notes={notes}
-              exerciseLogs={exerciseLogs}
-              photoSessions={photoSessions}
-              loading={loadingTracking}
             />
           </Suspense>
         </TabsContent>
