@@ -12,10 +12,12 @@ import {
 } from "firebase/firestore";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Target, Zap, Weight, TrendingUp, Dumbbell, Loader2, ClipboardList } from "lucide-react";
+import { Target, Zap, Weight, TrendingUp, Dumbbell, Loader2, ClipboardList, AlertTriangle } from "lucide-react";
 import { useStudentSurveys } from "@/hooks/useStudentSurveys";
 import { useNavigate } from "react-router-dom";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { toast } from "sonner";
 
 interface Exercise {
   id: string;
@@ -41,11 +43,13 @@ export default function ProgressPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [unlockedCount, setUnlockedCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
+    setError(null);
 
     try {
       const qEx = query(collection(db, "exercises"), where("student_id", "==", user.uid));
@@ -70,8 +74,14 @@ export default function ProgressPage() {
         setProfile(profSnap.data() as Profile);
       }
       setUnlockedCount(snapLevels.size);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error fetching progress data:", err);
+      const error = err as { code?: string } | undefined;
+      const msg = error?.code === "permission-denied"
+        ? "No tienes permiso para ver estos datos."
+        : "Error al cargar datos de progreso. Intenta de nuevo.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -96,9 +106,45 @@ export default function ProgressPage() {
     );
   }
 
-  const completedToday = exercises.filter((e) => e.completed).length;
+  if (error) {
+    return (
+      <div className="max-w-4xl mx-auto pb-24 space-y-6 animate-in fade-in duration-300">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Mi Progreso</h1>
+          <p className="text-sm text-muted-foreground mt-1">Monitorea tu desempeño semanal y efectividad de entrenamiento</p>
+        </div>
+        <Card className="border border-destructive/20 bg-destructive/5 rounded-xl">
+          <CardContent className="p-6 text-center space-y-3">
+            <AlertTriangle className="h-8 w-8 text-destructive mx-auto" />
+            <p className="text-sm font-semibold text-foreground">{error}</p>
+            <button onClick={fetchData} className="text-xs font-bold text-primary hover:underline">
+              Reintentar
+            </button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (exercises.length === 0) {
+    return (
+      <div className="max-w-4xl mx-auto pb-24 space-y-6 animate-in fade-in duration-300">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Mi Progreso</h1>
+          <p className="text-sm text-muted-foreground mt-1">Monitorea tu desempeño semanal y efectividad de entrenamiento</p>
+        </div>
+        <EmptyState
+          type="empty"
+          title="Sin ejercicios asignados"
+          description="Tu entrenador aún no te ha asignado ejercicios. Cuando los tengas, verás tu progreso aquí."
+        />
+      </div>
+    );
+  }
+
+  const totalCompleted = exercises.filter((e) => e.completed).length;
   const totalExercises = exercises.length;
-  const completionRate = totalExercises > 0 ? Math.round((completedToday / totalExercises) * 100) : 0;
+  const completionRate = totalExercises > 0 ? Math.round((totalCompleted / totalExercises) * 100) : 0;
 
   const days = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
   const dayStats = days.map((day) => {
@@ -137,7 +183,7 @@ export default function ProgressPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: "Ejercicios", value: totalExercises, sub: "Asignados", icon: Dumbbell, color: "text-blue-500 bg-blue-500/10 border-blue-500/20" },
-            { label: "Check-ins", value: completedToday, sub: "Completados", icon: Zap, color: "text-amber-500 bg-amber-500/10 border-amber-500/20" },
+            { label: "Completados", value: totalCompleted, sub: "Total", icon: Zap, color: "text-amber-500 bg-amber-500/10 border-amber-500/20" },
             { label: "Peso", value: profile?.weight ? `${profile.weight} kg` : "—", sub: "Actual", icon: Weight, color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" },
             { label: "Nivel", value: `${unlockedCount}/12`, sub: "Evolución", icon: TrendingUp, color: "text-primary bg-primary/10 border-primary/20" }
           ].map((stat, i) => (
