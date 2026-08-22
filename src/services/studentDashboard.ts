@@ -1,6 +1,14 @@
 import { db } from "@/lib/firebase";
 import { doc, getDoc, collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
 
+export interface TrainerChange {
+  id: string;
+  change_type: string;
+  description: string;
+  created_at: string;
+  entity_id?: string;
+}
+
 export async function fetchStudentProfile(studentId: string) {
   const snap = await getDoc(doc(db, "profiles", studentId));
   return snap.exists() ? snap.data() : null;
@@ -12,7 +20,7 @@ export async function fetchStudentTrainerLink(studentId: string) {
   return !snap.empty ? snap.docs[0].data() : null;
 }
 
-export async function fetchTrainerChanges(studentId: string) {
+export async function fetchTrainerChanges(studentId: string): Promise<TrainerChange[]> {
   const q = query(
     collection(db, "trainer_changes"),
     where("student_id", "==", studentId),
@@ -20,5 +28,5 @@ export async function fetchTrainerChanges(studentId: string) {
     limit(10)
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<TrainerChange, "id">) }));
 }

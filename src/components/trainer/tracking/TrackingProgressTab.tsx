@@ -106,7 +106,7 @@ export default function TrackingProgressTab({
   studentId, assessments, injuries, goals, studentNotes, loading,
   onNavigateToAssessment,
 }: Props) {
-  const { sessions: photoSessions, loading: loadingPhotos } = usePhotoSessions(studentId);
+  const { sessions: photoSessions, loading: loadingPhotos, error: photoError } = usePhotoSessions(studentId);
   const [compareIds, setCompareIds] = useState<{ a: string | null; b: string | null } | null>(null);
 
   // Derive metrics from assessments
@@ -197,6 +197,11 @@ export default function TrackingProgressTab({
         <CardContent>
           {loadingPhotos ? (
             <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+          ) : photoError ? (
+            <div className="flex items-center gap-2 py-4 px-3 rounded-xl bg-destructive/5 border border-destructive/20">
+              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+              <p className="text-xs text-destructive font-semibold">{photoError}</p>
+            </div>
           ) : photoSessions.length === 0 ? (
             <EmptyState
               type="empty"

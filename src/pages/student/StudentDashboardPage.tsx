@@ -16,23 +16,8 @@ import { DashboardSubscriptionCards } from "@/components/student/dashboard/Dashb
 import { DashboardPlanDetails } from "@/components/student/dashboard/DashboardPlanDetails";
 import { DashboardSurveysSection } from "@/components/student/dashboard/DashboardSurveysSection";
 import { DashboardNotificationsSection } from "@/components/student/dashboard/DashboardNotificationsSection";
-
-interface TrainerChange {
-  id: string;
-  change_type: string;
-  description: string;
-  created_at: string;
-  entity_id?: string;
-}
-
-interface PendingSurvey {
-  id: string;
-  survey_id: string;
-  trainer_id: string;
-  survey?: {
-    title: string;
-  };
-}
+import type { TrainerChange } from "@/services/studentDashboard";
+import type { PendingSurvey } from "@/services/surveys";
 
 export default function StudentDashboardPage() {
   const { user, displayName } = useAuth();
@@ -66,7 +51,7 @@ export default function StudentDashboardPage() {
       } catch (e) {
         readIds = [];
       }
-      const activeNotifications = rawNotifications.filter((n: any) => !readIds.includes(n.id));
+      const activeNotifications = rawNotifications.filter((n) => !readIds.includes(n.id));
       setNotifications(activeNotifications);
     }
   }, [rawNotifications, user]);
