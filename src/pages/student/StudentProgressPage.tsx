@@ -112,7 +112,7 @@ export default function StudentProgressPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 pb-5">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Mi Progreso</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Mi Seguimiento</h1>
           <p className="text-sm text-muted-foreground mt-1">Gestiona tus lesiones, objetivos y notas personales</p>
         </div>
       </div>

@@ -171,7 +171,7 @@ export default function ProgressPage() {
         <div className="flex justify-center">
           <Badge 
             className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 rounded-full text-[10px] font-semibold px-3 py-1.5 flex items-center gap-1.5 cursor-pointer hover:bg-amber-500/15 transition-colors"
-            onClick={() => navigate("/student/surveys")}
+            onClick={() => navigate("/student/home")}
           >
             <ClipboardList className="h-3.5 w-3.5" />
             Tienes encuestas de seguimiento pendientes
