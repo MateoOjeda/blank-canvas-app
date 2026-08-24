@@ -4,7 +4,7 @@ import { useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { 
   Users, Dumbbell, ClipboardList, BarChart3, CalendarCheck, 
-  Trophy, Zap, Bell, Sparkles, Camera, FileText, Home, Utensils, Target 
+  Trophy, Zap, Bell, Sparkles, Camera, FileText, Home, Utensils 
 } from "lucide-react";
 
 const trainerItems = [
@@ -19,8 +19,7 @@ const studentItems = [
   { title: "Inicio", url: "/student/home", icon: Home },
   { title: "Rutina", url: "/student/routines", icon: Dumbbell },
   { title: "Comidas", url: "/student/meals", icon: Utensils },
-  { title: "Progreso", url: "/student/progress", icon: Zap },
-  { title: "Seguimiento", url: "/student/my-progress", icon: Target }
+  { title: "Progreso", url: "/student/progress", icon: Zap }
 ];
 
 export function MobileNav() {

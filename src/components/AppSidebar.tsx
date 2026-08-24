@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, Dumbbell, ClipboardList, BarChart3, CalendarCheck, Trophy, User, Zap, LogOut, Bell, Sparkles, Camera, FileText, Home, Utensils, Target } from "lucide-react";
+import { Users, Dumbbell, ClipboardList, BarChart3, CalendarCheck, Trophy, User, Zap, LogOut, Bell, Sparkles, Camera, FileText, Home, Utensils } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
@@ -27,7 +27,6 @@ const studentItems = [
   { title: "Rutina", url: "/student/routines", icon: Dumbbell },
   { title: "Comidas", url: "/student/meals", icon: Utensils },
   { title: "Mi Progreso", url: "/student/progress", icon: Zap },
-  { title: "Mi Seguimiento", url: "/student/my-progress", icon: Target },
   { title: "Cambio Personal", url: "/student/personal-change", icon: Sparkles },
   { title: "Mi Transformación", url: "/student/transformation", icon: Camera }
 ];
