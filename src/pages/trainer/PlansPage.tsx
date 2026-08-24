@@ -18,7 +18,6 @@ import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 const PLAN_TYPES_CONFIG = [
   { key: "nutricion", label: "Plan de Alimentación", shortLabel: "Alimentación", icon: Apple },
   { key: "entrenamiento", label: "Plan de Rutina", shortLabel: "Rutina", icon: Dumbbell },
-  { key: "cambios_fisicos", label: "Cambio Físico", shortLabel: "Cambio Físico", icon: TrendingUp },
 ] as const;
 
 export default function PlansPage() {
@@ -49,10 +48,7 @@ export default function PlansPage() {
     }
   }, [queryCambioFisico]);
 
-  const updateField = (id: string, field: keyof GlobalPlan, value: GlobalPlan[keyof GlobalPlan]) => {
-    if (cambioFisico?.id === id) {
-      setCambioFisico((prev) => prev ? { ...prev, [field]: value } : prev);
-    }
+  const updateField = (id: string, field: keyof GlobalPlan, value: any) => {
     setGlobalPlans((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
   };
 
@@ -87,7 +83,7 @@ export default function PlansPage() {
             <div className="h-4 w-72 bg-muted animate-pulse rounded-lg" />
           </div>
         </div>
-        <LoadingSkeleton type="card" count={3} />
+        <LoadingSkeleton type="card" count={2} />
       </div>
     );
   }
@@ -106,10 +102,8 @@ export default function PlansPage() {
         {PLAN_TYPES_CONFIG.map((pt) => {
           const Icon = pt.icon;
           const isExpanded = expandedPlan === pt.key;
-          const isCambioFisico = pt.key === "cambios_fisicos";
           const levels = globalPlans.filter((p) => p.plan_type === pt.key);
-          const allItems = isCambioFisico && cambioFisico ? [cambioFisico] : levels;
-          const activeCount = allItems.filter((l) => l.active).length;
+          const activeCount = levels.filter((l) => l.active).length;
 
           return (
             <Card key={pt.key} className="border border-border/50 bg-card rounded-xl shadow-sm overflow-hidden">
@@ -119,12 +113,7 @@ export default function PlansPage() {
                     <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0"><Icon className="h-5 w-5 text-primary" /></div>
                     <div>
                       <CardTitle className="text-sm font-bold text-foreground">{pt.label}</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {isCambioFisico 
-                          ? "Plan integral: alimentación + rutina"
-                          : `${activeCount} nivel${activeCount !== 1 ? "es" : ""} activo${activeCount !== 1 ? "s" : ""}`
-                        }
-                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{activeCount} nivel{activeCount !== 1 ? "es" : ""} activo{activeCount !== 1 ? "s" : ""}</p>
                     </div>
                   </div>
                   {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -132,8 +121,9 @@ export default function PlansPage() {
               </CardHeader>
               {isExpanded && (
                 <CardContent className="space-y-4 p-4">
-                  {allItems.map((pl) => {
-                    const levelLabel = isCambioFisico ? "Estado del Plan" : LEVEL_LABELS[pl.level as keyof typeof LEVEL_LABELS] ?? pl.level;
+                  {LEVELS.map((level) => {
+                    const pl = levels.find((p) => p.level === level);
+                    if (!pl) return null;
                     return (
                       <div key={pl.id} className={cn(
                         "rounded-2xl border p-4 space-y-4 transition-all duration-200",
@@ -143,7 +133,7 @@ export default function PlansPage() {
                       )}>
                         <div className="flex items-center justify-between pb-1 border-b border-border/30">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-foreground">{levelLabel}</span>
+                            <span className="text-xs font-bold text-foreground">{LEVEL_LABELS[level]}</span>
                             <Badge variant="outline" className={cn(
                               "text-[9px] font-bold px-2 py-0.5 rounded-md border-none",
                               pl.active ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-muted text-muted-foreground"
@@ -174,14 +164,9 @@ export default function PlansPage() {
                         </div>
 
                         <div className="space-y-1.5">
-                          <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground ml-0.5">
-                            {isCambioFisico ? "Qué incluye el cambio físico" : "Contenido del Plan"}
-                          </Label>
+                          <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground ml-0.5">Contenido del Plan</Label>
                           <Textarea 
-                            placeholder={isCambioFisico 
-                              ? "Describe qué incluye el plan de cambio físico..." 
-                              : `Describe los detalles y alcances de ${pt.shortLabel} - ${levelLabel}...`
-                            } 
+                            placeholder={`Describe los detalles y alcances de ${pt.shortLabel} - ${LEVEL_LABELS[level]}...`} 
                             value={pl.content} 
                             onChange={(e) => updateField(pl.id, "content", e.target.value)} 
                             className="bg-secondary/10 border-border/50 min-h-[100px] text-xs rounded-xl focus-visible:ring-primary/20 resize-none" 
@@ -189,7 +174,7 @@ export default function PlansPage() {
                         </div>
 
                         <Button size="sm" variant="outline" className="gap-1.5 h-8.5 rounded-lg text-xs font-semibold hover:bg-muted/10 border-border" onClick={() => handleSave(pl.id)} disabled={saving === pl.id}>
-                          {saving === pl.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Guardar
+                          {saving === pl.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Guardar Nivel
                         </Button>
                       </div>
                     );
@@ -199,6 +184,83 @@ export default function PlansPage() {
             </Card>
           );
         })}
+
+        {/* Cambio Físico */}
+        {cambioFisico && (
+          <Card className="border border-border/50 bg-card rounded-xl shadow-sm overflow-hidden">
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors p-4 border-b border-border/50" onClick={() => setExpandedPlan(expandedPlan === "cambios_fisicos" ? null : "cambios_fisicos")}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0"><TrendingUp className="h-5 w-5 text-primary" /></div>
+                  <div>
+                    <CardTitle className="text-sm font-bold text-foreground">Cambio Físico</CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">Plan integral: alimentación + rutina</p>
+                  </div>
+                </div>
+                {expandedPlan === "cambios_fisicos" ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </div>
+            </CardHeader>
+            {expandedPlan === "cambios_fisicos" && (
+              <CardContent className="space-y-4 p-4">
+                <div className={cn(
+                  "rounded-2xl border p-4 space-y-4 transition-all duration-200",
+                  cambioFisico.active 
+                    ? "border-primary/30 bg-primary/5 shadow-sm" 
+                    : "border-border/50 bg-muted/20 opacity-70"
+                )}>
+                  <div className="flex items-center justify-between pb-1 border-b border-border/30">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-foreground">Estado del Plan</span>
+                      <Badge variant="outline" className={cn(
+                        "text-[9px] font-bold px-2 py-0.5 rounded-md border-none",
+                        cambioFisico.active ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-muted text-muted-foreground"
+                      )}>
+                        {cambioFisico.active ? "Activo" : "Inactivo"}
+                      </Badge>
+                    </div>
+                    <Switch checked={cambioFisico.active} onCheckedChange={async (v) => {
+                      setCambioFisico({ ...cambioFisico, active: v });
+                      try { await togglePlan({ id: cambioFisico.id, active: v }); } catch { setCambioFisico({ ...cambioFisico, active: !v }); }
+                    }} className="data-[state=checked]:bg-primary" />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground ml-0.5">Precio de Suscripción</Label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground/60" />
+                        <Input 
+                          type="number" 
+                          value={cambioFisico.price} 
+                          onChange={(e) => setCambioFisico({ ...cambioFisico, price: parseFloat(e.target.value) || 0 })} 
+                          className="pl-9 h-10 text-xs font-semibold bg-secondary/10 border-border/50 rounded-lg focus-visible:ring-primary/20" 
+                        />
+                      </div>
+                    </div>
+                    <div className="pt-5 text-right sm:text-left">
+                      <span className="text-xs text-muted-foreground">Valor mensual: </span>
+                      <span className="text-sm font-bold text-foreground">{formatPrice(cambioFisico.price)}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground ml-0.5">Qué incluye el cambio físico</Label>
+                    <Textarea 
+                      placeholder="Describe qué incluye el plan de cambio físico..." 
+                      value={cambioFisico.content} 
+                      onChange={(e) => setCambioFisico({ ...cambioFisico, content: e.target.value })} 
+                      className="bg-secondary/10 border-border/50 min-h-[120px] text-xs rounded-xl focus-visible:ring-primary/20 resize-none" 
+                    />
+                  </div>
+
+                  <Button size="sm" variant="outline" className="gap-1.5 h-8.5 rounded-lg text-xs font-semibold hover:bg-muted/10 border-border" onClick={() => handleSave(cambioFisico.id)} disabled={saving === cambioFisico.id}>
+                    {saving === cambioFisico.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Guardar
+                  </Button>
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        )}
       </div>
     </div>
   );

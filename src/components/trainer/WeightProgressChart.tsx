@@ -9,7 +9,7 @@ import {
 } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Loader2, TrendingUp } from "lucide-react";
+import { Loader2, TrendingUp } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { safeFormat } from "@/lib/dateUtils";
 import { es } from "date-fns/locale";
@@ -26,12 +26,10 @@ interface WeightEntry {
 export default function WeightProgressChart({ studentId }: Props) {
   const [data, setData] = useState<WeightEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      setError(null);
       try {
         const q = query(
           collection(db, "weight_history"),
@@ -46,15 +44,8 @@ export default function WeightProgressChart({ studentId }: Props) {
           }))
           .filter(e => e.weight != null && e.recorded_at != null);
         setData(entries);
-      } catch (err: unknown) {
+      } catch (err) {
         console.error("Error fetching weight history:", err);
-        const error = err as { code?: string } | undefined;
-        const msg = error?.code === "failed-precondition"
-          ? "Índice Firestore no desplegado. Contacta al administrador."
-          : error?.code === "permission-denied"
-            ? "Sin permiso para ver el historial de peso."
-            : "Error al cargar historial de peso.";
-        setError(msg);
       } finally {
         setLoading(false);
       }
@@ -64,17 +55,6 @@ export default function WeightProgressChart({ studentId }: Props) {
 
   if (loading) {
     return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
-  }
-
-  if (error) {
-    return (
-      <Card className="card-glass">
-        <CardContent className="py-8 text-center space-y-2">
-          <AlertTriangle className="h-8 w-8 text-destructive mx-auto" />
-          <p className="text-sm text-destructive font-semibold">{error}</p>
-        </CardContent>
-      </Card>
-    );
   }
 
   if (data.length === 0) {

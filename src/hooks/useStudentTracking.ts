@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   fetchAssessments, fetchInjuriesByStudent, fetchGoalsByStudent,
@@ -31,13 +31,11 @@ interface UseStudentTrackingResult {
 /**
  * Helper to determine if a caught error represents a Firestore permission denial.
  */
-function isPermissionError(err: unknown): boolean {
-  if (!err || typeof err !== "object") return false;
-  const e = err as { code?: string; message?: string };
+function isPermissionError(err: any): boolean {
   return (
-    e.code === "permission-denied" ||
-    !!e.message?.includes("permission") ||
-    String(err).includes("permission-denied")
+    err?.code === "permission-denied" ||
+    err?.message?.includes("permission") ||
+    err?.toString()?.includes("permission-denied")
   );
 }
 
@@ -56,23 +54,19 @@ export function useStudentTracking(studentId: string | null): UseStudentTracking
   const [notes, setNotes] = useState<TrackingNote[]>([]);
   const [studentNotes, setStudentNotes] = useState<StudentNote[]>([]);
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLogDay[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchIdRef = useRef(0);
-
   const fetchAll = useCallback(async () => {
     if (!user || !studentId) return;
-
-    const currentFetchId = ++fetchIdRef.current;
     setLoading(true);
     setPermissionDenied(false);
     setError(null);
 
     let hasPermissionError = false;
 
-    const handleSubQueryError = (err: unknown, queryName: string) => {
+    const handleSubQueryError = (err: any, queryName: string) => {
       console.error(`Error fetching ${queryName}:`, err);
       if (isPermissionError(err)) {
         hasPermissionError = true;
@@ -105,9 +99,6 @@ export function useStudentTracking(studentId: string | null): UseStudentTracking
         }),
       ]);
 
-      // Discard if a newer fetch has started
-      if (currentFetchId !== fetchIdRef.current) return;
-
       setAssessments(a);
       setInjuries(inj);
       setGoals(g);
@@ -117,21 +108,18 @@ export function useStudentTracking(studentId: string | null): UseStudentTracking
       // Exercise logs — isolated query with its own try-catch
       try {
         const logs = await fetchExerciseLogs(studentId, user.uid);
-        if (currentFetchId === fetchIdRef.current) {
-          setExerciseLogs(logs);
-        }
-      } catch (exerciseErr: unknown) {
+        setExerciseLogs(logs);
+      } catch (exerciseErr: any) {
         handleSubQueryError(exerciseErr, "exercise logs");
       }
 
-      if (hasPermissionError && currentFetchId === fetchIdRef.current) {
+      if (hasPermissionError) {
         setPermissionDenied(true);
         const permErrMsg = "No tienes permiso para ver el seguimiento de este alumno.";
         setError(permErrMsg);
         toast.error(permErrMsg);
       }
-    } catch (err: unknown) {
-      if (currentFetchId !== fetchIdRef.current) return;
+    } catch (err: any) {
       console.error("Error loading student tracking data:", err);
       if (isPermissionError(err)) {
         setPermissionDenied(true);
@@ -139,12 +127,10 @@ export function useStudentTracking(studentId: string | null): UseStudentTracking
         setError(permErrMsg);
         toast.error(permErrMsg);
       } else {
-        setError(err instanceof Error ? err.message : "Error al cargar los datos de seguimiento");
+        setError(err?.message || "Error al cargar los datos de seguimiento");
       }
     } finally {
-      if (currentFetchId === fetchIdRef.current) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   }, [user, studentId]);
 
@@ -159,8 +145,6 @@ export function useStudentTracking(studentId: string | null): UseStudentTracking
     setError(null);
     if (studentId) {
       fetchAll();
-    } else {
-      setLoading(false);
     }
   }, [studentId, fetchAll]);
 

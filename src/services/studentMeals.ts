@@ -9,8 +9,6 @@ import {
   deleteDoc,
   doc,
   limit,
-  type Query,
-  type DocumentData,
 } from "firebase/firestore";
 
 export interface Meal {
@@ -25,7 +23,7 @@ export async function fetchStudentMeals(
   studentId: string,
   trainerId?: string
 ): Promise<Meal[]> {
-  let q: Query<DocumentData>;
+  let q;
   if (trainerId && trainerId !== studentId) {
     q = query(
       collection(db, "student_meals"),

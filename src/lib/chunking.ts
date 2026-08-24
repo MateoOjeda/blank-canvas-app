@@ -53,12 +53,7 @@ export class ChunkedBatch {
 
   update<T>(docRef: DocumentReference<T>, data: UpdateData<T>) {
     this.checkLimit();
-    // Firestore v12 tipa WriteBatch.update sobre DocumentReference<unknown>;
-    // delegamos preservando el tipado genérico para los consumidores.
-    this.currentBatch.update(
-      docRef as DocumentReference<unknown>,
-      data as unknown as UpdateData<unknown>
-    );
+    this.currentBatch.update(docRef, data);
     this.operationCount++;
     return this;
   }

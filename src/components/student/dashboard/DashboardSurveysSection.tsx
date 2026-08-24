@@ -3,7 +3,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ClipboardList, CheckCircle2 } from "lucide-react";
-import type { PendingSurvey } from "@/services/surveys";
+
+interface PendingSurvey {
+  id: string;
+  survey_id: string;
+  survey?: {
+    title: string;
+  };
+}
 
 interface DashboardSurveysSectionProps {
   pendingSurveys: PendingSurvey[];

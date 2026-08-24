@@ -152,7 +152,7 @@ export default function TrainingGroupsPage() {
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto pb-24 space-y-6">
-        <LoadingSkeleton type="card" count={3} />
+        <LoadingSkeleton type="cards" count={3} />
       </div>
     );
   }

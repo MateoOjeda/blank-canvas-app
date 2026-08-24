@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { db } from "@/lib/firebase";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  orderBy,
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  orderBy, 
   onSnapshot,
   limit,
   startAfter,
@@ -58,7 +58,7 @@ export default function ExerciseHistoryTab({ studentId }: Props) {
     if (!user) return;
     if (!append) setLoading(true);
     else setLoadingMore(true);
-
+    
     try {
       let q = query(
         collection(db, "exercise_logs"),
@@ -98,7 +98,7 @@ export default function ExerciseHistoryTab({ studentId }: Props) {
       // Firestore doesn't support 'in' with more than 30 elements, but here it's likely small.
       // If it's a lot, we might need a different approach.
       const exerciseMap = new Map<string, any>();
-
+      
       // Fetch each exercise individually (or in chunks of 30)
       const chunks = chunkArray(exerciseIds, 30);
       const exSnaps = await Promise.all(
@@ -193,17 +193,17 @@ export default function ExerciseHistoryTab({ studentId }: Props) {
         const completedCount = dayLogs.filter(l => l.completed).length;
         const total = dayLogs.length;
         const dateFormatted = format(parseISO(dateStr), "EEEE d 'de' MMMM", { locale: es });
+        const allCompleted = completedCount === total;
 
         return (
           <TimelineCard
             key={dateStr}
-            dateText={dateFormatted}
+            title={dateFormatted}
+            subtitle={`${completedCount} de ${total} ejercicios completados`}
+            status={allCompleted ? "activo" : "default"}
             isLast={idx === sortedDates.length - 1}
           >
             <div className="space-y-3 mt-3">
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                {completedCount} de {total} ejercicios completados
-              </p>
               {dayLogs.map(log => {
                 const setsMatch = log.actual_sets === log.planned_sets;
                 const repsMatch = log.actual_reps === log.planned_reps;

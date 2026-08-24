@@ -71,17 +71,6 @@ export interface SurveyAnswer {
   answer_text: string;
 }
 
-/** Asignación pendiente devuelta por fetchStudentPendingSurveys (asignación + encuesta enriquecida). */
-export interface PendingSurvey {
-  id: string;
-  survey_id: string;
-  trainer_id: string;
-  student_id?: string;
-  completed?: boolean;
-  completed_at?: string | null;
-  survey?: CustomSurvey;
-}
-
 export async function fetchTrainerSurveys(trainerId: string): Promise<CustomSurvey[]> {
   const q = query(
     collection(db, "custom_surveys"), 

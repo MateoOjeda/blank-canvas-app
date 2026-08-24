@@ -37,8 +37,6 @@ interface Meal {
 
 interface MealsTabProps {
   studentId: string;
-  /** Nivel nutricional del alumno. Reservado para futuras adaptaciones de contenido. */
-  nutritionLevel?: string;
   readOnly?: boolean;
 }
 

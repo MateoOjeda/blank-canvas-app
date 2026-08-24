@@ -17,7 +17,6 @@ interface UsePhotoSessionsResult {
   loading: boolean;
   loadingMore: boolean;
   hasMore: boolean;
-  error: string | null;
   loadMore: () => void;
   addSession: (data: PhotoSessionInput) => Promise<PhotoSession>;
   editSession: (
@@ -33,13 +32,11 @@ export function usePhotoSessions(studentId: string | null): UsePhotoSessionsResu
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
 
   const fetchFirst = useCallback(async () => {
     if (!user || !studentId) return;
     setLoading(true);
-    setError(null);
     try {
       const { sessions: data, lastDoc: ld } = await fetchPhotoSessions(
         studentId,
@@ -48,15 +45,8 @@ export function usePhotoSessions(studentId: string | null): UsePhotoSessionsResu
       setSessions(data);
       setLastDoc(ld);
       setHasMore(data.length === PAGE_SIZE);
-    } catch (err: unknown) {
+    } catch (err) {
       console.error("Error fetching photo sessions:", err);
-      const error = err as { code?: string } | undefined;
-      const msg = error?.code === "failed-precondition"
-        ? "Índice Firestore no desplegado para sesiones de fotos."
-        : error?.code === "permission-denied"
-          ? "Sin permiso para ver las sesiones de fotos."
-          : "Error al cargar sesiones de fotos.";
-      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -124,7 +114,6 @@ export function usePhotoSessions(studentId: string | null): UsePhotoSessionsResu
     loading,
     loadingMore,
     hasMore,
-    error,
     loadMore,
     addSession,
     editSession,

@@ -20,7 +20,6 @@ export interface StudentProfile {
   avatar_url: string | null;
   weight: number | null;
   age: number | null;
-  created_at?: string;
 }
 
 export interface LinkedStudent extends StudentProfile {
