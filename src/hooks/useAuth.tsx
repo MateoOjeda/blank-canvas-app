@@ -18,7 +18,7 @@ interface AuthContextType {
   role: AppRole | null;
   loading: boolean;
   displayName: string;
-  signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, name: string, trainerCode?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -82,13 +82,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, name: string) => {
+  const signUp = async (email: string, password: string, name: string, trainerCode?: string) => {
     try {
+      // Validar código de entrenador si se proporcionó
+      let assignedRole: AppRole = "student";
+      if (trainerCode && trainerCode.trim()) {
+        const validCode = import.meta.env.VITE_TRAINER_CODE;
+        if (trainerCode.trim() !== validCode) {
+          return { error: new Error("Código de entrenador incorrecto") };
+        }
+        assignedRole = "trainer";
+      }
+
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const newUser = userCredential.user;
 
       await Promise.all([
-        setDoc(doc(db, "user_roles", newUser.uid), { role: "student", user_id: newUser.uid }),
+        setDoc(doc(db, "user_roles", newUser.uid), { role: assignedRole, user_id: newUser.uid }),
         setDoc(doc(db, "profiles", newUser.uid), { 
           display_name: name, 
           user_id: newUser.uid,
@@ -99,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Al crear los docs, actualizamos el estado e invalidamos el fetch de onAuthStateChanged
       // que pudo haber consultado la DB antes de que los documentos existieran.
       const currentFetchId = ++activeFetchId.current;
-      setRole("student");
+      setRole(assignedRole);
       setDisplayName(name);
       setLoading(false);
 

@@ -43,7 +43,6 @@ export function useGlobalPlans(trainerId?: string) {
 
   return {
     plans: globalPlansQuery.data?.plans || [],
-    cambioFisico: globalPlansQuery.data?.cambioFisico || null,
     isLoading: globalPlansQuery.isLoading,
     refetch: globalPlansQuery.refetch,
 

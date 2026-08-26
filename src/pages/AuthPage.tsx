@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Zap, Dumbbell, User, ArrowLeft, Mail, Lock, UserPlus, LogIn, Chrome } from "lucide-react";
+import { Zap, Dumbbell, User, ArrowLeft, Mail, Lock, UserPlus, LogIn, Chrome, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AuthPage() {
@@ -23,6 +23,8 @@ export default function AuthPage() {
   const [name, setName] = useState("");
   const [resetEmail, setResetEmail] = useState("");
   const [resetSent, setResetSent] = useState(false);
+  const [accountType, setAccountType] = useState<"student" | "trainer">("student");
+  const [trainerCode, setTrainerCode] = useState("");
 
   const handleAuthError = (err: any, context: string) => {
     console.error(`Error in ${context}:`, err);
@@ -60,7 +62,7 @@ export default function AuthPage() {
           setLoading(false);
           return;
         }
-        const { error } = await signUp(email, password, name);
+        const { error } = await signUp(email, password, name, accountType === "trainer" ? trainerCode : undefined);
         if (error) throw error;
         toast({ title: "¡Cuenta creada!", description: "Bienvenido a CipriFitness" });
       }
@@ -214,7 +216,46 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              {/* Se eliminó la selección de rol en el registro. Todos los registros autónomos se crean como alumnos */}
+              {!isLogin && (
+                <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
+                  <Label className="text-[10px] font-black uppercase tracking-widest ml-1 text-muted-foreground/80">Tipo de cuenta</Label>
+                  <div className="flex gap-4 ml-1">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="accountType"
+                        value="student"
+                        checked={accountType === "student"}
+                        onChange={() => { setAccountType("student"); setTrainerCode(""); }}
+                        className="w-4 h-4 accent-primary"
+                      />
+                      <span className="text-sm font-medium">Alumno</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="accountType"
+                        value="trainer"
+                        checked={accountType === "trainer"}
+                        onChange={() => setAccountType("trainer")}
+                        className="w-4 h-4 accent-primary"
+                      />
+                      <span className="text-sm font-medium">Entrenador</span>
+                    </label>
+                  </div>
+
+                  {accountType === "trainer" && (
+                    <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                      <Label htmlFor="trainer-code" className="text-[10px] font-black uppercase tracking-widest ml-1 text-muted-foreground/80">Ingrese contraseña para ser entrenador</Label>
+                      <div className="relative">
+                        <Shield className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input id="trainer-code" type="password" placeholder="•••••••••" value={trainerCode} onChange={(e) => setTrainerCode(e.target.value)} className="input-premium !pl-11 h-12 rounded-2xl bg-secondary/30" />
+                      </div>
+                      <p className="text-[10px] font-medium text-muted-foreground/60 ml-1">Este código es necesario para crear una cuenta de entrenador.</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <Button type="submit" className="w-full h-14 rounded-3xl font-black uppercase tracking-[0.2em] shadow-2xl shadow-primary/20 mt-2 flex items-center justify-center gap-3 transition-transform active:scale-[0.98]" disabled={loading}>
                 {loading ? (

@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { db } from "@/lib/firebase";
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  orderBy, 
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  orderBy,
   onSnapshot,
   limit,
   startAfter,
@@ -58,7 +58,7 @@ export default function ExerciseHistoryTab({ studentId }: Props) {
     if (!user) return;
     if (!append) setLoading(true);
     else setLoadingMore(true);
-    
+
     try {
       let q = query(
         collection(db, "exercise_logs"),
@@ -98,7 +98,7 @@ export default function ExerciseHistoryTab({ studentId }: Props) {
       // Firestore doesn't support 'in' with more than 30 elements, but here it's likely small.
       // If it's a lot, we might need a different approach.
       const exerciseMap = new Map<string, any>();
-      
+
       // Fetch each exercise individually (or in chunks of 30)
       const chunks = chunkArray(exerciseIds, 30);
       const exSnaps = await Promise.all(

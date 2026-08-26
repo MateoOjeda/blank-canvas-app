@@ -8,9 +8,8 @@ import ProfilePhotoUpload from "@/components/ProfilePhotoUpload";
 import UserSettingsDialog from "@/components/UserSettingsDialog";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
-  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
-  SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton } from
-"@/components/ui/sidebar";
+  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar } from
+ "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 
 const trainerItems = [
@@ -27,6 +26,7 @@ const studentItems = [
   { title: "Rutina", url: "/student/routines", icon: Dumbbell },
   { title: "Comidas", url: "/student/meals", icon: Utensils },
   { title: "Mi Progreso", url: "/student/progress", icon: Zap },
+  { title: "Mis Planes", url: "/student/plans", icon: FileText },
   { title: "Cambio Personal", url: "/student/personal-change", icon: Sparkles },
   { title: "Mi Transformación", url: "/student/transformation", icon: Camera }
 ];
@@ -88,7 +88,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild className="p-0 hover:bg-transparent">
                     <NavLink 
-                      to={item.url} 
+                      to={item.url!} 
                       end 
                       className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-150" 
                       activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-sm border border-sidebar-border/30"

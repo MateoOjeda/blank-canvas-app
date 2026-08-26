@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
-import { doc, deleteDoc } from "firebase/firestore";
+import { doc, deleteDoc, getDoc, setDoc } from "firebase/firestore";
 import { useStudentDashboard } from "@/hooks/useStudentDashboard";
 import { useStudentSurveys } from "@/hooks/useStudentSurveys";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
@@ -55,21 +55,27 @@ export default function StudentDashboardPage() {
 
   const [notifications, setNotifications] = useState<TrainerChange[]>([]);
   const [activeSurvey, setActiveSurvey] = useState<PendingSurvey | null>(null);
+  const [lastReadAt, setLastReadAt] = useState<string | null>(null);
 
   useEffect(() => {
-    if (rawNotifications && user) {
-      const readIdsStr = localStorage.getItem(`read_notifications_${user.uid}`);
-      let readIds: string[] = [];
-      try {
-        readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
-        if (!Array.isArray(readIds)) readIds = [];
-      } catch (e) {
-        readIds = [];
-      }
-      const activeNotifications = rawNotifications.filter((n: any) => !readIds.includes(n.id));
+    if (!user) return;
+    getDoc(doc(db, "change_readings", user.uid))
+      .then((snap) => {
+        if (snap.exists()) {
+          setLastReadAt(snap.data().last_read_at || null);
+        }
+      })
+      .catch((err) => console.error("Error fetching read state:", err));
+  }, [user]);
+
+  useEffect(() => {
+    if (rawNotifications) {
+      const activeNotifications = lastReadAt
+        ? rawNotifications.filter((n: TrainerChange) => new Date(n.created_at) > new Date(lastReadAt))
+        : rawNotifications;
       setNotifications(activeNotifications);
     }
-  }, [rawNotifications, user]);
+  }, [rawNotifications, lastReadAt]);
 
   const refetchAll = async () => {
     await Promise.all([refetchDashboard(), refetchPending()]);
@@ -85,27 +91,31 @@ export default function StudentDashboardPage() {
     );
   }
 
-  const hasPlan = studentData?.plan_type || studentData?.plan_entrenamiento || studentData?.plan_alimentacion;
+  const hasPlan = studentData?.plan_type || studentData?.plan_entrenamiento || studentData?.plan_alimentacion || studentData?.plan_cambio_fisico;
   const isPaid = studentData?.payment_status === "pagado";
 
   const handleClearAllNotifications = async () => {
-    const readIdsStr = localStorage.getItem(`read_notifications_${user?.uid}`);
-    const readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
-    const newReadIds = [...new Set([...readIds, ...notifications.map(n => n.id)])];
-    localStorage.setItem(`read_notifications_${user?.uid}`, JSON.stringify(newReadIds));
-    setNotifications([]);
-    toast.success("Notificaciones marcadas como leídas");
+    if (!user) return;
+    const now = new Date().toISOString();
+    try {
+      await setDoc(doc(db, "change_readings", user.uid), {
+        student_id: user.uid,
+        last_read_at: now
+      }, { merge: true });
+      setLastReadAt(now);
+      setNotifications([]);
+      toast.success("Notificaciones marcadas como leídas");
+    } catch {
+      toast.error("Error al marcar notificaciones");
+    }
   };
 
   const handleDeleteNotification = async (change: TrainerChange) => {
     try {
       await deleteDoc(doc(db, "trainer_changes", change.id));
-      const readIdsStr = localStorage.getItem(`read_notifications_${user?.uid}`);
-      const readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
-      localStorage.setItem(`read_notifications_${user?.uid}`, JSON.stringify([...new Set([...readIds, change.id])]));
       setNotifications((prev) => prev.filter((n) => n.id !== change.id));
       toast.success("Notificación eliminada");
-    } catch (err) {
+    } catch {
       toast.error("Error al eliminar la notificación");
     }
   };

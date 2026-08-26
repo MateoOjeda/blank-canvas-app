@@ -1,11 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dumbbell, Apple } from "lucide-react";
+import { Dumbbell, Apple, TrendingUp } from "lucide-react";
 
 interface PlanAssignmentCardProps {
   selectedEntrenamiento: string;
   selectedAlimentacion: string;
+  selectedCambioFisico: string;
   handlePlanChangeRequest: (type: string, val: string) => void;
 }
 
@@ -18,6 +19,7 @@ const LEVEL_LABELS: Record<string, string> = {
 export function PlanAssignmentCard({
   selectedEntrenamiento,
   selectedAlimentacion,
+  selectedCambioFisico,
   handlePlanChangeRequest
 }: PlanAssignmentCardProps) {
   return (
@@ -31,6 +33,7 @@ export function PlanAssignmentCard({
         {[
           { type: "entrenamiento", icon: Dumbbell, label: "Entrenamiento", selected: selectedEntrenamiento },
           { type: "nutricion", icon: Apple, label: "Alimentación", selected: selectedAlimentacion },
+          { type: "cambios_fisicos", icon: TrendingUp, label: "Cambio Físico", selected: selectedCambioFisico },
         ].map(({ type, icon: Icon, label, selected }) => (
           <div key={type} className="flex items-center justify-between gap-4 p-3 rounded-lg bg-secondary/20 border border-border/40">
             <div className="flex items-center gap-3">

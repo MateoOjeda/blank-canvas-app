@@ -26,6 +26,7 @@ export interface LinkedStudent extends StudentProfile {
   linked_at: string;
   planEntrenamiento: string;
   planAlimentacion: string;
+  planCambioFisico: string;
   linkId: string;
   paymentStatus: string;
   groupName?: string | null;
@@ -85,6 +86,7 @@ export async function fetchLinkedStudents(trainerId: string): Promise<LinkedStud
       linked_at: link?.created_at || "",
       planEntrenamiento: link?.plan_entrenamiento || "none",
       planAlimentacion: link?.plan_alimentacion || "none",
+      planCambioFisico: link?.plan_cambio_fisico || "none",
       linkId: link?.id || "",
       paymentStatus: link?.payment_status || "pendiente",
       groupName: groupName || null,
@@ -132,7 +134,8 @@ export async function linkStudent(trainerId: string, studentId: string) {
     created_at: new Date().toISOString(),
     payment_status: "pendiente",
     plan_entrenamiento: "none",
-    plan_alimentacion: "none"
+    plan_alimentacion: "none",
+    plan_cambio_fisico: "none"
   }, { merge: true });
 }
 
@@ -265,7 +268,7 @@ export async function updatePaymentStatus(linkId: string, status: "pagado" | "pe
 
 export async function updatePlanLevel(
   linkId: string,
-  field: "plan_entrenamiento" | "plan_alimentacion",
+  field: "plan_entrenamiento" | "plan_alimentacion" | "plan_cambio_fisico",
   value: string
 ) {
   await updateDoc(doc(db, "trainer_students", linkId), { [field]: value });
@@ -311,7 +314,8 @@ export async function createStudentProfile(trainerId: string, data: { name: stri
     created_at: new Date().toISOString(),
     payment_status: "pendiente",
     plan_entrenamiento: "none",
-    plan_alimentacion: "none"
+    plan_alimentacion: "none",
+    plan_cambio_fisico: "none"
   }, { merge: true });
   
   await batch.commit();

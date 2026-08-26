@@ -2,7 +2,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { useAuth } from "@/hooks/useAuth";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
 import UserSettingsDialog from "@/components/UserSettingsDialog";
@@ -11,13 +11,15 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 export function AppLayout() {
   const { role } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   useAppTheme();
   
   const isTrainer = role === "trainer";
+  const hideNav = location.pathname === "/trainer/students";
 
   return (
       <SidebarProvider>
-        <div className="h-screen flex w-full pb-[72px] md:pb-0 overflow-hidden relative">
+        <div className={`h-screen flex w-full md:pb-0 overflow-hidden relative ${hideNav ? "" : "pb-[72px]"}`}>
           <AppSidebar />
           <div className="flex-1 flex flex-col min-w-0">
             <header className="h-14 md:hidden flex items-center justify-between border-b border-border/50 px-4 bg-card/80 backdrop-blur-xl sticky top-0 z-10">
@@ -44,7 +46,7 @@ export function AppLayout() {
               <Outlet />
             </main>
           </div>
-          <MobileNav />
+          {!hideNav && <MobileNav />}
         </div>
       </SidebarProvider>
   );

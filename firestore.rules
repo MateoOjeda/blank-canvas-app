@@ -43,7 +43,7 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && (
         (getRole(request.auth.uid) == "trainer" && request.resource.data.role == "student") ||
-        (request.auth.uid == docId && request.resource.data.user_id == docId && request.resource.data.role == "student")
+        (request.auth.uid == docId && request.resource.data.user_id == docId && request.resource.data.role in ["student", "trainer"])
       );
       allow update, delete: if isAuthenticated() && (
         getRole(request.auth.uid) == "trainer"

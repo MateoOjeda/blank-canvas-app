@@ -3,8 +3,8 @@ import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { 
-  Users, Dumbbell, ClipboardList, BarChart3, CalendarCheck, 
-  Trophy, Zap, Bell, Sparkles, Camera, FileText, Home, Utensils 
+  Users, Dumbbell, ClipboardList, BarChart3, 
+  FileText, Home, Utensils, Zap
 } from "lucide-react";
 
 const trainerItems = [
@@ -19,7 +19,8 @@ const studentItems = [
   { title: "Inicio", url: "/student/home", icon: Home },
   { title: "Rutina", url: "/student/routines", icon: Dumbbell },
   { title: "Comidas", url: "/student/meals", icon: Utensils },
-  { title: "Progreso", url: "/student/progress", icon: Zap }
+  { title: "Progreso", url: "/student/progress", icon: Zap },
+  { title: "Planes", url: "/student/plans", icon: FileText }
 ];
 
 export function MobileNav() {
@@ -32,7 +33,7 @@ export function MobileNav() {
   const items = isTrainer ? trainerItems : studentItems;
 
   return (
-    <nav className="md:hidden fixed bottom-2 left-4 right-4 z-50 bg-card/80 backdrop-blur-xl border border-border/50 rounded-3xl h-[68px] px-2 flex flex-row items-center justify-between shadow-2xl shadow-black/20">
+    <nav className="md:hidden fixed bottom-2 left-4 right-4 z-50 bg-card/80 backdrop-blur-xl border border-border/50 rounded-3xl h-[64px] px-3 flex items-center justify-between shadow-lg shadow-black/10">
       {items.map((item) => {
         const isActive = item.url === "/" 
           ? location.pathname === "/" 
@@ -44,27 +45,19 @@ export function MobileNav() {
             to={item.url}
             end={item.url === "/"}
             className={cn(
-              "flex flex-col items-center justify-center transition-all duration-500 ease-spring flex-1 min-w-0 h-full relative",
-              isActive ? "scale-105" : "scale-100 opacity-70 hover:opacity-100"
+              "flex flex-col items-center justify-center flex-1 h-full gap-1 rounded-xl transition-all duration-200",
+              isActive 
+                ? "text-primary" 
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
-            <div className={cn(
-              "relative h-10 w-10 rounded-2xl transition-all duration-500 flex items-center justify-center mb-1",
-              isActive 
-                ? "bg-primary border border-primary/20 shadow-lg shadow-primary/20 -translate-y-2" 
-                : "bg-transparent border-none"
-            )}>
-              <item.icon className={cn(
-                "h-5 w-5 transition-all duration-500", 
-                isActive ? "text-primary-foreground" : "text-muted-foreground"
-              )} />
-              {isActive && (
-                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-primary-foreground rounded-full animate-pulse shadow-sm" />
-              )}
-            </div>
+            <item.icon 
+              className="h-5 w-5 transition-all duration-200" 
+              strokeWidth={isActive ? 2.2 : 1.8}
+            />
             <span className={cn(
-              "text-[8px] font-black transition-all duration-500 uppercase tracking-[0.1em] truncate w-full text-center px-1",
-              isActive ? "text-primary opacity-100 -translate-y-1" : "text-muted-foreground opacity-0"
+              "text-[10px] font-semibold uppercase tracking-wider truncate transition-all duration-200",
+              isActive ? "text-primary" : ""
             )}>
               {item.title}
             </span>

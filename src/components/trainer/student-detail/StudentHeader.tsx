@@ -12,6 +12,7 @@ interface StudentHeaderProps {
   onPaymentToggle: (checked: boolean) => void;
   selectedEntrenamiento: string;
   selectedAlimentacion: string;
+  selectedCambioFisico: string;
   editingPlans: boolean;
   setEditingPlans: (v: boolean) => void;
   navigate: any;
@@ -29,6 +30,7 @@ export function StudentHeader({
   onPaymentToggle,
   selectedEntrenamiento,
   selectedAlimentacion,
+  selectedCambioFisico,
   editingPlans,
   setEditingPlans,
   navigate
@@ -75,6 +77,12 @@ export function StudentHeader({
               {selectedAlimentacion !== "none" && (
                 <Badge variant="outline" className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-none">
                   Nutrición: {LEVEL_LABELS_HEADER[selectedAlimentacion] || selectedAlimentacion}
+                </Badge>
+              )}
+
+              {selectedCambioFisico !== "none" && (
+                <Badge variant="outline" className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border-none">
+                  Cambio Físico: {LEVEL_LABELS_HEADER[selectedCambioFisico] || selectedCambioFisico}
                 </Badge>
               )}
             </div>

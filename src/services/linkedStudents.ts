@@ -31,7 +31,14 @@ export async function fetchLinkedStudentProfiles(
     )
   );
 
-  return profilesSnaps.flatMap(snap =>
-    snap.docs.map(d => ({ ...d.data() } as LinkedStudentProfile))
-  );
+  return profilesSnaps
+    .flatMap(snap => snap.docs.map(d => ({ ...d.data() } as LinkedStudentProfile)))
+    .sort((a, b) => {
+      const aParts = (a.display_name || "").trim().split(/\s+/);
+      const bParts = (b.display_name || "").trim().split(/\s+/);
+      const aLast = aParts[aParts.length - 1] || "";
+      const bLast = bParts[bParts.length - 1] || "";
+      const cmp = aLast.localeCompare(bLast, "es");
+      return cmp !== 0 ? cmp : aParts[0].localeCompare(bParts[0], "es");
+    });
 }

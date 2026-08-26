@@ -88,11 +88,11 @@ export default function TrainingGroupsPage() {
   };
 
   const handleViewNutrition = (studentId: string) => {
-    navigate(`/trainer/students/${studentId}?tab=alimentacion`);
+    navigate(`/trainer/groups/student/${studentId}/routine?tab=alimentacion`);
   };
 
   const handleViewProgress = (studentId: string) => {
-    navigate(`/trainer/students/${studentId}?tab=seguimiento`);
+    navigate(`/trainer/students/${studentId}`);
   };
 
   const handleAddStudentsFromAccordion = (groupId: string, studentIds: string[]) => {

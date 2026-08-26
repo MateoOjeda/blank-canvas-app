@@ -41,14 +41,16 @@ function TabFallback() {
 }
 
 // ── Page header ────────────────────────────────────────────────────────────────
-function PageHeader() {
+function PageHeader({ studentCount }: { studentCount: number }) {
   return (
     <div>
       <h1 className="text-2xl font-display font-bold tracking-tight neon-text uppercase">
         Seguimiento
       </h1>
       <p className="text-muted-foreground text-sm mt-1">
-        Selecciona un alumno para ver su dashboard completo
+        {studentCount > 0
+          ? `${studentCount} alumno${studentCount !== 1 ? "s" : ""} vinculado${studentCount !== 1 ? "s" : ""}`
+          : "Selecciona un alumno para ver su dashboard completo"}
       </p>
     </div>
   );
@@ -91,7 +93,7 @@ export default function TrackingPage() {
   if (students.length === 0) {
     return (
       <div className="space-y-6">
-        <PageHeader />
+        <PageHeader studentCount={students.length} />
         <Card className="card-glass">
           <CardContent className="p-8 text-center">
             <BarChart3 className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
@@ -108,21 +110,16 @@ export default function TrackingPage() {
   if (!selectedStudentId) {
     return (
       <div className="space-y-6">
-        <PageHeader />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <PageHeader studentCount={students.length} />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {students.map((s) => (
             <StudentCard
               key={s.user_id}
               name={s.display_name}
               avatarUrl={s.avatar_url}
               avatarInitials={s.avatar_initials}
-              size="lg"
+              size="sm"
               onClick={() => handleSelectStudent(s.user_id)}
-              subtitle={
-                <span className="text-[10px] text-muted-foreground uppercase tracking-tight">
-                  Ver dashboard
-                </span>
-              }
               className="border-border/40 hover:border-primary/30"
             />
           ))}

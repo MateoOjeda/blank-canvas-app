@@ -27,9 +27,10 @@ export interface GlobalPlan {
 const PLAN_TYPES_CONFIG = [
   { key: "nutricion" },
   { key: "entrenamiento" },
+  { key: "cambios_fisicos" },
 ] as const;
 
-export async function fetchGlobalPlans(trainerId: string): Promise<{ plans: GlobalPlan[]; cambioFisico: GlobalPlan | null }> {
+export async function fetchGlobalPlans(trainerId: string): Promise<{ plans: GlobalPlan[] }> {
   const q = query(collection(db, "global_plans"), where("trainer_id", "==", trainerId));
   const snap = await getDocs(q);
   let existing = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
@@ -49,16 +50,6 @@ export async function fetchGlobalPlans(trainerId: string): Promise<{ plans: Glob
       }
     }
   }
-  if (!existing.find((e: any) => e.plan_type === "cambios_fisicos")) {
-    missing.push({
-      trainer_id: trainerId,
-      plan_type: "cambios_fisicos",
-      level: "unico",
-      price: 0,
-      content: "",
-      active: true,
-    });
-  }
 
   if (missing.length > 0) {
     const batch = new ChunkedBatch(db);
@@ -72,9 +63,17 @@ export async function fetchGlobalPlans(trainerId: string): Promise<{ plans: Glob
     existing = [...existing, ...newPlans];
   }
 
+  // Cleanup legacy "unico" level documents from cambios_fisicos
+  const legacyUnico = existing.filter((e: any) => e.plan_type === "cambios_fisicos" && e.level === "unico");
+  if (legacyUnico.length > 0) {
+    const cleanupBatch = new ChunkedBatch(db);
+    legacyUnico.forEach((e: any) => cleanupBatch.delete(doc(db, "global_plans", e.id)));
+    await cleanupBatch.commit();
+    existing = existing.filter((e: any) => !(e.plan_type === "cambios_fisicos" && e.level === "unico"));
+  }
+
   return {
-    plans: existing.filter((e: any) => e.plan_type !== "cambios_fisicos"),
-    cambioFisico: existing.find((e: any) => e.plan_type === "cambios_fisicos") || null,
+    plans: existing,
   };
 }
 
@@ -141,7 +140,12 @@ export async function updatePlanAssignment(
   }
 
   // 4. Update trainer_students shortcut field if it actually changes
-  const updateField = planType === "entrenamiento" ? "plan_entrenamiento" : "plan_alimentacion";
+  const FIELD_MAP: Record<string, string> = {
+    entrenamiento: "plan_entrenamiento",
+    nutricion: "plan_alimentacion",
+    cambios_fisicos: "plan_cambio_fisico",
+  };
+  const updateField = FIELD_MAP[planType] || "plan_alimentacion";
   const linkQuery = query(
     collection(db, "trainer_students"), 
     where("trainer_id", "==", trainerId), 
@@ -164,11 +168,16 @@ export async function updatePlanAssignment(
 
   // Notify student about plan level change
   if (level !== "none") {
+    const PLAN_LABELS: Record<string, string> = {
+      entrenamiento: "entrenamiento",
+      nutricion: "alimentación",
+      cambios_fisicos: "cambio físico",
+    };
     createNotification({
       userId: studentId,
       type: "plan",
       title: "Nivel de plan actualizado",
-      message: `Tu entrenador te ha asignado el nivel "${level}" del plan de ${planType === "entrenamiento" ? "entrenamiento" : "alimentación"}.`,
+      message: `Tu entrenador te ha asignado el nivel "${level}" del plan de ${PLAN_LABELS[planType] || planType}.`,
     }).catch(() => {});
   }
 }
