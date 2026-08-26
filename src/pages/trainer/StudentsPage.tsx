@@ -6,7 +6,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Users, UserPlus, CreditCard, Plus, FileText, Dumbbell, ClipboardList, Calendar } from "lucide-react";
+import { Loader2, Users, UserPlus, CreditCard, Plus, FileText, ClipboardList } from "lucide-react";
 import type { LinkedStudent } from "@/services/alumnos";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
@@ -204,12 +204,20 @@ export default function StudentsPage() {
           <div className="h-[1px] w-full bg-border/50" />
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            onClick={() => navigate("/trainer/groups")}
+            className={cn(
+              "flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] transition-ds shadow-sm sm:col-span-2",
+              "text-blue-500 bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/15"
+            )}
+          >
+            <Users className="h-5 w-5 mb-1.5" />
+            <span className="text-xs font-bold">Gestión de Grupos y alumnos</span>
+          </button>
           {[
-            { label: "Gestionar Rutinas", path: "/trainer/routines", icon: Dumbbell, color: "text-primary bg-primary/10 border-primary/20 hover:bg-primary/15" },
-            { label: "Gestionar Planes", path: "/trainer/plans", icon: FileText, color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/15" },
             { label: "Administrar Encuestas", path: "/trainer/surveys", icon: ClipboardList, color: "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15" },
-            { label: "Grupos de Entrenamiento", path: "/trainer/groups", icon: Users, color: "text-blue-500 bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/15" }
+            { label: "Gestionar Planes", path: "/trainer/plans", icon: FileText, color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/15" }
           ].map((action, idx) => {
             const Icon = action.icon;
             return (
