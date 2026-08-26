@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
   Activity, AlertTriangle, ArrowLeft, BarChart3,
-  Dumbbell, Loader2, TrendingUp, ClipboardList
+  Camera, Dumbbell, Loader2, TrendingUp, ClipboardList
 } from "lucide-react";
 import { StudentCard } from "@/components/trainer/StudentCard";
 import type { Assessment, Injury, Goal, TrackingNote } from "@/services/tracking";
@@ -18,13 +18,15 @@ const TrackingDashboardTab  = lazy(() => import("@/components/trainer/tracking/T
 const TrackingTrainingTab   = lazy(() => import("@/components/trainer/tracking/TrackingTrainingTab"));
 const TrackingProgressTab   = lazy(() => import("@/components/trainer/tracking/TrackingProgressTab"));
 const TrackingAssessmentTab = lazy(() => import("@/components/trainer/tracking/TrackingAssessmentTab"));
+const PhotoSessionsPanel    = lazy(() => import("@/components/trainer/tracking/PhotoSessionsPanel"));
 
 // ── Tab definition ─────────────────────────────────────────────────────────────
 const TABS = [
   { value: "dashboard",   label: "Dashboard",   icon: Activity },
   { value: "training",    label: "Entreno",     icon: Dumbbell },
   { value: "progress",    label: "Progreso",    icon: TrendingUp },
-  { value: "assessment", label: "Evaluación",  icon: ClipboardList },
+  { value: "assessment",  label: "Evaluación",  icon: ClipboardList },
+  { value: "photos",      label: "Fotos",       icon: Camera },
 ] as const;
 
 type TabValue = typeof TABS[number]["value"];
@@ -225,6 +227,17 @@ export default function TrackingPage() {
               loading={loadingTracking}
               onAdd={(a: Assessment) => setAssessments((prev) => [a, ...prev])}
               onDelete={(id: string) => setAssessments((prev) => prev.filter((x) => x.id !== id))}
+            />
+          </Suspense>
+        </TabsContent>
+
+        {/* Fotos — Sesiones de fotos del alumno */}
+        <TabsContent value="photos" className="space-y-4 outline-none mt-4">
+          <Suspense fallback={<TabFallback />}>
+            <PhotoSessionsPanel
+              studentId={selectedStudentId}
+              latestAssessment={assessments[0] ?? null}
+              readOnly={false}
             />
           </Suspense>
         </TabsContent>
