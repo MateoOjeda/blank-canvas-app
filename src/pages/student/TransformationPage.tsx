@@ -10,11 +10,10 @@ import {
   limit,
 } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Camera, ArrowRight, ImageIcon } from "lucide-react";
+import { Camera } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
-import PhotoSessionsPanel from "@/components/trainer/tracking/PhotoSessionsPanel";
 
 interface Transformation {
   id: string;
@@ -83,14 +82,6 @@ export default function TransformationPage() {
           <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Fotos de Progreso</span>
         </div>
       </div>
-
-      {/* Main Student Photo Sessions Panel (student mode: readOnly = false) */}
-      {user && (
-        <PhotoSessionsPanel
-          studentId={user.uid}
-          readOnly={false}
-        />
-      )}
 
       {/* Legacy Transformation card if available */}
       {legacyTransformation && (legacyTransformation.before_photo_url || legacyTransformation.after_photo_url) && (

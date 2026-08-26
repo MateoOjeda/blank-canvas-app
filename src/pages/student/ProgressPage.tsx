@@ -12,7 +12,9 @@ import {
 } from "firebase/firestore";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Target, Zap, Weight, TrendingUp, Dumbbell, Loader2, ClipboardList, AlertTriangle } from "lucide-react";
+import { Target, Zap, Weight, TrendingUp, Dumbbell, ClipboardList, AlertTriangle, Camera } from "lucide-react";
+import WeightProgressChart from "@/components/trainer/WeightProgressChart";
+import PhotoSessionsPanel from "@/components/trainer/tracking/PhotoSessionsPanel";
 import { useStudentSurveys } from "@/hooks/useStudentSurveys";
 import { useNavigate } from "react-router-dom";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
@@ -171,7 +173,7 @@ export default function ProgressPage() {
         <div className="flex justify-center">
           <Badge 
             className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 rounded-full text-[10px] font-semibold px-3 py-1.5 flex items-center gap-1.5 cursor-pointer hover:bg-amber-500/15 transition-colors"
-            onClick={() => navigate("/student/surveys")}
+            onClick={() => navigate("/student/home")}
           >
             <ClipboardList className="h-3.5 w-3.5" />
             Tienes encuestas de seguimiento pendientes
@@ -198,6 +200,17 @@ export default function ProgressPage() {
             </Card>
           ))}
         </div>
+
+        {/* Weight Progress Chart */}
+        <WeightProgressChart studentId={user.uid} />
+
+        {/* Evolution Photos */}
+        {user && (
+          <PhotoSessionsPanel
+            studentId={user.uid}
+            readOnly={false}
+          />
+        )}
 
         {/* Completion by day */}
         <Card className="border border-border/50 bg-card shadow-sm rounded-xl overflow-hidden">
