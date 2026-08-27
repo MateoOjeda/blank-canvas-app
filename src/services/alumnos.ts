@@ -32,13 +32,6 @@ export interface LinkedStudent extends StudentProfile {
   groupName?: string | null;
 }
 
-export interface AvailableStudent {
-  user_id: string;
-  display_name: string;
-  avatar_initials: string | null;
-  avatar_url: string | null;
-}
-
 export async function fetchLinkedStudents(trainerId: string): Promise<LinkedStudent[]> {
   const linksQuery = query(collection(db, "trainer_students"), where("trainer_id", "==", trainerId));
   const linksSnap = await getDocs(linksQuery);
@@ -92,38 +85,6 @@ export async function fetchLinkedStudents(trainerId: string): Promise<LinkedStud
       groupName: groupName || null,
     };
   });
-}
-
-export async function fetchAvailableStudents(trainerId: string): Promise<AvailableStudent[]> {
-  const linksQuery = query(collection(db, "trainer_students"), where("trainer_id", "==", trainerId));
-  const rolesQuery = query(collection(db, "user_roles"), where("role", "==", "student"));
-  
-  // Parallelize initial queries
-  const [linksSnap, rolesSnap] = await Promise.all([
-    getDocs(linksQuery),
-    getDocs(rolesQuery)
-  ]);
-
-  const linkedIds = linksSnap.docs.map(d => d.data().student_id);
-  const excludeIds = [...linkedIds, trainerId];
-
-  const studentUserIds = rolesSnap.docs
-    .map(d => d.data().user_id)
-    .filter(id => !excludeIds.includes(id));
-
-  if (studentUserIds.length === 0) return [];
-
-  // Fetch profiles in parallel chunks of 30
-  const chunks = chunkArray(studentUserIds, 30);
-
-  const profilePromises = chunks.map(chunk => 
-    getDocs(query(collection(db, "profiles"), where("user_id", "in", chunk)))
-  );
-  
-  const profilesSnaps = await Promise.all(profilePromises);
-  const profiles = profilesSnaps.flatMap(snap => snap.docs.map(d => d.data() as AvailableStudent));
-
-  return profiles;
 }
 
 export async function linkStudent(trainerId: string, studentId: string) {
@@ -284,6 +245,11 @@ export async function createStudentProfile(trainerId: string, data: { name: stri
   // Generate a random ID for a "shadow" user if they haven't registered yet
   const studentId = `student_${Math.random().toString(36).substr(2, 9)}`;
   
+  // Get ALL trainers to link the new student with each one
+  const trainersSnap = await getDocs(
+    query(collection(db, "user_roles"), where("role", "==", "trainer"))
+  );
+  
   const batch = new ChunkedBatch(db);
   
   // 1. Profile
@@ -305,18 +271,22 @@ export async function createStudentProfile(trainerId: string, data: { name: stri
     created_at: new Date().toISOString()
   });
   
-  // 3. Link to trainer
-  const linkId = `${trainerId}_${studentId}`;
-  const linkRef = doc(db, "trainer_students", linkId);
-  batch.set(linkRef, {
-    trainer_id: trainerId,
-    student_id: studentId,
-    created_at: new Date().toISOString(),
-    payment_status: "pendiente",
-    plan_entrenamiento: "none",
-    plan_alimentacion: "none",
-    plan_cambio_fisico: "none"
-  }, { merge: true });
+  // 3. Link to ALL trainers
+  if (!trainersSnap.empty) {
+    trainersSnap.docs.forEach((trainerDoc) => {
+      const tId = trainerDoc.data().user_id;
+      const linkRef = doc(db, "trainer_students", `${tId}_${studentId}`);
+      batch.set(linkRef, {
+        trainer_id: tId,
+        student_id: studentId,
+        created_at: new Date().toISOString(),
+        payment_status: "pendiente",
+        plan_entrenamiento: "none",
+        plan_alimentacion: "none",
+        plan_cambio_fisico: "none"
+      }, { merge: true });
+    });
+  }
   
   await batch.commit();
   return studentId;

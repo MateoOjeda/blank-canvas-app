@@ -59,16 +59,21 @@ service cloud.firestore {
       allow create: if isAuthenticated() && (
         // Trainers can create links for any student
         getRole(request.auth.uid) == "trainer" ||
-        // Students can only create links where they are the student (not the trainer)
-        (request.auth.uid == request.resource.data.student_id && request.auth.uid != request.resource.data.trainer_id)
+        // Students can self-link: student_id must be themselves,
+        // trainer_id must point to an actual trainer (prevents spoofing)
+        (
+          request.auth.uid == request.resource.data.student_id &&
+          request.auth.uid != request.resource.data.trainer_id &&
+          getRole(request.resource.data.trainer_id) == "trainer"
+        )
       );
       allow update: if isAuthenticated() && (
         request.auth.uid == resource.data.trainer_id && 
         getRole(request.auth.uid) == "trainer"
       );
       allow delete: if isAuthenticated() && (
-        request.auth.uid == resource.data.trainer_id || 
-        request.auth.uid == resource.data.student_id
+        // Only trainers can delete links (students cannot unlink themselves)
+        request.auth.uid == resource.data.trainer_id
       );
     }
 

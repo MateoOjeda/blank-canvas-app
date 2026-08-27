@@ -2,15 +2,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import {
   fetchLinkedStudents,
-  fetchAvailableStudents,
-  linkStudent,
   unlinkStudent,
   deleteStudentPermanently,
   updatePaymentStatus,
   updatePlanLevel,
   createStudentProfile,
   type LinkedStudent,
-  type AvailableStudent,
 } from "@/services/alumnos";
 
 export function useStudentsManager() {
@@ -27,27 +24,12 @@ export function useStudentsManager() {
     staleTime: 1000 * 60 * 5, // 5 minutos
   });
 
-  const availableStudentsQuery = useQuery<AvailableStudent[]>({
-    queryKey: ["availableStudents", trainerId],
-    queryFn: () => fetchAvailableStudents(trainerId!),
-    enabled: !!trainerId,
-  });
-
   // -- MUTATIONS --
-
-  const linkMutation = useMutation({
-    mutationFn: (studentId: string) => linkStudent(trainerId!, studentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["linkedStudents", trainerId] });
-      queryClient.invalidateQueries({ queryKey: ["availableStudents", trainerId] });
-    },
-  });
 
   const unlinkMutation = useMutation({
     mutationFn: (studentId: string) => unlinkStudent(trainerId!, studentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["linkedStudents", trainerId] });
-      queryClient.invalidateQueries({ queryKey: ["availableStudents", trainerId] });
     },
   });
 
@@ -55,7 +37,6 @@ export function useStudentsManager() {
     mutationFn: (studentId: string) => deleteStudentPermanently(trainerId!, studentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["linkedStudents", trainerId] });
-      queryClient.invalidateQueries({ queryKey: ["availableStudents", trainerId] });
     },
   });
 
@@ -88,14 +69,8 @@ export function useStudentsManager() {
     linkedStudents: linkedStudentsQuery.data || [],
     isLoadingLinked: linkedStudentsQuery.isLoading,
     isRefetchingLinked: linkedStudentsQuery.isFetching,
-    
-    availableStudents: availableStudentsQuery.data || [],
-    isLoadingAvailable: availableStudentsQuery.isLoading,
 
     // Acciones (Mutaciones)
-    linkStudent: linkMutation.mutateAsync,
-    isLinking: linkMutation.isPending,
-
     unlinkStudent: unlinkMutation.mutateAsync,
     isUnlinking: unlinkMutation.isPending,
 

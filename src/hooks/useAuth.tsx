@@ -9,7 +9,7 @@ import {
   sendPasswordResetEmail,
   User 
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, query, where, getDocs, writeBatch } from "firebase/firestore";
 
 type AppRole = "trainer" | "student";
 
@@ -82,6 +82,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  const autoLinkNewUser = async (newUserId: string, role: AppRole) => {
+    try {
+      if (role === "student") {
+        // Link new student to ALL existing trainers
+        const trainersSnap = await getDocs(
+          query(collection(db, "user_roles"), where("role", "==", "trainer"))
+        );
+        if (!trainersSnap.empty) {
+          const batch = writeBatch(db);
+          trainersSnap.docs.forEach((trainerDoc) => {
+            const trainerId = trainerDoc.data().user_id;
+            const linkRef = doc(db, "trainer_students", `${trainerId}_${newUserId}`);
+            batch.set(linkRef, {
+              trainer_id: trainerId,
+              student_id: newUserId,
+              created_at: new Date().toISOString(),
+              payment_status: "pendiente",
+              plan_entrenamiento: "none",
+              plan_alimentacion: "none",
+              plan_cambio_fisico: "none",
+            });
+          });
+          await batch.commit();
+        }
+      } else if (role === "trainer") {
+        // Link new trainer to ALL existing students
+        const studentsSnap = await getDocs(
+          query(collection(db, "user_roles"), where("role", "==", "student"))
+        );
+        if (!studentsSnap.empty) {
+          const batch = writeBatch(db);
+          studentsSnap.docs.forEach((studentDoc) => {
+            const studentId = studentDoc.data().user_id;
+            const linkRef = doc(db, "trainer_students", `${newUserId}_${studentId}`);
+            batch.set(linkRef, {
+              trainer_id: newUserId,
+              student_id: studentId,
+              created_at: new Date().toISOString(),
+              payment_status: "pendiente",
+              plan_entrenamiento: "none",
+              plan_alimentacion: "none",
+              plan_cambio_fisico: "none",
+            });
+          });
+          await batch.commit();
+        }
+      }
+    } catch (err) {
+      console.error("Error auto-linking user:", err);
+    }
+  };
+
   const signUp = async (email: string, password: string, name: string, trainerCode?: string) => {
     try {
       // Validar código de entrenador si se proporcionó
@@ -105,6 +157,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           created_at: new Date().toISOString()
         })
       ]);
+
+      // Auto-link: student→all trainers, trainer→all students
+      await autoLinkNewUser(newUser.uid, assignedRole);
 
       // Al crear los docs, actualizamos el estado e invalidamos el fetch de onAuthStateChanged
       // que pudo haber consultado la DB antes de que los documentos existieran.
@@ -144,6 +199,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             created_at: new Date().toISOString()
           })
         ]);
+
+        // Auto-link new Google student to ALL trainers
+        await autoLinkNewUser(user.uid, "student");
         
         // Similar a signUp, invalidamos el fetch en vuelo y actualizamos el estado
         const currentFetchId = ++activeFetchId.current;
